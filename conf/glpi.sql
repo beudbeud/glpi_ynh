@@ -1,0 +1,1 @@
+INSERT INTO `glpi_authldaps` VALUES (1,'yunohost','localhost','dc=yunohost,dc=org','',389,'(objectClass=mailAccount)','uid',0,'','(objectClass=posixGroup)',1,'memberuid','mail','sn','givenname','telephonenumber','','','',0,0,0,'',NULL,NULL,'','','2014-11-05 15:38:13','',1,1,'','','','','',0,0,0);

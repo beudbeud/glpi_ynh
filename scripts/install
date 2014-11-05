@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# Retrieve arguments
+domain=$1
+path=$2
+admin_glpi=$3
+language=$4
+
+# Check if admin exists
+sudo yunohost user list --json | grep -q "\"username\": \"$admin_glpi\""
+if [[ ! $? -eq 0 ]]; then
+    echo "Wrong admin"
+    exit 1
+fi
+sudo yunohost app setting glpi admin -v $admin_glpi
+sudo yunohost app setting glpi language -v $language
+sudo yunohost app setting glpi is_public -v $is_public
+
+# Check domain/path availability
+sudo yunohost app checkurl $domain$path -a glpi
+if [[ ! $? -eq 0 ]]; then
+    exit 1
+fi
+
+# Generate random password
+db_pwd=$(dd if=/dev/urandom bs=1 count=200 2> /dev/null | tr -c -d '[A-Za-z0-9]' | sed -n 's/\(.\{24\}\).*/\1/p')
+
+# Use 'glpi' as database name and user
+db_user=glpi
+
+# Initialize database and store mysql password for upgrade
+sudo yunohost app initdb $db_user -p $db_pwd -s $(readlink -e ../sources/install/mysql/glpi-0.84.6-empty.sql)
+sudo yunohost app setting glpi mysqlpwd -v $db_pwd
+
+# Copy files to the right place
+final_path=/var/www/glpi
+sudo mkdir -p $final_path
+sudo cp -a ../sources/* $final_path
+sudo cp ../conf/config_db.php $final_path/config/config_db.php
+
+# Change variables in GLPI configuration
+sudo sed -i "s/yunouser/$db_user/g" $final_path/config/config_db.php
+sudo sed -i "s/yunopass/$db_pwd/g" $final_path/config/config_db.php
+sudo sed -i "s/yunobase/$db_user/g" $final_path/config/config_db.php
+#sudo sed -i "s/I18NTOCHANGE/$language/g" ../conf/*.sql
+
+# Set permissions to glpi directory
+sudo chown -R www-data: $final_path
+
+# Remove install.php
+sudo rm $final_path/install/install.php
+
+# Modify Nginx configuration file and copy it to Nginx conf directory
+sudo sed -i "s@PATHTOCHANGE@$path@g" ../conf/nginx.conf*
+sudo sed -i "s@ALIASTOCHANGE@$final_path/@g" ../conf/nginx.conf*
+sudo cp ../conf/nginx.conf /etc/nginx/conf.d/$domain.d/glpi.conf
+
+
+sudo sed -i "s@NAMETOCHANGE@glpi@g" ../conf/php-fpm.conf
+finalphpconf=/etc/php5/fpm/pool.d/glpi.conf
+sudo cp ../conf/php-fpm.conf $finalphpconf
+sudo chown root: $finalphpconf
+sudo chmod 644 $finalphpconf
+
+# Reload Nginx and regenerate SSOwat conf
+sudo service php5-fpm restart
+sudo service nginx reload
+sudo yunohost app setting glpi skipped_uris -v "/plugins/fusioninventory"
+sudo yunohost app ssowatconf

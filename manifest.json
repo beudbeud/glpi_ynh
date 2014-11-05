@@ -1,0 +1,55 @@
+{
+    "name": "GLPI",
+    "id": "glpi",
+    "description": {
+        "en": "Create a beautiful blog or website easily",
+        "fr": "Logiciel de création de blog ou de site Web"
+    },
+    "licence": "GNU GPL-2",
+    "developer": {
+        "name": "beudbeud",
+        "email": "beudbeud@beudibox.fr",
+        "url": "http://glpi-project.org/"
+    },
+    "multi_instance": "true",
+    "arguments": {
+        "install" : [
+            {
+                "name": "domain",
+                "ask": {
+                    "en": "Choose a domain for GLPI",
+                    "fr": "Choisissez un domaine pour GLPI"
+                },
+                "example": "domain.org"
+            },
+            {
+                "name": "path",
+                "ask": {
+                    "en": "Choose a path for GLPI",
+                    "fr": "Choisissez un chemin pour GLPI"
+                },
+                "example": "/blog",
+                "default": "/blog"
+            },
+            {
+                "name": "admin",
+                "ask": {
+                    "en": "Choose the GLPI administrator (must be an existing YunoHost user)",
+                    "fr": "Administrateur du site (doit être un utilisateur YunoHost existant)"
+                },
+                "example": "homer"
+            },
+            {
+                "name": "language",
+                "ask": {
+                    "en": "Choose the language of the GLPI site",
+                    "fr": "Choissisez la langue du GLPI"
+                },
+                "choices": ["en_EN", "fr_FR"],
+                "default": "en_EN"
+            }
+
+        ]
+    }
+}
+

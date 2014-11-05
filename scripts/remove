@@ -1,0 +1,11 @@
+#!/bin/bash
+db_user=glpi
+db_name=glpi
+root_pwd=$(sudo cat /etc/yunohost/mysql)
+domain=$(sudo yunohost app setting glpi domain)
+mysql -u root -p$root_pwd -e "DROP DATABASE $db_name ; DROP USER $db_user@localhost ;"
+sudo rm -rf /var/www/glpi
+sudo rm -f /etc/nginx/conf.d/$domain.d/glpi.conf
+sudo rm -f /etc/php5/fpm/pool.d/glpi.conf
+sudo service php5-fpm restart
+sudo service nginx reload
