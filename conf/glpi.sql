@@ -1,1 +1,3 @@
 INSERT INTO `glpi_authldaps` VALUES (1,'yunohost','localhost','dc=yunohost,dc=org','',389,'(objectClass=mailAccount)','uid',0,'','(objectClass=posixGroup)',1,'memberuid','mail','sn','givenname','telephonenumber','','','',0,0,0,'',NULL,NULL,'','','2014-11-05 15:38:13','',1,1,'','','','','',0,0,0);
+INSERT INTO `glpi_users` VALUES (6,'yunoadminglpi','','',NULL,NULL,'','',0,NULL,0,NULL,1,NULL,1,4,'2014-11-05 15:38:44','2014-11-05 15:38:44','2014-11-05 15:38:44',0,0,0,0,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'uid=yunoadminglpi,ou=users,dc=yunohost,dc=org',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `glpi_profiles_users` VALUES (6,6,1,0,0,1);

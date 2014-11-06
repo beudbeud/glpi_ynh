@@ -14,7 +14,6 @@ if [[ ! $? -eq 0 ]]; then
 fi
 sudo yunohost app setting glpi admin -v $admin_glpi
 sudo yunohost app setting glpi language -v $language
-sudo yunohost app setting glpi is_public -v $is_public
 
 # Check domain/path availability
 sudo yunohost app checkurl $domain$path -a glpi
@@ -42,7 +41,10 @@ sudo cp ../conf/config_db.php $final_path/config/config_db.php
 sudo sed -i "s/yunouser/$db_user/g" $final_path/config/config_db.php
 sudo sed -i "s/yunopass/$db_pwd/g" $final_path/config/config_db.php
 sudo sed -i "s/yunobase/$db_user/g" $final_path/config/config_db.php
-#sudo sed -i "s/I18NTOCHANGE/$language/g" ../conf/*.sql
+sudo sed -i "s/yunoadminglpi/$admin_glpi/g" ../conf/glpi.sql
+#sudo sed -i "s/I18NTOCHANGE/$language/g" ../conf/glpi.sql
+
+mysql -u $db_user -p$db_pwd $db_user < ../conf/glpi.sql
 
 # Set permissions to glpi directory
 sudo chown -R www-data: $final_path
