@@ -28,8 +28,8 @@
                     "en": "Choose a path for GLPI",
                     "fr": "Choisissez un chemin pour GLPI"
                 },
-                "example": "/blog",
-                "default": "/blog"
+                "example": "/glpi",
+                "default": "/glpi"
             },
             {
                 "name": "admin",
