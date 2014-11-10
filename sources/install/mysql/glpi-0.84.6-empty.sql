@@ -551,7 +551,7 @@ CREATE TABLE `glpi_configs` (
   `mailing_signature` text COLLATE utf8_unicode_ci,
   `use_anonymous_helpdesk` tinyint(1) NOT NULL DEFAULT '0',
   `use_anonymous_followups` tinyint(1) NOT NULL DEFAULT '0',
-  `language` char(10) COLLATE utf8_unicode_ci DEFAULT 'I18NTOCHANGE' COMMENT 'see define.php CFG_GLPI[language] array',
+  `language` char(10) COLLATE utf8_unicode_ci DEFAULT 'en_GB' COMMENT 'see define.php CFG_GLPI[language] array',
   `priority_1` char(20) COLLATE utf8_unicode_ci DEFAULT '#fff2f2',
   `priority_2` char(20) COLLATE utf8_unicode_ci DEFAULT '#ffe0e0',
   `priority_3` char(20) COLLATE utf8_unicode_ci DEFAULT '#ffcece',
