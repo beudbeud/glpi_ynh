@@ -69,3 +69,9 @@ sudo service php5-fpm restart
 sudo service nginx reload
 sudo yunohost app setting glpi skipped_uris -v "/plugins/fusioninventory"
 sudo yunohost app ssowatconf
+
+# Install FusionInventory
+php $final_path/plugins/fusioninventory/scripts/cli_install.php
+
+
+
