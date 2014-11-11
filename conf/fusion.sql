@@ -1,0 +1,3 @@
+UPDATE glpi_plugin_fusioninventory_entities set agent_base_url = 'https://yunodomainglpi/' where id = 1;
+INSERT INTO `glpi_plugin_fusioninventory_profiles` VALUES (1,'agent','w',0,4),(2,'remotecontrol','w',0,4),(3,'configuration','w',0,4),(4,'wol','w',0,4),(5,'unknowndevice','w',0,4),(6,'task','w',0,4),(7,'iprange','w',0,4),(8,'credential','w',0,4),(9,'credentialip','w',0,4),(10,'existantrule','w',0,4),(11,'importxml','w',0,4),(12,'blacklist','w',0,4),(13,'ESX','w',0,4),(14,'configsecurity','w',0,4),(15,'networkequipment','w',0,4),(16,'printer','w',0,4),(17,'model','w',0,4),(18,'reportprinter','w',0,4),(19,'reportnetworkequipment','w',0,4),(20,'packages','w',0,4),(21,'status','w',0,4),(22,'collect','w',0,4);
+
