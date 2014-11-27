@@ -21,6 +21,8 @@ if [[ ! $? -eq 0 ]]; then
     exit 1
 fi
 
+sudo apt-get install php-cli
+
 # Generate random password
 db_pwd=$(dd if=/dev/urandom bs=1 count=200 2> /dev/null | tr -c -d '[A-Za-z0-9]' | sed -n 's/\(.\{24\}\).*/\1/p')
 
