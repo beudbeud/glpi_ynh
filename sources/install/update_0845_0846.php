@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: update_0845_0846.php 22918 2014-04-16 13:37:20Z moyo $
+ * @version $Id: update_0845_0846.php 22959 2014-04-28 18:59:22Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -74,7 +74,6 @@ function update0845to0846() {
                        `doc_i`.`is_recursive` = `doc`.`is_recursive`";
    $DB->queryOrDie($query_doc_i, "0.84.6 change entities_id in documents_items");
 
-
    $status  = array('new'           => CommonITILObject::INCOMING,
                     'assign'        => CommonITILObject::ASSIGNED,
                     'plan'          => CommonITILObject::PLANNED,
@@ -90,18 +89,17 @@ function update0845to0846() {
    // Migrate datas
    foreach ($status as $old => $new) {
       $query = "UPDATE `glpi_tickettemplatepredefinedfields`
-                  SET `value` = '$new'
-                  WHERE `value` = '$old'
-                     AND `num` = 12";
-      $DB->queryOrDie($query, "0.84 status in glpi_tickettemplatepredefinedfields $old to $new");
+                SET `value` = '$new'
+                WHERE `value` = '$old'
+                      AND `num` = 12";
+      $DB->queryOrDie($query, "0.84.6 status in glpi_tickettemplatepredefinedfields $old to $new");
    }
-
    foreach (array('glpi_ipaddresses', 'glpi_networknames') as $table) {
       $migration->dropKey($table, 'item');
       $migration->migrationOneTable($table);
       $migration->addKey($table, array('itemtype', 'items_id', 'is_deleted'), 'item');
    }
-   
+
    // must always be at the end
    $migration->executeMigration();
 

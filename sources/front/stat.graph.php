@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: stat.graph.php 22785 2014-03-14 10:50:11Z yllen $
+ * @version $Id: stat.graph.php 22783 2014-03-14 10:41:31Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,9 +33,9 @@
 
 include ('../inc/includes.php');
 
-Html::header(__('Statistics'), $_SERVER['PHP_SELF'], "maintain", "stat");
+Html::header(__('Statistics'), $_SERVER['PHP_SELF'], "helpdesk", "stat");
 
-Session::checkRight("statistic", "1");
+Session::checkRight("statistic", READ);
 
 if (!$item = getItemForItemtype($_GET['itemtype'])) {
    exit;
@@ -70,7 +70,7 @@ $cond    = '';
 $parent  = 0;
 
 $showuserlink = 0;
-if (Session::haveRight('user','r')) {
+if (Session::haveRight('user', READ)) {
    $showuserlink = 1;
 }
 
@@ -301,13 +301,13 @@ $target = preg_replace("/&/","&amp;",$_SERVER["REQUEST_URI"]);
 echo "<form method='post' name='form' action='$target'><div class='center'>";
 echo "<table class='tab_cadre'>";
 echo "<tr class='tab_bg_2'><td class='right'>".__('Start date')."</td><td>";
-Html::showDateFormItem("date1", $_POST["date1"]);
+Html::showDateField("date1", array('value' => $_POST["date1"]));
 echo "</td><td rowspan='2' class='center'>";
 echo "<input type='hidden' name='itemtype' value=\"".$_GET['itemtype']."\">";
 echo "<input type='submit' class='submit' value=\"".__s('Display report')."\"></td></tr>";
 
 echo "<tr class='tab_bg_2'><td class='right'>".__('End date')."</td><td>";
-Html::showDateFormItem("date2", $_POST["date2"]);
+Html::showDateField("date2", array('value' => $_POST["date2"]));
 echo "</td></tr>";
 echo "</table></div>";
 

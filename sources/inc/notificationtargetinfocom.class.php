@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationtargetinfocom.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notificationtargetinfocom.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,10 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Class NotificationTarget
+
+/**
+ * NotificationTargetInfocom Class
+**/
 class NotificationTargetInfocom extends NotificationTarget {
 
 
@@ -51,7 +54,6 @@ class NotificationTargetInfocom extends NotificationTarget {
     * @param $options   array
    **/
    function getDatasForTemplate($event, $options=array()) {
-      global $CFG_GLPI;
 
       $events                                 = $this->getAllEvents();
 
@@ -60,15 +62,17 @@ class NotificationTargetInfocom extends NotificationTarget {
       $this->datas['##infocom.action##']      = $events[$event];
 
       foreach ($options['items'] as $id => $item) {
-         $tmp                                = array();
+         $tmp = array();
+
          if ($obj = getItemForItemtype($item['itemtype'])) {
-            $tmp['##infocom.itemtype##']       = $obj->getTypeName(1);
-            $tmp['##infocom.item##']           = $item['item_name'];
-            $tmp['##infocom.expirationdate##'] = $item['warrantyexpiration'];
-            $tmp['##infocom.url##']            = urldecode($CFG_GLPI["url_base"].
-                                                           "/index.php?redirect=".
-                                                           strtolower($item['itemtype'])."_".
-                                                           $item['items_id']."_Infocom");
+            $tmp['##infocom.itemtype##']
+                                     = $obj->getTypeName(1);
+            $tmp['##infocom.item##'] = $item['item_name'];
+            $tmp['##infocom.expirationdate##']
+                                     = $item['warrantyexpiration'];
+            $tmp['##infocom.url##']  = $this->formatURL($options['additionnaloption']['usertype'],
+                                                        $item['itemtype']."_".
+                                                          $item['items_id']."_Infocom");
          }
          $this->datas['infocoms'][] = $tmp;
       }

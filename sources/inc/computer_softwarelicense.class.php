@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: computer_softwarelicense.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: computer_softwarelicense.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -45,6 +45,25 @@ class Computer_SoftwareLicense extends CommonDBRelation {
    static public $items_id_2 = 'softwarelicenses_id';
 
 
+   /**
+    * @since version 0.85
+    * @see CommonDBRelation::post_addItem()
+   **/
+   function post_addItem() {
+
+      SoftwareLicense::updateValidityIndicator($this->fields['softwarelicenses_id']);
+
+      parent::post_addItem();
+   }
+
+
+   function post_deleteFromDB() {
+
+      SoftwareLicense::updateValidityIndicator($this->fields['softwarelicenses_id']);
+
+      parent::post_deleteFromDB();
+   }
+
 
    /**
     * Get search function for the class
@@ -81,119 +100,106 @@ class Computer_SoftwareLicense extends CommonDBRelation {
 
 
    /**
-    * @since version 0.84
+    * @since version 0.85
     *
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
+    * @see CommonDBTM::showMassiveActionsSubForm()
    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
+      global $CFG_GLPI;
 
-      switch ($input['action']) {
-         case "move_license" :
+      $input = $ma->getInput();
+      switch ($ma->getAction()) {
+         case 'move_license' :
             if (isset($input['options'])) {
-               $input['options'] = Toolbox::decodeArrayFromInput($input['options']);
                if (isset($input['options']['move'])) {
                   SoftwareLicense::dropdown(array('condition'
-                                                   => "`glpi_softwarelicenses`.`softwares_id`
-                                                        = '".$input['options']['move']['softwares_id']."'",
+                                                    => "`glpi_softwarelicenses`.`softwares_id`
+                                                         = '".$input['options']['move']['softwares_id']."'",
                                                   'used'
-                                                   => $input['options']['move']['used']));
-                     echo "<br><br><input type='submit' name='massiveaction' value=\"".
-                                    _sx('button','Move')."\" class='submit'>&nbsp;";
+                                                    => $input['options']['move']['used']));
+                  echo Html::submit(_x('button','Post'), array('name' => 'massiveaction'));
                   return true;
                }
             }
             return false;
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
-
       }
-      return false;
+      return parent::showMassiveActionsSubForm($ma);
    }
 
 
    /**
-    * @since version 0.84
+    * @since version 0.85
     *
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
+      global $DB;
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "move_license" :
+      switch ($ma->getAction()) {
+         case 'move_license' :
+            $input = $ma->getInput();
             if (isset($input['softwarelicenses_id'])) {
-               foreach ($input["item"] as $key => $val) {
-                  if ($val == 1) {
-                     //Get software name and manufacturer
-                     if ($this->can($key,'w')) {
-                        //Process rules
-                        if ($this->update(array('id'  => $key,
-                                                'softwarelicenses_id'
-                                                      => $input['softwarelicenses_id']))) {
-                           $res['ok']++;
-                        } else {
-                           $res['ko']++;
-                        }
+               foreach ($ids as $id) {
+                  if ($item->can($id, UPDATE)) {
+                     //Process rules
+                     if ($item->update(array('id'  => $id,
+                                             'softwarelicenses_id'
+                                             => $input['softwarelicenses_id']))) {
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                      } else {
-                        $res['noright']++;
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                        $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
                      }
+                  } else {
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                     $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
                   }
                }
             } else {
-               $res['ko']++;
+               $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
             }
-            break;
+            return;
 
-         case "install" :
+         case 'install' :
             $csl = new self();
             $csv = new Computer_SoftwareVersion();
-            foreach ($input["item"] as $key => $val) {
-               if ($val == 1) {
-                  if ($csl->getFromDB($key)) {
-                     $sl = new SoftwareLicense();
+            foreach ($ids as $id) {
+               if ($csl->getFromDB($id)) {
+                  $sl = new SoftwareLicense();
 
-                     if ($sl->getFromDB($csl->fields["softwarelicenses_id"])) {
-                        $version = 0;
-                        if ($sl->fields["softwareversions_id_use"]>0) {
-                           $version = $sl->fields["softwareversions_id_use"];
-                        } else {
-                           $version = $sl->fields["softwareversions_id_buy"];
-                        }
-
-                        if ($version > 0) {
-                           $params = array('computers_id'       => $csl->fields['computers_id'],
-                                          'softwareversions_id' => $version);
-                           //Get software name and manufacturer
-                           if ($csv->can(-1,'w', $params)) {
-                              //Process rules
-                              if ($csv->add($params)) {
-                                 $res['ok']++;
-                              } else {
-                                 $res['ko']++;
-                              }
+                  if ($sl->getFromDB($csl->fields["softwarelicenses_id"])) {
+                     $version = 0;
+                     if ($sl->fields["softwareversions_id_use"]>0) {
+                        $version = $sl->fields["softwareversions_id_use"];
+                     } else {
+                        $version = $sl->fields["softwareversions_id_buy"];
+                     }
+                     if ($version > 0) {
+                        $params = array('computers_id'        => $csl->fields['computers_id'],
+                                        'softwareversions_id' => $version);
+                        //Get software name and manufacturer
+                        if ($csv->can(-1, CREATE, $params)) {
+                           //Process rules
+                           if ($csv->add($params)) {
+                              $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                            } else {
-                              $res['noright']++;
+                              $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
                            }
                         } else {
-                           $res['ko']++;
+                           $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
                         }
                      } else {
-                        $res['ko']++;
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
                      }
                   } else {
-                     $res['ko']++;
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
                   }
                }
             }
-            break;
-         default :
-            return parent::doSpecificMassiveActions($input);
+            return;
       }
-      return $res;
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
 
 
@@ -201,8 +207,8 @@ class Computer_SoftwareLicense extends CommonDBRelation {
     * Get number of installed licenses of a license
     *
     * @param $softwarelicenses_id   license ID
-    * @param $entity                to search for computer in (default = all active entities)
-    *                               (default '')
+    * @param $entity                to search for computer in (default = all entities)
+    *                               (default '') -1 means no entity restriction
     *
     * @return number of installations
    **/
@@ -216,8 +222,11 @@ class Computer_SoftwareLicense extends CommonDBRelation {
                 WHERE `glpi_computers_softwarelicenses`.`softwarelicenses_id` = '$softwarelicenses_id'
                       AND `glpi_computers`.`is_deleted` = '0'
                       AND `glpi_computers`.`is_template` = '0'
-                      AND `glpi_computers_softwarelicenses`.`is_deleted` = '0'" .
-                      getEntitiesRestrictRequest('AND', 'glpi_computers','',$entity);
+                      AND `glpi_computers_softwarelicenses`.`is_deleted` = '0'";
+
+      if ($entity != -1) {
+         $query .= getEntitiesRestrictRequest('AND', 'glpi_computers', '', $entity);
+      }
 
       $result = $DB->query($query);
 
@@ -272,7 +281,7 @@ class Computer_SoftwareLicense extends CommonDBRelation {
 
       $softwarelicense_id = $license->getField('id');
 
-      if (!Session::haveRight("software", "r") || !$softwarelicense_id) {
+      if (!Software::canView() || !$softwarelicense_id) {
          return false;
       }
 
@@ -320,29 +329,29 @@ class Computer_SoftwareLicense extends CommonDBRelation {
 
       $searchID = $license->getField('id');
 
-      if (!Session::haveRight("software", "r") || !$searchID) {
+      if (!Software::canView() || !$searchID) {
          return false;
       }
 
-      $canedit         = Session::haveRight("software", "w");
-      $canshowcomputer = Session::haveRight("computer", "r");
+      $canedit         = Session::haveRightsOr("software", array(CREATE, UPDATE, DELETE, PURGE));
+      $canshowcomputer = Computer::canView();
 
 
-      if (isset($_POST["start"])) {
-         $start = $_POST["start"];
+      if (isset($_GET["start"])) {
+         $start = $_GET["start"];
       } else {
          $start = 0;
       }
 
-      if (isset($_POST["order"]) && ($_POST["order"] == "DESC")) {
+      if (isset($_GET["order"]) && ($_GET["order"] == "DESC")) {
          $order = "DESC";
       } else {
          $order = "ASC";
       }
 
-      if (isset($_POST["sort"]) && !empty($_POST["sort"])) {
+      if (isset($_GET["sort"]) && !empty($_GET["sort"])) {
          // manage several param like location,compname : order first
-         $tmp  = explode(",",$_POST["sort"]);
+         $tmp  = explode(",",$_GET["sort"]);
          $sort = "`".implode("` $order,`",$tmp)."`";
       } else {
          $sort = "`entity` $order, `compname`";
@@ -413,7 +422,8 @@ class Computer_SoftwareLicense extends CommonDBRelation {
                        `glpi_states`.`name` AS state,
                        `glpi_groups`.`name` AS groupe,
                        `glpi_softwarelicenses`.`name` AS lname,
-                       `glpi_softwarelicenses`.`id` AS lID
+                       `glpi_softwarelicenses`.`id` AS lID,
+                       `glpi_softwarelicenses`.`softwares_id` AS softid
                 FROM `glpi_computers_softwarelicenses`
                 INNER JOIN `glpi_softwarelicenses`
                      ON (`glpi_computers_softwarelicenses`.`softwarelicenses_id`
@@ -442,23 +452,27 @@ class Computer_SoftwareLicense extends CommonDBRelation {
             if ($canedit) {
                $rand = mt_rand();
                Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-               $paramsma = array('num_displayed'    => $_SESSION['glpilist_limit'],
-                                 'specific_actions' => array('move_license'
-                                                                      => _x('button', 'Move'),
-                                                             'delete' => _x('button',
-                                                                           'Delete permanently')));
+               $massiveactionparams = array('num_displayed'    => $_SESSION['glpilist_limit'],
+                                            'container'        => 'mass'.__CLASS__.$rand,
+                                            'specific_actions' => array('purge' => _x('button', 'Delete permanently')));
+
+               // show transfer only if multi licenses for this software
+               if (self::countLicenses($data['softid']) > 1) {
+                  $massiveactionparams['specific_actions'][__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'move_license'] =_x('button', 'Move');
+               }
+
                // Options to update license
-               $paramsma['extraparams']['options']['move']['used'] = array($searchID);
-               $paramsma['extraparams']['options']['move']['softwares_id']
+               $massiveactionparams['extraparams']['options']['move']['used'] = array($searchID);
+               $massiveactionparams['extraparams']['options']['move']['softwares_id']
                                                                    = $license->fields['softwares_id'];
 
-               Html::showMassiveActions(__CLASS__, $paramsma);
+               Html::showMassiveActions($massiveactionparams);
             }
 
-            $soft = new Software();
+            $soft       = new Software();
             $soft->getFromDB($license->fields['softwares_id']);
             $showEntity = ($license->isRecursive());
-            $linkUser   = Session::haveRight('user', 'r');
+            $linkUser   = User::canView();
 
             $text = sprintf(__('%1$s = %2$s'), Software::getTypeName(1), $soft->fields["name"]);
             $text = sprintf(__('%1$s - %2$s'), $text, $data["vername"]);
@@ -467,42 +481,46 @@ class Computer_SoftwareLicense extends CommonDBRelation {
 
             $sort_img = "<img src='" . $CFG_GLPI["root_doc"] . "/pics/" .
                           ($order == "DESC" ? "puce-down.png" : "puce-up.png") . "' alt='' title=''>";
-            echo "<table class='tab_cadre_fixehov'><tr>";
+            echo "<table class='tab_cadre_fixehov'>";
+
+            $columns = array('compname'          => __('Name'),
+                             'entity'            => __('Entity'),
+                             'serial'            => __('Serial number'),
+                             'otherserial'       => __('Inventory number'),
+                             'location,compname' => __('Location'),
+                             'state,compname'    => __('Status'),
+                             'groupe,compname'   => __('Group'),
+                             'username,compname' => __('User'));
+            if (!$showEntity) {
+               unset($columns['entity']);
+            }
+            $sort_img = "<img src=\"" . $CFG_GLPI["root_doc"] . "/pics/" .
+                          (($order == "DESC") ? "puce-down.png" : "puce-up.png") ."\" alt='' title=''>";
+
+            $header_begin  = "<tr>";
+            $header_top    = '';
+            $header_bottom = '';
+            $header_end    = '';
             if ($canedit) {
-               echo "<th width='10'>";
-               Html::checkAllAsCheckbox('mass'.__CLASS__.$rand);
-               echo "</th>";
-            }
-            echo "<th>".($sort=="`compname`"?$sort_img:"").
-                 "<a href='javascript:reloadTab(\"sort=compname&amp;order=".
-                   ($order=="ASC"?"DESC":"ASC")."&amp;start=0\");'>".__('Name')."</a></th>";
-
-            if ($showEntity) {
-               echo "<th>".(strstr($sort,"entity")?$sort_img:"").
-                    "<a href='javascript:reloadTab(\"sort=entity,compname&amp;order=".
-                      ($order=="ASC"?"DESC":"ASC")."&amp;start=0\");'>".__('Entity')."</a></th>";
+               $header_begin  .= "<th width='10'>";
+               $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+               $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+               $header_end    .= "</th>";
             }
 
-            echo "<th>".($sort=="`serial`"?$sort_img:"").
-                 "<a href='javascript:reloadTab(\"sort=serial&amp;order=".
-                   ($order=="ASC"?"DESC":"ASC")."&amp;start=0\");'>".__('Serial number')."</a></th>";
-            echo "<th>".($sort=="`otherserial`"?$sort_img:"").
-                 "<a href='javascript:reloadTab(\"sort=otherserial&amp;order=".
-                   ($order=="ASC"?"DESC":"ASC")."&amp;start=0\");'>".__('Inventory number').
-                 "</a></th>";
-            echo "<th>".(strstr($sort,"`location`")?$sort_img:"").
-                 "<a href='javascript:reloadTab(\"sort=location,compname&amp;order=".
-                   ($order=="ASC"?"DESC":"ASC")."&amp;start=0\");'>".__('Location')."</a></th>";
-            echo "<th>".(strstr($sort,"state")?$sort_img:"").
-                 "<a href='javascript:reloadTab(\"sort=state,compname&amp;order=".
-                   ($order=="ASC"?"DESC":"ASC")."&amp;start=0\");'>".__('Status')."</a></th>";
-            echo "<th>".(strstr($sort,"groupe")?$sort_img:"").
-                 "<a href='javascript:reloadTab(\"sort=groupe,compname&amp;order=".
-                   ($order=="ASC"?"DESC":"ASC")."&amp;start=0\");'>".__('Group')."</a></th>";
-            echo "<th>".(strstr($sort,"username")?$sort_img:"").
-                 "<a href='javascript:reloadTab(\"sort=username,compname&amp;order=".
-                   ($order=="ASC"?"DESC":"ASC")."&amp;start=0\");'>".__('User')."</a></th>";
-            echo "</tr>\n";
+            foreach ($columns as $key => $val) {
+               // Non order column
+               if ($key[0] == '_') {
+                  $header_end .= "<th>$val</th>";
+               } else {
+                  $header_end .= "<th>".(($sort == "`$key`") ?$sort_img:"").
+                                 "<a href='javascript:reloadTab(\"sort=$key&amp;order=".
+                                 (($order == "ASC") ?"DESC":"ASC")."&amp;start=0\");'>$val</a></th>";
+               }
+            }
+
+            $header_end .= "</tr>\n";
+            echo $header_begin.$header_top.$header_end;
 
             do {
                Session::addToNavigateListItems('Computer',$data["cID"]);
@@ -536,11 +554,11 @@ class Computer_SoftwareLicense extends CommonDBRelation {
                echo "</tr>\n";
 
             } while ($data=$DB->fetch_assoc($result));
-
+            echo $header_begin.$header_bottom.$header_end;
             echo "</table>\n";
             if ($canedit) {
-               $paramsma['ontop'] = false;
-               Html::showMassiveActions(__CLASS__, $paramsma);
+               $massiveactionparams['ontop'] = false;
+               Html::showMassiveActions($massiveactionparams);
                Html::closeForm();
             }
 
@@ -583,7 +601,7 @@ class Computer_SoftwareLicense extends CommonDBRelation {
     *
     * @return nothing
    **/
-   static function GetLicenseForInstallation($computers_id, $softwareversions_id) {
+   static function getLicenseForInstallation($computers_id, $softwareversions_id) {
       global $DB;
 
       $lic = array();
@@ -643,8 +661,8 @@ class Computer_SoftwareLicense extends CommonDBRelation {
                if ($_SESSION['glpishow_count_on_tabs']) {
                   $nb = self::countForLicense($item->getID());
                }
-               return array(1 => SoftwareLicense::getTypeName(1),
-                            2 => self::createTabEntry(Computer::getTypeName(2), $nb));
+               return array(1 => __('Summary'),
+                            2 => self::createTabEntry(Computer::getTypeName(Session::getPluralNumber()), $nb));
             }
             break;
       }
@@ -672,5 +690,28 @@ class Computer_SoftwareLicense extends CommonDBRelation {
       }
       return true;
    }
+
+
+   /**
+    * @since version 0.85
+    *
+    * count number of licenses for a software
+    **/
+   static function countLicenses($softwares_id) {
+      global $DB;
+
+      $query = "SELECT COUNT(*)
+                FROM `glpi_softwarelicenses`
+                WHERE `softwares_id` = '$softwares_id' " .
+                      getEntitiesRestrictRequest('AND', 'glpi_softwarelicenses');
+
+      $result = $DB->query($query);
+
+      if ($DB->numrows($result) != 0) {
+         return $DB->result($result, 0, 0);
+      }
+      return 0;
+   }
+
 }
 ?>

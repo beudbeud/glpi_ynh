@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: item_deviceprocessor.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: item_deviceprocessor.class.php 23040 2014-06-20 12:03:45Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -45,14 +45,27 @@ class Item_DeviceProcessor extends Item_Devices {
 
    static protected $notable = false;
 
-   static function getSpecificities() {
+
+   /**
+    * @since version 0.85
+    **/
+   static function getSpecificities($specif='') {
+
       return array('frequency' => array('long name'  => sprintf(__('%1$s (%2$s)'), __('Frequency'),
                                                                 __('MHz')),
                                         'short name' => __('Frequency'),
-                                        'size'       => 10),
-                   'serial'    => array('long name'  => __('Serial number'),
-                                        'short name' => __('Serial number'),
-                                        'size'       => 20));
+                                        'size'       => 10,
+                                        'id'         => 20),
+                   'serial'    => parent::getSpecificities('serial'),
+                   'nbcores'   => array('long name'  => __('Number of cores'),
+                                        'short name' => __('Cores'),
+                                        'size'       => 2,
+                                        'id'         => 21),
+                   'nbthreads' => array('long name' => __('Number of threads'),
+                                        'short name' => __('Threads'),
+                                        'size'       => 2,
+                                        'id'         => 22),
+                   'busID'     => parent::getSpecificities('busID'));
    }
 
 }

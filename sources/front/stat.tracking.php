@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: stat.tracking.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: stat.tracking.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,9 +33,9 @@
 
 include ('../inc/includes.php');
 
-Html::header(__('Statistics'), '', "maintain", "stat");
+Html::header(__('Statistics'), '', "helpdesk", "stat");
 
-Session::checkRight("statistic", "1");
+Session::checkRight("statistic", READ);
 
 if (!$item = getItemForItemtype($_GET['itemtype'])) {
    exit;
@@ -109,31 +109,31 @@ $items = array(__('Requester')       => $requester,
                                               'suppliers_id_assign'
                                                    => array('title' => __('Supplier'))));
 
-$INSELECT = "";
+$values = array();
 foreach ($items as $label => $tab) {
-   $INSELECT .= "<optgroup label=\"$label\">";
    foreach ($tab as $key => $val) {
-      $INSELECT .= "<option value='$key' ".(($key == $_GET["type"])?"selected":"").">".$val['title'].
-                   "</option>";
+      $values[$label][$key] = $val['title'];
    }
-   $INSELECT .= "</optgroup>";
 }
 
 echo "<div class='center'><form method='get' name='form' action='stat.tracking.php'>";
-echo "<table class='tab_cadre'>";
-echo "<tr class='tab_bg_2'><td rowspan='2' class='center'>";
-echo "<select name='type'>".$INSELECT."</select></td>";
+// Keep it first param
+echo "<input type='hidden' name='itemtype' value=\"". $_GET["itemtype"] ."\">";
+
+echo "<table class='tab_cadre_fixe'>";
+echo "<tr class='tab_bg_2'><td rowspan='2' class='center' width='30%'>";
+Dropdown::showFromArray('type', $values, array('value' => $_GET['type']));
+echo "</td>";
 echo "<td class='right'>".__('Start date')."</td><td>";
-Html::showDateFormItem("date1", $_GET["date1"]);
+Html::showDateField("date1", array('value' => $_GET["date1"]));
 echo "</td>";
 echo "<td class='right'>".__('Show graphics')."</td>";
 echo "<td rowspan='2' class='center'>";
-echo "<input type='hidden' name='itemtype' value=\"". $_GET["itemtype"] ."\">";
 echo "<input type='submit' class='submit' name='submit' value=\"".__s('Display report')."\"></td>".
      "</tr>";
 
 echo "<tr class='tab_bg_2'><td class='right'>".__('End date')."</td><td>";
-Html::showDateFormItem("date2", $_GET["date2"]);
+Html::showDateField("date2", array('value' => $_GET["date2"]));
 echo "</td><td class='center'>";
 echo "<input type='hidden' name='value2' value='".$_GET["value2"]."'>";
 Dropdown::showYesNo('showgraph', $_GET['showgraph']);
@@ -158,8 +158,8 @@ Html::printPager($_GET['start'], count($val), $CFG_GLPI['root_doc'].'/front/stat
                  'Stat', $params);
 
 if (!$_GET['showgraph']) {
-   Stat::show($_GET["itemtype"], $_GET["type"], $_GET["date1"], $_GET["date2"], $_GET['start'],
-              $val, $_GET['value2']);
+   Stat::showTable($_GET["itemtype"], $_GET["type"], $_GET["date1"], $_GET["date2"], $_GET['start'],
+                   $val, $_GET['value2']);
 
 } else {
    $data = Stat::getDatas($_GET["itemtype"], $_GET["type"], $_GET["date1"], $_GET["date2"],
@@ -167,64 +167,64 @@ if (!$_GET['showgraph']) {
 
    if (isset($data['opened']) && is_array($data['opened'])) {
       foreach ($data['opened'] as $key => $val) {
-         $newkey             = Html::clean($key);
+         $newkey             = Toolbox::unclean_cross_side_scripting_deep(Html::clean($key));
          $cleandata[$newkey] = $val;
       }
       Stat::showGraph(array(__('Number opened') => $cleandata),
                       array('title'     => __('Number opened'),
                             'showtotal' => 1,
-                            'unit'      => $item->getTypeName(2),
+                            'unit'      => $item->getTypeName(Session::getPluralNumber()),
                             'type'      => 'pie'));
    }
 
    if (isset($data['solved']) && is_array($data['solved'])) {
       foreach ($data['solved'] as $key => $val) {
-         $newkey             = Html::clean($key);
+         $newkey             = Toolbox::unclean_cross_side_scripting_deep(Html::clean($key));
          $cleandata[$newkey] = $val;
       }
       Stat::showGraph(array(__('Number solved') => $cleandata),
                       array('title'     => __('Number solved'),
                             'showtotal' => 1,
-                            'unit'      => $item->getTypeName(2),
+                            'unit'      => $item->getTypeName(Session::getPluralNumber()),
                             'type'      => 'pie'));
    }
 
    if (isset($data['late']) && is_array($data['late'])) {
       foreach ($data['late'] as $key => $val) {
-         $newkey             = Html::clean($key);
+         $newkey             = Toolbox::unclean_cross_side_scripting_deep(Html::clean($key));
          $cleandata[$newkey] = $val;
       }
 
       Stat::showGraph(array(__('Number solved late') => $cleandata),
                       array('title'     => __('Number solved late'),
                             'showtotal' => 1,
-                            'unit'      => $item->getTypeName(2),
+                            'unit'      => $item->getTypeName(Session::getPluralNumber()),
                             'type'      => 'pie'));
    }
 
 
    if (isset($data['closed']) && is_array($data['closed'])) {
       foreach ($data['closed'] as $key => $val) {
-         $newkey             = Html::clean($key);
+         $newkey             = Toolbox::unclean_cross_side_scripting_deep(Html::clean($key));
          $cleandata[$newkey] = $val;
       }
       Stat::showGraph(array(__('Number closed') => $cleandata),
                       array('title'     => __('Number closed'),
                             'showtotal' => 1,
-                            'unit'      => $item->getTypeName(2),
+                            'unit'      => $item->getTypeName(Session::getPluralNumber()),
                             'type'      => 'pie'));
    }
 
    if ($_GET['itemtype'] == 'Ticket') {
       if (isset($data['opensatisfaction']) && is_array($data['opensatisfaction'])) {
          foreach ($data['opensatisfaction'] as $key => $val) {
-            $newkey             = Html::clean($key);
+            $newkey             = Toolbox::unclean_cross_side_scripting_deep(Html::clean($key));
             $cleandata[$newkey] = $val;
          }
          Stat::showGraph(array(__('Satisfaction survey') => $cleandata),
                         array('title'     => __('Satisfaction survey'),
                               'showtotal' => 1,
-                              'unit'      => $item->getTypeName(2),
+                              'unit'      => $item->getTypeName(Session::getPluralNumber()),
                               'type'      => 'pie'));
       }
    }

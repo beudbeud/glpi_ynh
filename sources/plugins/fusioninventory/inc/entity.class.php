@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,13 +46,7 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryEntity extends CommonDBTM {
 
-   static function canCreate() {
-      return Session::haveRight("entity", 'w');
-   }
-
-   static function canView() {
-      return Session::haveRight("entity", 'r');
-   }
+   static $rightname = 'entity';
 
    /**
    * Get name of this type
@@ -69,7 +63,7 @@ class PluginFusioninventoryEntity extends CommonDBTM {
 
       $array_ret = array();
       if ($item->getID() > -1) {
-         if (Session::haveRight("entity", 'r')) {
+         if (Session::haveRight("config", READ)) {
             $array_ret[0] = self::createTabEntry('Fusioninventory');
          }
       }
@@ -126,7 +120,7 @@ class PluginFusioninventoryEntity extends CommonDBTM {
          $params['toadd'] = array('-1' => __('Inheritance of the parent entity'));
       }
       Dropdown::show('Transfer', $params);
-      echo "<input type='hidden' name='entities_id' value='".$entities_id."' />";
+      echo Html::hidden('entities_id', array('value' => $entities_id));
       echo "</td>";
       echo "</tr>";
 

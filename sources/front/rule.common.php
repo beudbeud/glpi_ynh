@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rule.common.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: rule.common.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -41,15 +41,15 @@ if (!isset($_GET["id"])) {
    $_GET["id"] = "";
 }
 
-$rulecollection->checkGlobal('r');
+$rulecollection->checkGlobal(READ);
 
 if (isset($_POST["action"])) {
-   $rulecollection->checkGlobal('w');
-   $rulecollection->changeRuleOrder($_POST["id"],$_POST["action"]);
+   $rulecollection->checkGlobal(UPDATE);
+   $rulecollection->changeRuleOrder($_POST["id"],$_POST["action"], $_POST['condition']);
    Html::back();
 // POST and GET needed to manage reload
 } else if (isset($_POST["replay_rule"]) || isset($_GET["replay_rule"])) {
-   $rulecollection->checkGlobal('w');
+   $rulecollection->checkGlobal(UPDATE);
 
    // Current time
    $start = explode(" ",microtime());
@@ -59,7 +59,7 @@ if (isset($_POST["action"])) {
    $max = get_cfg_var("max_execution_time");
    $max = $start + ($max>0 ? $max/2.0 : 30.0);
 
-   Html::header(Rule::getTypeName(2), $_SERVER['PHP_SELF'], "admin", $rulecollection->menu_type,
+   Html::header(Rule::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "admin", $rulecollection->menu_type,
                 $rulecollection->menu_option);
 
    if (!(isset($_POST['replay_confirm']) || isset($_GET['offset']))
@@ -110,11 +110,9 @@ if (isset($_POST["action"])) {
    exit();
 }
 
-Html::header(Rule::getTypeName(2), $_SERVER['PHP_SELF'], 'admin', $rulecollection->menu_type,
+Html::header(Rule::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], 'admin', $rulecollection->menu_type,
              $rulecollection->menu_option);
 
-$rulecollection->showTabs();
-echo "<div id='tabcontent'>&nbsp;</div>";
-echo "<script type='text/javascript'>loadDefaultTab();</script>";
+$rulecollection->display();
 Html::footer();
 ?>

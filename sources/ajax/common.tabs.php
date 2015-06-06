@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: common.tabs.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: common.tabs.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,51 +33,64 @@
 
 include ('../inc/includes.php');
 
-if (isset($_POST['full_page_tab'])) {
+if (isset($_GET['full_page_tab'])) {
    Html::header('Only tab for debug', $_SERVER['PHP_SELF']);
 } else {
    header("Content-Type: text/html; charset=UTF-8");
    Html::header_nocache();
 }
 
-if (!isset($_POST['glpi_tab'])) {
+if (!isset($_GET['_glpi_tab'])) {
    exit();
 }
 
-if (!isset($_POST['itemtype']) || empty($_POST['itemtype'])) {
+if (!isset($_GET['_itemtype']) || empty($_GET['_itemtype'])) {
    exit();
 }
 
-if (!isset($_POST["sort"])) {
-   $_POST["sort"] = "";
+if (!isset($_GET["sort"])) {
+   $_GET["sort"] = "";
 }
 
-if (!isset($_POST["order"])) {
-   $_POST["order"] = "";
+if (!isset($_GET["order"])) {
+   $_GET["order"] = "";
 }
 
-if (!isset($_POST["withtemplate"])) {
-   $_POST["withtemplate"] = "";
+if (!isset($_GET["withtemplate"])) {
+   $_GET["withtemplate"] = "";
 }
 
-if ($item = getItemForItemtype($_POST['itemtype'])) {
-   if ($item instanceof CommonDBTM
-       && $item->isNewItem()
-       && (!isset($_POST["id"]) || !$item->can($_POST["id"],'r'))) {
-      exit();
+if ($item = getItemForItemtype($_GET['_itemtype'])) {
+   if ($item->get_item_to_display_tab) {
+      // No id if ruleCollection but check right
+      if ($item instanceof RuleCollection) {
+         if (!$item->canList()) {
+            exit();
+         }
+      } else if (!isset($_GET["id"])|| $item->isNewID($_GET["id"])) {
+         if (!$item->can(-1, CREATE, $_GET)) {
+            exit();
+         }
+      } else if (!$item->can($_GET["id"], READ)) {
+         exit();
+      }
    }
 }
 
-CommonGLPI::displayStandardTab($item, $_POST['glpi_tab'],$_POST["withtemplate"]);
+$notvalidoptions = array('_glpi_tab', '_itemtype', 'sort', 'order', 'withtemplate');
+$options         = $_GET;
+foreach ($notvalidoptions as $key) {
+   if (isset($options[$key])) {
+      unset($options[$key]);
+   }
+}
+CommonGLPI::displayStandardTab($item, $_GET['_glpi_tab'],$_GET["withtemplate"], $options);
 
 
-if (isset($_POST['full_page_tab'])) {
+if (isset($_GET['full_page_tab'])) {
    echo "<div class='center' id='debugajax'>";
-   Html::showSimpleForm($_SERVER['REQUEST_URI'], 'full_page_tab',
-                        'Reload this tab', $_POST);
+   echo "<a href='".htmlentities($_SERVER['REQUEST_URI'])."' class='vsubmit'>Reload</a>";
    echo "</div>";
-
-   Html::footer();
 
    // I think that we should display this warning, because tabs are not prepare
    // for being used full space ...
@@ -90,6 +103,9 @@ if (isset($_POST['full_page_tab'])) {
       echo "</script>";
       $_SESSION['glpi_warned_about_full_page_tab'] = true;
    }
+   
+   Html::footer();
+
 
 } else {
    Html::ajaxFooter();

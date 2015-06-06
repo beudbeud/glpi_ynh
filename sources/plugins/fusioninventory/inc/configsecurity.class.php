@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -48,15 +48,7 @@ class PluginFusioninventoryConfigSecurity extends CommonDBTM {
 
    public $dohistory = TRUE;
 
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("configsecurity", "w");
-   }
-
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("configsecurity", "r");
-   }
-
+   static $rightname = 'plugin_fusioninventory_configsecurity';
 
 
    function defineTabs($options=array()){
@@ -69,7 +61,7 @@ class PluginFusioninventoryConfigSecurity extends CommonDBTM {
 
    function showForm($id, $options=array()) {
 
-      PluginFusioninventoryProfile::checkRight("configsecurity", "r");
+      Session::checkRight('plugin_fusioninventory_configsecurity', READ);
 
       if ($id!='') {
          $this->getFromDB($id);

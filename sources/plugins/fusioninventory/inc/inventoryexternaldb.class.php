@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -59,19 +59,19 @@ class PluginFusioninventoryInventoryExternalDB extends CommonDBTM {
        global $DB;
 
       $a_return = array();
-      
+
       if ($pciid == '') {
          return $a_return;
       }
-      
+
       $pciidArray = explode(":", $pciid);
- 
+
       if (!isset($pciidArray[1])) {
          return $a_return;
       }
-      
+
       $vendorId = $pciidArray[0];
-      
+
       $query_select = "SELECT `glpi_plugin_fusioninventory_pcivendors`.`name` as `manufacturer`,
          `glpi_plugin_fusioninventory_pcidevices`.`name` as `name`
          FROM `glpi_plugin_fusioninventory_pcivendors`
@@ -130,12 +130,12 @@ class PluginFusioninventoryInventoryExternalDB extends CommonDBTM {
       }
       return array($vendors_name, $devices_name);
    }
-   
-   
-   
+
+
+
    static function getManufacturerWithMAC($mac) {
       global $DB;
-      
+
       $a_mac = explode(":", $mac);
       if (isset($a_mac[2])) {
          $searchMac = $a_mac[0].":".$a_mac[1].":".$a_mac[2];

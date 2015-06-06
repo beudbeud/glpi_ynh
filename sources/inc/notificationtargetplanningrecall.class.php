@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationtargetplanningrecall.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notificationtargetplanningrecall.class.php 23346 2015-02-03 15:11:10Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,12 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Class NotificationTargetPlanningRecall
+
+/**
+ * NotificationTargetPlanningRecall Class
+ *
+ * @since version 0.84
+**/
 class NotificationTargetPlanningRecall extends NotificationTarget {
 
 
@@ -56,26 +61,28 @@ class NotificationTargetPlanningRecall extends NotificationTarget {
     * @see NotificationTarget::getDatasForTemplate()
    **/
    function getDatasForTemplate($event, $options=array()) {
-      global $CFG_GLPI;
 
       $events                             = $this->getAllEvents();
-
+      
+      $this->target_object = reset($this->target_object);
+      
       $this->datas['##recall.action##']   = $events[$event];
       $this->datas['##recall.itemtype##'] = $this->target_object->getTypeName(1);
       $this->datas['##recall.item.URL##'] = '';
       // For task show parent link
       if (($this->target_object instanceof CommonDBChild)
           || ($this->target_object instanceof CommonITILTask)) {
-         $item2                              = $this->target_object->getItem();
-         $this->datas['##recall.item.url##'] = urldecode($CFG_GLPI["url_base"]."/index.php".
-                                                         "?redirect=".strtolower($item2->getType()).
-                                                         "_".$item2->getID());
+
+         $item2   = $this->target_object->getItem();
+         $this->datas['##recall.item.url##']
+                  = $this->formatURL($options['additionnaloption']['usertype'],
+                                     $item2->getType()."_".$item2->getID());
 
       } else {
-         $this->datas['##recall.item.url##'] = urldecode($CFG_GLPI["url_base"]."/index.php".
-                                                         "?redirect=".
-                                                         strtolower($this->target_object->getType()).
-                                                         "_".$this->target_object->getID());
+         $this->datas['##recall.item.url##']
+                  = $this->formatURL($options['additionnaloption']['usertype'],
+                                     $this->target_object->getType().
+                                          "_".$this->target_object->getID());
       }
       $this->datas['##recall.item.name##'] = '';
 
@@ -173,7 +180,7 @@ class NotificationTargetPlanningRecall extends NotificationTarget {
       if ($this->obj) {
          if (($item = getItemForItemtype($this->obj->getField('itemtype')))
              && $item->getFromDB($this->obj->getField('items_id'))) {
-            $this->target_object = $item;
+            $this->target_object[] = $item;
          }
       }
    }

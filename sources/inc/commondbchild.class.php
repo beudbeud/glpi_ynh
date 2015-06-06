@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: commondbchild.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: commondbchild.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -92,6 +92,10 @@ abstract class CommonDBChild extends CommonDBConnexity {
     * @since version 0.84
    **/
    static function canCreate() {
+
+      if ((static::$rightname) && (!Session::haveRight(static::$rightname, CREATE))) {
+         return false;
+      }
       return static::canChild('canUpdate');
    }
 
@@ -100,6 +104,9 @@ abstract class CommonDBChild extends CommonDBConnexity {
     * @since version 0.84
    **/
    static function canView() {
+      if ((static::$rightname) && (!Session::haveRight(static::$rightname, READ))) {
+         return false;
+      }
       return static::canChild('canView');
    }
 
@@ -108,6 +115,9 @@ abstract class CommonDBChild extends CommonDBConnexity {
     * @since version 0.84
    **/
    static function canUpdate() {
+      if ((static::$rightname) && (!Session::haveRight(static::$rightname, UPDATE))) {
+         return false;
+      }
       return static::canChild('canUpdate');
    }
 
@@ -116,6 +126,20 @@ abstract class CommonDBChild extends CommonDBConnexity {
     * @since version 0.84
    **/
    static function canDelete() {
+      if ((static::$rightname) && (!Session::haveRight(static::$rightname, DELETE))) {
+         return false;
+      }
+      return static::canChild('canUpdate');
+   }
+
+
+   /**
+    * @since version 0.85
+    **/
+   static function canPurge() {
+      if ((static::$rightname) && (!Session::haveRight(static::$rightname, PURGE))) {
+         return false;
+      }
       return static::canChild('canUpdate');
    }
 
@@ -376,6 +400,13 @@ abstract class CommonDBChild extends CommonDBConnexity {
       if (!is_array($input)) {
          return false;
       }
+
+      // Check item exists
+      if (static::$mustBeAttached
+          && !$this->getItemFromArray(static::$itemtype, static::$items_id,$input)) {
+         return false;
+      }
+
       return $this->addNeededInfoToInput($input);
    }
 
@@ -626,16 +657,18 @@ abstract class CommonDBChild extends CommonDBConnexity {
     *
     * @param $canedit     true if we can edit the child
     * @param $field_name  the name of the HTML field inside Item's form
+    * @param $id          id of the child
     *
     * @return nothing (display only)
    **/
-   function showChildForItemForm($canedit, $field_name) {
+   function showChildForItemForm($canedit, $field_name, $id) {
 
       if ($this->isNewID($this->getID())) {
          $value = '';
       } else {
          $value = $this->getName();
       }
+      $field_name = $field_name."[$id]";
       if ($canedit) {
          echo "<input type='text' size='40' name='$field_name' value='$value'>";
       } else {
@@ -654,13 +687,16 @@ abstract class CommonDBChild extends CommonDBConnexity {
     * @todo study if we cannot use these methods for the user emails
     * @see showChildsForItemForm(CommonDBTM $item, $field_name)
     *
-    * @param $item         CommonDBTM object: the item on which to add the current CommenDBChild
-    * @param $field_name   the name of the HTML field inside Item's form
-    * @param $canedit      (default NULL) NULL to use default behaviour
+    * @param $item                  CommonDBTM object: the item on which to add the current CommenDBChild
+    * @param $field_name            the name of the HTML field inside Item's form
+    * @param $canedit               (default NULL) NULL to use default behaviour
+    * @param $display      boolean  true display or false to return the button HTML code (true by default)
     *
-    * @return nothing (display only)
+    *
+    * @return the button HTML code if $display is true
    **/
-   static function showAddChildButtonForItemForm(CommonDBTM $item, $field_name, $canedit=NULL) {
+   static function showAddChildButtonForItemForm(CommonDBTM $item, $field_name, $canedit=NULL,
+                                                 $display=true) {
       global $CFG_GLPI;
 
       $items_id = $item->getID();
@@ -672,27 +708,35 @@ abstract class CommonDBChild extends CommonDBConnexity {
             }
             $canedit = $item->canUpdate();
          } else {
-            if (!$item->can($items_id,'r')) {
+            if (!$item->can($items_id, READ)) {
                return false;
             }
 
-            $canedit = $item->can($items_id,"w");
+            $canedit = $item->can($items_id, UPDATE);
          }
       }
+
+      $result = '';
 
       if ($canedit) {
          $lower_name         = strtolower(get_called_class());
          $child_count_js_var = 'nb'.$lower_name.'s';
          $div_id             = "add_".$lower_name."_to_".$item->getType()."_".$items_id;
 
-         echo "&nbsp;<script type='text/javascript'>var $child_count_js_var=1; </script>";
-         echo "<span id='add".$lower_name."button'>".
+         // Beware : -1 is for the first element added ...
+         $result = "&nbsp;<script type='text/javascript'>var $child_count_js_var=2; </script>";
+         $result .= "<span id='add".$lower_name."button'>".
               "<img title=\"".__s('Add')."\" alt=\"". __s('Add').
-                "\" onClick=\"var row = Ext.get('$div_id');
-                             row.createChild('<br>" .
+                "\" onClick=\"var row = ".Html::jsGetElementByID($div_id).";
+                             row.append('<br>" .
                static::getJSCodeToAddForItemChild($field_name, $child_count_js_var)."');
                             $child_count_js_var++;\"
                class='pointer' src='".$CFG_GLPI["root_doc"]."/pics/add_dropdown.png'></span>";
+      }
+      if ($display) {
+         echo $result;
+      } else {
+         return $result;
       }
    }
 
@@ -725,11 +769,11 @@ abstract class CommonDBChild extends CommonDBConnexity {
             }
             $canedit = $item->canUpdate();
          } else {
-            if (!$item->can($items_id,'r')) {
+            if (!$item->can($items_id, READ)) {
                return false;
             }
 
-            $canedit = $item->can($items_id,"w");
+            $canedit = $item->can($items_id, UPDATE);
          }
       }
 
@@ -765,8 +809,7 @@ abstract class CommonDBChild extends CommonDBConnexity {
          }
          $count++;
 
-         $current_item->showChildForItemForm($canedit, $field_name . "[" .
-                                             $current_item->getID() . "]");
+         $current_item->showChildForItemForm($canedit, $field_name, $current_item->getID());
 
       }
 
@@ -775,11 +818,32 @@ abstract class CommonDBChild extends CommonDBConnexity {
          // No Child display field
          if ($count == 0) {
             $current_item->getEmpty();
-            $current_item->showChildForItemForm($canedit, $field_name . "[-100]");
+            $current_item->showChildForItemForm($canedit, $field_name, -1);
          }
          echo "</div>";
       }
    }
 
+
+   /**
+    * Affect a CommonDBChild to a given item. By default, unaffect it
+    *
+    * @param $id          integer   the id of the CommonDBChild to affect
+    * @param $items_id    integer   the id of the new item (default 0)
+    * @param $itemtype    string    the type of the new item (default '')
+    *
+    * @return boolean : true on success
+   **/
+   function affectChild($id, $items_id=0, $itemtype='') {
+
+      $input = array(static::getIndexName() => $id,
+                     static::$items_id      => $items_id);
+
+      if (preg_match('/^itemtype/', static::$itemtype)) {
+         $input[static::$itemtype] = $itemtype;
+      }
+
+      return $this->update($input);
+   }
 }
 ?>

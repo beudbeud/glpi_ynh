@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: dropdownAllItems.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: dropdownAllItems.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -43,41 +43,45 @@ if ($_POST["idtable"] && class_exists($_POST["idtable"])) {
    $table = getTableForItemType($_POST["idtable"]);
 
    // Link to user for search only > normal users
-   $link = "dropdownValue.php";
+   $link = "getDropdownValue.php";
 
    if ($_POST["idtable"] == 'User') {
-      $link = "dropdownUsers.php";
+      $link = "getDropdownUsers.php";
    }
 
    $rand     = mt_rand();
-   $use_ajax = false;
 
-   if ($CFG_GLPI["use_ajax"]
-       && (countElementsInTable($table) > $CFG_GLPI["ajax_limit_count"])) {
-      $use_ajax = true;
-   }
+   $field_id = Html::cleanId("dropdown_".$_POST["name"].$rand);
 
-   $paramsallitems = array('searchText'          => '__VALUE__',
-                           'table'               => $table,
-                           'itemtype'            => $_POST["idtable"],
-                           'rand'                => $rand,
-                           'myname'              => $_POST["myname"],
-                           'displaywith'         => array('otherserial', 'serial'),
-                           'display_emptychoice' => true);
-
+   $p        = array('value'               => 0,
+                     'valuename'           => Dropdown::EMPTY_VALUE,
+                     'itemtype'            => $_POST["idtable"],
+                     'display_emptychoice' => true,
+                     'displaywith'         => array('otherserial', 'serial'));
    if (isset($_POST['value'])) {
-      $paramsallitems['value'] = $_POST['value'];
+      $p['value'] = $_POST['value'];
    }
    if (isset($_POST['entity_restrict'])) {
-      $paramsallitems['entity_restrict'] = $_POST['entity_restrict'];
+      $p['entity_restrict'] = $_POST['entity_restrict'];
    }
    if (isset($_POST['condition'])) {
-      $paramsallitems['condition'] = stripslashes($_POST['condition']);
+      $p['condition'] = $_POST['condition'];
    }
+   echo  Html::jsAjaxDropdown($_POST["name"], $field_id,
+                              $CFG_GLPI['root_doc']."/ajax/".$link,
+                              $p);
 
-   $default = "<select name='".$_POST["myname"]."'><option value='0'>".Dropdown::EMPTY_VALUE.
-              "</option></select>";
-   Ajax::dropdown($use_ajax, "/ajax/$link", $paramsallitems, $default, $rand);
+   if (!empty($_POST['showItemSpecificity'])) {
+      $params = array('items_id' => '__VALUE__',
+                      'itemtype' => $_POST["idtable"]);
+      if (isset($_POST['entity_restrict'])) {
+         $params['entity_restrict'] = $_POST['entity_restrict'];
+      }
 
+      Ajax::updateItemOnSelectEvent($field_id, "showItemSpecificity_".$_POST["name"]."$rand",
+                                    $_POST['showItemSpecificity'], $params);
+
+      echo "<br><span id='showItemSpecificity_".$_POST["name"]."$rand'>&nbsp;</span>\n";
+   }
 }
 ?>

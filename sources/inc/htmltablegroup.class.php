@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: htmltablegroup.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: htmltablegroup.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,7 +37,7 @@ if (!defined('GLPI_ROOT')) {
 
 
 /**
- * @since v ersion 0.84
+ * @since version 0.84
 **/
 class HTMLTableGroup extends HTMLTableBase {
 
@@ -77,7 +77,8 @@ class HTMLTableGroup extends HTMLTableBase {
    **/
    function haveHeader(HTMLTableHeader $header) {
 
-    //TODO $header_name AND $subHeader_name  not initialized
+      $header_name    = '';
+      $subHeader_name = '';
       $header->getHeaderAndSubHeaderName($header_name, $subheader_name);
       try {
          $subheaders = $this->getHeaders($header_name);
@@ -175,18 +176,21 @@ class HTMLTableGroup extends HTMLTableBase {
     *
     * @param $totalNumberOfColumn         Total number of columns : to span correctly the title
     * @param $params                array of possible options:
-    *     'display_super_for_each_group' display the super header (ie.: big header of the table)
-    *                                    before the group specific headers
-    *     'display_title_for_each_group' display the title of the header before the group
-    *                                    specific headers
+    *     'display_super_for_each_group'           display the super header (ie.: big header of the table)
+    *                                              before the group specific headers
+    *     'display_title_for_each_group'           display the title of the header before the group
+    *                                              specific headers
+    *     'display_header_for_each_group'          display the header of each group
+    *     'display_header_on_foot_for_each_group'  repeat group header on foot of group
     *
     * @return nothing (display only)
    **/
    function displayGroup($totalNumberOfColumn, array $params) {
 
-      $p['display_header_for_each_group'] = true;
-      $p['display_super_for_each_group']  = true;
-      $p['display_title_for_each_group']  = true;
+      $p['display_header_for_each_group']         = true;
+      $p['display_header_on_foot_for_each_group'] = false;
+      $p['display_super_for_each_group']          = true;
+      $p['display_title_for_each_group']          = true;
 
       foreach ($params as $key => $val) {
          $p[$key] = $val;
@@ -206,21 +210,22 @@ class HTMLTableGroup extends HTMLTableBase {
             echo "\t</tbody>\n";
          }
 
-         echo "\t<tbody><tr>\n";
-         foreach ($this->ordered_headers as $header) {
-            if ($header instanceof HTMLTableSubHeader) {
-               $header->updateColSpan($header->numberOfSubHeaders);
-               $with_content = true;
-            } else {
-               $with_content = false;
-            }
-            if ($p['display_header_for_each_group']) {
+         if ($p['display_header_for_each_group']) {
+            echo "\t<tbody><tr class='tab_bg_1'>\n";
+            foreach ($this->ordered_headers as $header) {
+               if ($header instanceof HTMLTableSubHeader) {
+                  $header->updateColSpan($header->numberOfSubHeaders);
+                  $with_content = true;
+               } else {
+                  $with_content = false;
+               }
+
                echo "\t\t";
-               $header->displayTableHeader($with_content);
+               $header->displayTableHeader($with_content, false);
                echo "\n";
             }
+            echo "\t</tr></tbody>\n";
          }
-         echo "\t</tr></tbody>\n";
 
          $previousNumberOfSubRows = 0;
          foreach ($this->rows as $row) {
@@ -234,6 +239,23 @@ class HTMLTableGroup extends HTMLTableBase {
             }
             $row->displayRow($this->ordered_headers);
             $previousNumberOfSubRows = $currentNumberOfSubRow;
+         }
+
+         if ($p['display_header_on_foot_for_each_group']) {
+            echo "\t<tbody><tr class='tab_bg_1'>\n";
+            foreach ($this->ordered_headers as $header) {
+               if ($header instanceof HTMLTableSubHeader) {
+                  $header->updateColSpan($header->numberOfSubHeaders);
+                  $with_content = true;
+               } else {
+                  $with_content = false;
+               }
+
+               echo "\t\t";
+               $header->displayTableHeader($with_content, false);
+               echo "\n";
+            }
+            echo "\t</tr></tbody>\n";
          }
       }
    }

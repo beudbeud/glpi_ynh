@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Vincent Mazzoni
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,17 +46,7 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
 
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("networkequipment", "w");
-   }
-
-
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("networkequipment", "r");
-   }
-
+   static $rightname = 'plugin_fusioninventory_networkequipment';
 
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
@@ -72,9 +62,16 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
 
       if ($item->getID() > 0) {
          $pfNetworkEquipment = new PluginFusioninventoryNetworkEquipment();
-         $pfNetworkEquipment->showForm($item,
-              array('target'=>$CFG_GLPI['root_doc'].
-                                 '/plugins/fusioninventory/front/switch_info.form.php'));
+
+         if (isset($_GET['displaysnmpinfo'])) {
+            $pfNetworkEquipment->showNetworkEquipmentInformation($item,
+                                                                 array('target'=>$CFG_GLPI['root_doc'].
+                                                                       '/plugins/fusioninventory/front/switch_info.form.php'));
+         } else {
+            $pfNetworkEquipment->showForm($item,
+                 array('target'=>$CFG_GLPI['root_doc'].
+                                    '/plugins/fusioninventory/front/switch_info.form.php'));
+         }
       }
 
       return TRUE;
@@ -92,12 +89,12 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
    function showForm(CommonDBTM $item, $options=array()) {
       global $DB, $CFG_GLPI;
 
-      if (!PluginFusioninventoryProfile::haveRight("networkequipment", "r")) {
+      if (!Session::haveRight('plugin_fusioninventory_networkequipment', READ)) {
          NetworkPort::showForItem($item);
          return;
       }
       $canedit = FALSE;
-      if (PluginFusioninventoryProfile::haveRight("networkequipment", "w")) {
+      if (Session::haveRight('plugin_fusioninventory_networkequipment', UPDATE)) {
          $canedit = TRUE;
       }
 
@@ -125,6 +122,19 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
          $_SESSION['plugin_fusioninventory_networkportview'] = 'fusioninventory';
       }
 
+      // Display glpi network port view if no fusionnetworkport
+      $query = "SELECT glpi_plugin_fusioninventory_networkports.id
+      FROM glpi_plugin_fusioninventory_networkports
+      LEFT JOIN glpi_networkports
+      ON glpi_plugin_fusioninventory_networkports.networkports_id = glpi_networkports.id
+      WHERE glpi_networkports.items_id='".$id."'
+         AND glpi_networkports.itemtype='NetworkEquipment'";
+      $result = $DB->query($query);
+      if ($DB->numrows($result) == 0) {
+         NetworkPort::showForItem($item);
+         return;
+      }
+
       echo "<form action='".$CFG_GLPI['root_doc'].
          "/plugins/fusioninventory/front/networkport.display.php' method='post'>";
       echo __('Display the view', 'fusioninventory');
@@ -143,7 +153,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
          return;
       }
 
-      $canedit = $item->can($item->getID(), 'w');
+      $canedit = $item->can($item->getID(), UPDATE);
       if ($canedit) {
          $networkPort = new NetworkPort();
          echo "\n<form method='get' action='" . $networkPort->getFormURL() ."'>\n";
@@ -218,7 +228,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
 
       $nbcol = 5;
       if ($monitoring == '1') {
-         if (PluginMonitoringProfile::haveRight("config_components_catalogs", 'r')) {
+         if (Session::haveRight("plugin_monitoring_config_components_catalogs", READ)) {
             echo "<form name='form' method='post' action='".$CFG_GLPI['root_doc'].
                     "/plugins/monitoring/front/networkport.form.php'>";
             echo "<input type='hidden' name='items_id' value='".$id."' />";
@@ -269,7 +279,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
          }
       }
       if ($monitoring == '1') {
-         if (PluginMonitoringProfile::haveRight("config_components_catalogs", 'w')) {
+         if (Session::haveRight("plugin_monitoring_config_components_catalogs", UPDATE)) {
             echo "<tr class='tab_bg_1 center'>";
             echo "<td colspan='2'></td>";
             echo "<td class='center'>";
@@ -281,7 +291,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
       }
       echo "</table>";
       if ($monitoring == '1') {
-         if (PluginMonitoringProfile::haveRight("config_components_catalogs", 'w')) {
+         if (Session::haveRight("plugin_monitoring_config_components_catalogs", UPDATE)) {
             Html::closeForm();
          }
       }
@@ -323,7 +333,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
 
       $NetworkPort = new NetworkPort();
 
-      $a_ports = $NetworkPort->find("`itemtype`='PluginFusioninventoryUnknownDevice'
+      $a_ports = $NetworkPort->find("`itemtype`='PluginFusioninventoryUnmanaged'
                                     AND `items_id`='".$items_id."'");
       echo "<table width='100%' class='tab_cadre' cellpadding='5'>";
       foreach ($a_ports as $a_port) {
@@ -334,7 +344,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
                $link = '';
                $link1 = '';
                $link2 = '';
-               if ($NetworkPort->fields['itemtype'] == 'PluginFusioninventoryUnknownDevice') {
+               if ($NetworkPort->fields['itemtype'] == 'PluginFusioninventoryUnmanaged') {
                   $classname = $NetworkPort->fields['itemtype'];
                   $item = new $classname;
                   $item->getFromDB($NetworkPort->fields['items_id']);
@@ -343,7 +353,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
                                       $item->getLink());
                   // Get ips
                   $a_ips = PluginFusioninventoryToolbox::getIPforDevice(
-                             'PluginFusioninventoryUnknownDevice',
+                             'PluginFusioninventoryUnmanaged',
                              $item->getID()
                           );
                   $link2 = str_replace($item->getName(0), implode(", ", $a_ips),
@@ -416,8 +426,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
          $plugin_fusinvsnmp_configsecurities_id = 0;
       }
       $query = "UPDATE `glpi_plugin_fusioninventory_networkequipments`
-                SET `plugin_fusioninventory_snmpmodels_id`='".$plugin_fusinvsnmp_models_id."',
-                    `plugin_fusioninventory_configsecurities_id`=
+                SET `plugin_fusioninventory_configsecurities_id`=
                         '".$plugin_fusinvsnmp_configsecurities_id."',
                     `sysdescr`='".$sysdescr."'
                 WHERE `networkequipments_id`='".$id."';";
@@ -427,8 +436,23 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
 
 
 
-   function showNetworkEquipmentInformation($id, $options) {
+   function showNetworkEquipmentInformation(CommonDBTM $item, $options) {
       global $DB;
+
+      $id = $item->getID();
+      if (!$data = $this->find("`networkequipments_id`='".$id."'", '', 1)) {
+         // Add in database if not exist
+         $input = array();
+         $input['networkequipments_id'] = $id;
+         $_SESSION['glpi_plugins_fusinvsnmp_table'] = 'glpi_networkequipments';
+         $ID_tn = $this->add($input);
+         $this->getFromDB($ID_tn);
+      } else {
+         foreach ($data as $datas) {
+            $this->fields = $datas;
+         }
+      }
+
 
       // Form networking informations
       echo "<form name='form' method='post' action='".$options['target']."'>";
@@ -442,36 +466,15 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td align='center' rowspan='3'>";
+      echo "<td align='center' rowspan='4'>";
       echo __('Sysdescr', 'fusioninventory')."&nbsp;:";
       echo "</td>";
-      echo "<td rowspan='3'>";
+      echo "<td rowspan='4'>";
       echo "<textarea name='sysdescr' cols='45' rows='5'>";
       echo $this->fields['sysdescr'];
       echo "</textarea>";
-      echo "<td align='center' rowspan='2'>".__('SNMP models', 'fusioninventory')."&nbsp;:</td>";
+      echo "<td align='center'></td>";
       echo "<td align='center'>";
-      $query_models = "SELECT *
-                       FROM `glpi_plugin_fusioninventory_snmpmodels`
-                       WHERE `itemtype`!='NetworkEquipment'
-                           AND `itemtype`!=''";
-      $result_models=$DB->query($query_models);
-      $exclude_models = array();
-      while ($data_models=$DB->fetch_array($result_models)) {
-         $exclude_models[] = $data_models['id'];
-      }
-      Dropdown::show("PluginFusioninventorySnmpmodel",
-                     array('name'=>"model_infos",
-                           'value'=>$this->fields['plugin_fusioninventory_snmpmodels_id'],
-                           'comment'=>0,
-                           'used'=>$exclude_models));
-      echo "</td>";
-      echo "</tr>";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td align='center'>";
-      echo "<input type='submit' name='GetRightModel'
-              value='".__('Load the correct model', 'fusioninventory')."' class='submit'/>";
       echo "</td>";
       echo "</tr>";
 
@@ -485,7 +488,6 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "</td>";
       echo "<td align='center'>";
       echo __('CPU usage (in %)', 'fusioninventory')."&nbsp;:";
       echo "</td>";
@@ -493,7 +495,9 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
       Html::displayProgressBar(250, $this->fields['cpu'],
                   array('simple' => TRUE));
       echo "</td>";
+      echo "</tr>";
 
+      echo "<tr class='tab_bg_1'>";
       echo "<td align='center'>";
       echo __('Memory usage (in %)', 'fusioninventory')."&nbsp;:";
       echo "</td>";
@@ -537,6 +541,10 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
     * @param type $networkequipments_id
     */
    static function showInfo($item) {
+
+      // Manage locks pictures
+      PluginFusioninventoryLock::showLockIcon('NetworkEquipment');
+
       $pfNetworkEquipment = new PluginFusioninventoryNetworkEquipment();
       $a_networkequipmentextend = current($pfNetworkEquipment->find(
                                               "`networkequipments_id`='".$item->getID()."'",
@@ -794,14 +802,14 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
       if ($monitoring == '1') {
          echo "<td>";
          $state = PluginMonitoringNetworkport::isMonitoredNetworkport($data['id']);
-         if (PluginMonitoringProfile::haveRight("config_components_catalogs", 'w')) {
+         if (Session::haveRight("plugin_monitoring_config_components_catalogs", UPDATE)) {
             $checked = '';
             if ($state) {
                $checked = 'checked';
             }
             echo "<input type='checkbox' name='networkports_id[]' value='".$data['id']."' ".
                     $checked."/>";
-         } else if (PluginMonitoringProfile::haveRight("config_components_catalogs", 'r')) {
+         } else if (Session::haveRight("plugin_monitoring_componentscatalog", READ)) {
             echo Dropdown::getYesNo($state);
          }
          echo "</td>";
@@ -879,7 +887,17 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
                break;
 
             case 10:
-               echo "<td>".$pfNetworkPort->fields["portduplex"]."</td>";
+               if ($pfNetworkPort->fields["portduplex"] == 2) {
+                  echo "<td background='#cf9b9b' class='tab_bg_1_2'>";
+                  echo __('Half', 'fusioninventory');
+                  echo '</td>';
+               } else if ($pfNetworkPort->fields["portduplex"] == 3) {
+                  echo '<td>';
+                  echo __('Full', 'fusioninventory');
+                  echo '</td>';
+               } else {
+                  echo "<td></td>";
+               }
                break;
 
             case 11:
@@ -909,7 +927,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
                         $link2 = str_replace($item->getName(0), $a_ipaddresses['name'],
                                              $item->getLink());
 
-                     if ($data_device["itemtype"] == 'PluginFusioninventoryUnknownDevice') {
+                     if ($data_device["itemtype"] == 'PluginFusioninventoryUnmanaged') {
                         $icon = $this->getItemtypeIcon($item->fields["item_type"]);
                         if ($item->getField("accepted") == "1") {
                            echo "<td style='background:#bfec75'
@@ -1014,7 +1032,7 @@ class PluginFusioninventoryNetworkEquipment extends CommonDBTM {
             case 12:
                echo "<td>";
 
-               $canedit = Session::haveRight("networking", "w");
+               $canedit = Session::haveRight('networking', UPDATE);
 
                $used = array();
 

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: peripheralmodel.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: peripheralmodel.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -39,6 +39,7 @@ if (!defined('GLPI_ROOT')) {
 class PeripheralModel extends CommonDropdown {
 
    var $additional_fields_for_dictionnary = array('manufacturer');
+
 
    static function getTypeName($nb=0) {
       return _n('Peripheral model', 'Peripheral models', $nb);

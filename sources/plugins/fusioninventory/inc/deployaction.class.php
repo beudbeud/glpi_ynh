@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Alexandre Delaunay
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -48,7 +48,7 @@ class PluginFusioninventoryDeployAction {
 
    static function retchecks_entries() {
       return array(
-         '--',
+         0 => Dropdown::EMPTY_VALUE,
          'okCode'       => __("Return code is equal to", 'fusioninventory'),
          'errorCode'    => __("Return code is not equal to", 'fusioninventory'),
          'okPattern'    => __("Command output contains", 'fusioninventory'),
@@ -153,7 +153,7 @@ class PluginFusioninventoryDeployAction {
       $i=0;
       foreach ($datas['jobs']['actions'] as $action) {
          echo Search::showNewLine(Search::HTML_OUTPUT, ($i%2));
-         if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+         if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
             echo "<td class='control'>";
             echo "<input type='checkbox' name='action_entries[]' value='$i' />";
             echo "</td>";
@@ -203,20 +203,20 @@ class PluginFusioninventoryDeployAction {
          }
          echo "</td>";
          echo "</td>";
-         if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+         if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
             echo "<td class='rowhandler control' title='".__('drag', 'fusioninventory').
                "'><div class='drag row'></div></td>";
          }
          echo "</tr>";
          $i++;
       }
-         if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+         if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
          echo "<tr><th>";
          Html::checkAllAsCheckbox("actionsList$rand", mt_rand());
          echo "</th><th colspan='3' class='mark'></th></tr>";
       }
       echo "</table>";
-         if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+         if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
          echo "&nbsp;&nbsp;<img src='".$CFG_GLPI["root_doc"]."/pics/arrow-left.png' alt=''>";
          echo "<input type='submit' name='delete' value=\"".
             __('Delete', 'fusioninventory')."\" class='submit'>";
@@ -390,26 +390,16 @@ class PluginFusioninventoryDeployAction {
       if ($type == "cmd") {
          echo "<tr>";
          echo "<th>".__("Execution checks", 'fusioninventory');
-         PluginFusioninventoryDeployPackage::plusButton("retchecks$rand", "table");
+         PluginFusioninventoryDeployPackage::plusButton("retchecks", ".table_retchecks.template");
          echo "</th>";
          echo "<td>";
          $display = "style='display:none'";
          if ($retChecks) {
             $display = "style='display:block'";
          }
-         echo "<span id='retchecks$rand' style='display:block'>";
+         echo "<span id='retchecks' style='display:block'>";
 
 
-         echo "<table class='table_retchecks' style='display:none'>";
-         echo "<tr>";
-         echo "<td>";
-         Dropdown::showFromArray('retchecks_type[]', self::retchecks_entries());
-         echo "</td>";
-         echo "<td><input type='text' name='retchecks_value[]' /></td>";
-         echo "<td><a class='edit' onclick='removeLine$rand(this)'><img src='".
-               $CFG_GLPI["root_doc"]."/pics/delete.png' /></a></td>";
-         echo "</tr>";
-         echo "</table>";
 
          if (  is_array( $retChecks )
             && count( $retChecks )
@@ -426,12 +416,23 @@ class PluginFusioninventoryDeployAction {
                echo "<input type='text' name='retchecks_value[]' value='".
                   $retcheck['values'][0]."' />";
                echo "</td>";
-               echo "<td><a class='edit' onclick='removeLine$rand(this)'><img src='".
+               echo "<td><a class='edit' onclick='removeLine(this)'><img src='".
                   $CFG_GLPI["root_doc"]."/pics/delete.png' /></a></td>";
                echo "</tr>";
                echo "</table>";
             }
          }
+         echo "<table class='table_retchecks template' style='display:none'>";
+         echo "<tr>";
+         echo "<td>";
+         //Toolbox::logDebug(self::retchecks_entries());
+         Dropdown::showFromArray('retchecks_type[]', self::retchecks_entries(), array());
+         echo "</td>";
+         echo "<td><input type='text' name='retchecks_value[]' /></td>";
+         echo "<td><a class='edit' onclick='removeLine(this)'><img src='".
+               $CFG_GLPI["root_doc"]."/pics/delete.png' /></a></td>";
+         echo "</tr>";
+         echo "</table>";
          echo "</span>";
          echo "</td>";
          echo "</tr>";
@@ -439,7 +440,7 @@ class PluginFusioninventoryDeployAction {
 
       echo "<tr>";
       echo "<td></td><td>";
-      if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+      if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
          if ( $mode === 'edit' ) {
             echo "<input type='submit' name='save_item' value=\"".
                _sx('button', 'Save')."\" class='submit' >";
@@ -452,7 +453,7 @@ class PluginFusioninventoryDeployAction {
       echo "</tr></table>";
 
       echo "<script type='text/javascript'>
-         function removeLine$rand(item) {
+         function removeLine(item) {
             var tag_table = item.parentNode.parentNode.parentNode.parentNode;
             var parent = tag_table.parentNode;
                parent.removeChild(tag_table);

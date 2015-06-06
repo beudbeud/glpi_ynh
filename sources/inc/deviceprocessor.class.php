@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: deviceprocessor.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: deviceprocessor.class.php 22884 2014-04-09 11:48:04Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -37,6 +37,8 @@ if (!defined('GLPI_ROOT')) {
 
 /// Class DeviceProcessor
 class DeviceProcessor extends CommonDevice {
+
+   static protected $forward_entity_to = array('Item_DeviceProcessor', 'Infocom');
 
    static function getTypeName($nb=0) {
       return _n('Processor', 'Processors', $nb);
@@ -53,7 +55,14 @@ class DeviceProcessor extends CommonDevice {
                                array('name'  => 'frequence',
                                      'label' => __('Frequency'),
                                      'type'  => 'text',
-                                     'unit'  => __('MHz'))));
+                                     'unit'  => __('MHz')),
+                               array('name'  => 'nbcores_default',
+                                     'label' => __('Number of cores'),
+                                     'type'  => 'integer'),
+                               array('name'  => 'nbthreads_default',
+                                     'label' => __('Number of threads'),
+                                     'type'  => 'integer')
+                           ));
    }
 
 
@@ -71,16 +80,51 @@ class DeviceProcessor extends CommonDevice {
       $tab[12]['name']     = __('Frequency');
       $tab[12]['datatype'] = 'string';
 
+
+
+      $tab[13]['table']    = $this->getTable();
+      $tab[13]['field']    = 'nbcores_default';
+      $tab[13]['name']     = __('Number of cores');
+      $tab[13]['datatype'] = 'integer';
+
+      $tab[14]['table']    = $this->getTable();
+      $tab[14]['field']    = 'nbthreads_default';
+      $tab[14]['name']     = __('Number of threads');
+      $tab[14]['datatype'] = 'integer';
+
       return $tab;
    }
 
 
-   function prepareInputForAdd($input) {
+   /**
+    * @since version 0.85
+    * @param $input
+    *
+    * @return number
+   **/
+   function prepareInputForAddOrUpdate($input) {
 
-      if (isset($input['frequence']) && !is_numeric($input['frequence'])) {
-         $input['frequence'] = 0;
+      foreach (array('frequence', 'frequency_default', 'nbcores_default',
+                     'nbthreads_default') as $field) {
+         if (isset($input[$field]) && !is_numeric($input[$field])) {
+            $input[$field] = 0;
+         }
       }
       return $input;
+   }
+
+
+   function prepareInputForAdd($input) {
+      return self::prepareInputForAddOrUpdate($input);
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDropdown::prepareInputForUpdate()
+   **/
+   function prepareInputForUpdate($input) {
+      return self::prepareInputForAddOrUpdate($input);
    }
 
 
@@ -128,6 +172,7 @@ class DeviceProcessor extends CommonDevice {
       }
    }
 
+
    /**
     * Criteria used for import function
     *
@@ -136,10 +181,11 @@ class DeviceProcessor extends CommonDevice {
     * @since version 0.84
    **/
    function getImportCriteria() {
+
       return array('designation'          => 'equal',
                    'manufacturers_id'     => 'equal',
                    'frequence'            => 'delta:10');
    }
-   
+
 }
 ?>

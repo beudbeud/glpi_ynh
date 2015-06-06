@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: updatecurrenttab.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: updatecurrenttab.php 22857 2014-04-02 21:30:08Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -31,17 +31,34 @@
 * @brief
 */
 
-define('GLPI_ROOT', dirname(__DIR__));
-include_once (GLPI_ROOT . "/config/based_config.php");
-include_once (GLPI_ROOT . "/inc/autoload.function.php");
-header("Content-Type: text/html; charset=UTF-8");
-Html::header_nocache();
-
-Session::setPath();
-Session::start();
+include ('../inc/includes.php');
 
 // Manage tabs
-if (isset($_GET['glpi_tab']) && isset($_GET['itemtype'])) {
-   Session::setActiveTab($_GET['itemtype'], $_GET['glpi_tab']);
+if (isset($_GET['tab']) && isset($_GET['itemtype'])) {
+   if ($item = getItemForItemtype($_GET['itemtype'])) {
+   
+      if (isset($_GET['id']) && !$item->isNewID($_GET['id'])) {
+         $item->getFromDB($_GET['id']);
+      }
+
+      $tabs         = $item->defineAllTabs();
+      if (isset($tabs['no_all_tab'])) {
+         unset($tabs['no_all_tab']);
+      }
+      // Add all tab
+      $tabs[-1]     = 'All';
+      $selected_tab = '';
+      $current      = 0;
+      foreach ($tabs as $key => $val) {
+         if ($current == $_GET['tab']) {
+            $selected_tab = $key;
+         }
+         $current++;
+      }
+      if (!empty($selected_tab)) {
+         Session::setActiveTab($_GET['itemtype'], $selected_tab);
+      }
+
+   }
 }
 ?>

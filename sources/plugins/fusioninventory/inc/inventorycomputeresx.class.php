@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Walid Nouh
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -89,6 +89,7 @@ class PluginFusioninventoryInventoryComputerESX extends PluginFusioninventoryCom
          $a_input['state']                              = 0;
          $a_input['plugin_fusioninventory_agents_id']   = 0;
          $a_input['uniqid']                             = $uniqid;
+         $a_input['execution_id']                       = $task->fields['execution_id'];
 
          foreach ($task_definitions as $task_definition) {
             foreach ($task_definition as $task_itemtype => $task_items_id) {
@@ -127,6 +128,8 @@ class PluginFusioninventoryInventoryComputerESX extends PluginFusioninventoryCom
                      $a_input['items_id']                           = $task_items_id;
                      $a_input['uniqid']                             = $uniqid;
                      $a_input['date']                               = date("Y-m-d H:i:s");
+                     $a_input['execution_id']                       = $task->fields['execution_id'];
+
                      $jobstates_id = $jobstate->add($a_input);
                      //Add log of taskjob
                      $a_input['plugin_fusioninventory_taskjobstates_id'] = $jobstates_id;
@@ -154,33 +157,18 @@ class PluginFusioninventoryInventoryComputerESX extends PluginFusioninventoryCom
     *
     * @return $response array
     */
-   function run($configurations) {
-      $response      = array(
-         'jobs' => array()
-      );
-      $pfTaskjobstate = new PluginFusioninventoryTaskjobstate();
-      $pfTaskjoblog = new PluginFusioninventoryTaskjoblog();
-      $credential    = new PluginFusioninventoryCredential();
-      $credentialip  = new PluginFusioninventoryCredentialIp();
+   function run($taskjobstate) {
+      $credential     = new PluginFusioninventoryCredential();
+      $credentialip   = new PluginFusioninventoryCredentialIp();
 
-      foreach ($configurations as $configuration) {
-         $credentialip->getFromDB($configuration['items_id']);
-         $credential->getFromDB($credentialip->fields['plugin_fusioninventory_credentials_id']);
-         $response['jobs'][] = array(
-            'uuid'      => $configuration['uniqid'],
-            'host'      => $credentialip->fields['ip'],
-            'user'      => $credential->fields['username'],
-            'password'  => $credential->fields['password']
-         );
+      $credentialip->getFromDB($taskjobstate->fields['items_id']);
+      $credential->getFromDB($credentialip->fields['plugin_fusioninventory_credentials_id']);
 
-         $pfTaskjobstate->changeStatus($configuration['id'], 1);
-         $pfTaskjoblog->addTaskjoblog($configuration['id'],
-                                 '0',
-                                 'PluginFusioninventoryAgent',
-                                 '1',
-                                 '');
-      }
-      return $response;
+      $order['uuid'] = $taskjobstate->fields['uniqid'];
+      $order['host'] = $credentialip->fields['ip'];
+      $order['user'] = $credential->fields['username'];
+      $order['password'] = $credential->fields['password'];
+      return $order;
    }
 }
 

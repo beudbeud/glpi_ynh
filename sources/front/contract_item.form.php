@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: contract_item.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: contract_item.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -39,7 +39,7 @@ Session::checkCentralAccess();
 $contract_item   = new Contract_Item();
 
 if (isset($_POST["add"])) {
-   $contract_item->check(-1,'w',$_POST);
+   $contract_item->check(-1, CREATE,$_POST);
    if ($contract_item->add($_POST)) {
       Event::log($_POST["contracts_id"], "contracts", 4, "financial",
                  //TRANS: %s is the user login

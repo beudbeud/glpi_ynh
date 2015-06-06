@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: link.class.php 22790 2014-03-14 20:40:44Z yllen $
+ * @version $Id: link.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,8 +35,12 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// CLASSES link
+/** Link Class
+**/
 class Link extends CommonDBTM {
+
+   static $rightname = 'link';
+
 
 
    static function getTypeName($nb=0) {
@@ -44,25 +48,15 @@ class Link extends CommonDBTM {
    }
 
 
-   static function canCreate() {
-      return Session::haveRight('link', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('link', 'r');
-   }
-
-
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
-      if (Session::haveRight("link","r")) {
+      if (self::canView()) {
          if ($_SESSION['glpishow_count_on_tabs']) {
-            return self::createTabEntry(_n('Link','Links',2),
+            return self::createTabEntry(_n('Link','Links', Session::getPluralNumber()),
                                         countElementsInTable('glpi_links_itemtypes',
                                                              "`itemtype` = '".$item->getType()."'"));
          }
-         return _n('Link','Links',2);
+         return _n('Link','Links', Session::getPluralNumber());
       }
       return '';
    }
@@ -78,6 +72,7 @@ class Link extends CommonDBTM {
    function defineTabs($options=array()) {
 
       $ong = array();
+      $this->addDefaultFormTab($ong);
       $this->addStandardTab('Link_ItemType', $ong, $options);
 
       return $ong;
@@ -94,6 +89,19 @@ class Link extends CommonDBTM {
 
 
    /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::getEmpty()
+   **/
+   function getEmpty() {
+
+      parent::getEmpty();
+      //Keep the same behavior as in previous versions
+      $this->fields['open_window'] = 1;
+   }
+
+
+   /**
    * Print the link form
    *
    * @param $ID      integer ID of the item
@@ -105,22 +113,26 @@ class Link extends CommonDBTM {
    function showForm($ID, $options=array()) {
 
       $this->initForm($ID, $options);
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'><td height='23'>".__('Valid tags')."</td>";
       echo "<td colspan='3'>[LOGIN], [ID], [NAME], [LOCATION], [LOCATIONID], [IP], [MAC], [NETWORK],
-                            [DOMAIN], [SERIAL], [OTHERSERIAL], [USER], [GROUP]</td></tr>";
+                            [DOMAIN], [SERIAL], [OTHERSERIAL], [USER], [GROUP], [REALNAME],
+                            [FIRSTNAME]</td></tr>";
 
       echo "<tr class='tab_bg_1'><td>".__('Name')."</td>";
       echo "<td colspan='3'>";
-      Html::autocompletionTextField($this, "name", array('size' => 84));
+      Html::autocompletionTextField($this, "name");
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'><td>".__('Link or filename')."</td>";
-      echo "<td colspan='2'>";
+      echo "<td colspan='3'>";
       Html::autocompletionTextField($this, "link", array('size' => 84));
-      echo "</td><td width='1'></td></tr>";
+      echo "</td></tr>";
+
+      echo "<tr class='tab_bg_1'><td>".__('Open in a new window')."</td><td>";
+      Dropdown::showYesNo('open_window', $this->fields['open_window']);
+      echo "</td><td colspan='2'>&nbsp;</td></tr>";
 
       echo "<tr class='tab_bg_1'><td>".__('File content')."</td>";
       echo "<td colspan='3'>";
@@ -128,7 +140,6 @@ class Link extends CommonDBTM {
       echo "</td></tr>";
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
 
       return true;
    }
@@ -142,11 +153,10 @@ class Link extends CommonDBTM {
       $isadmin = static::canUpdate();
       $actions = parent::getSpecificMassiveActions($checkitem);
 
-      if (Session::haveRight('transfer','r')
-          && Session::isMultiEntitiesMode()
-          && $isadmin) {
-         $actions['add_transfer_list'] = _x('button', 'Add to transfer list');
+      if ($isadmin) {
+         MassiveAction::getAddTransferList($actions);
       }
+
       return $actions;
    }
 
@@ -247,6 +257,15 @@ class Link extends CommonDBTM {
                                 Dropdown::getDropdownName("glpi_groups",
                                                           $item->getField('groups_id')), $link);
       }
+      if (strstr($link,"[REALNAME]")
+            && $item->isField('realname')) {
+         $link = str_replace("[REALNAME]",$item->getField('realname'),$link);
+      }
+      if (strstr($link,"[FIRSTNAME]")
+            && $item->isField('firstname')) {
+         $link = str_replace("[FIRSTNAME]",$item->getField('firstname'),$link);
+      }
+
 
       $replace_IP  = strstr($link,"[IP]");
       $replace_MAC = strstr($link,"[MAC]");
@@ -365,7 +384,7 @@ class Link extends CommonDBTM {
    static function showForItem(CommonDBTM $item, $withtemplate='') {
       global $DB, $CFG_GLPI;
 
-      if (!Session::haveRight("link","r")) {
+      if (!self::canView()) {
          return false;
       }
 
@@ -373,16 +392,22 @@ class Link extends CommonDBTM {
          return false;
       }
 
+      $restrict = $item->getEntityID();
+      if ($item->getType() == 'User') {
+         $restrict = Profile_User::getEntitiesForUser($item->getID());
+      }
+
       $query = "SELECT `glpi_links`.`id`,
                        `glpi_links`.`link` AS link,
                        `glpi_links`.`name` AS name ,
-                       `glpi_links`.`data` AS data
+                       `glpi_links`.`data` AS data,
+                       `glpi_links`.`open_window` AS open_window
                 FROM `glpi_links`
                 INNER JOIN `glpi_links_itemtypes`
                      ON `glpi_links`.`id` = `glpi_links_itemtypes`.`links_id`
                 WHERE `glpi_links_itemtypes`.`itemtype`='".$item->getType()."' " .
                       getEntitiesRestrictRequest(" AND", "glpi_links", "entities_id",
-                                                 $item->getEntityID(), true)."
+                                                 $restrict, true)."
                 ORDER BY name";
 
       $result = $DB->query($query);
@@ -390,62 +415,123 @@ class Link extends CommonDBTM {
       echo "<div class='spaced'><table class='tab_cadre_fixe'>";
 
       if ($DB->numrows($result) > 0) {
-         echo "<tr><th>".self::getTypeName(2)."</th></tr>";
+         echo "<tr><th>".self::getTypeName(Session::getPluralNumber())."</th></tr>";
          while ($data = $DB->fetch_assoc($result)) {
-            $name = $data["name"];
-            if (empty($name)) {
-               $name = $data["link"];
-            }
-            $names = self::generateLinkContents($name, $item);
-            $file  = trim($data["data"]);
+            $links = self::getAllLinksFor($item, $data);
 
-            if (empty($file)) {
-               // Generate links
-               $links = self::generateLinkContents($data['link'], $item);
-               $i     = 1;
-               foreach ($links as $key => $link) {
-                  $name =  (isset($names[$key]) ? $names[$key] : reset($names));
-                  echo "<tr class='tab_bg_2'>";
-                  $url = $link;
-                  echo "<td class='center'><a href='$url' target='_blank'>";
-                  $linkname = sprintf(__('%1$s #%2$s'), $name, $i);
-                  $linkname = printf(__('%1$s: %2$s'), $linkname, $link);
-                  echo "</a></td></tr>";
-                  $i++;
-               }
-            } else {
-               // Generate files
-               $files = self::generateLinkContents($data['link'], $item);
-               $links = self::generateLinkContents($data['data'], $item);
-               $i     = 1;
-               foreach ($links as $key => $link) {
-                  $name =  (isset($names[$key]) ? $names[$key] : reset($names));
-                  if (isset($files[$key])) {
-                     // a different name for each file, ex name = foo-[IP].txt
-                     $file = $files[$key];
-                  } else {
-                     // same name for all files, ex name = foo.txt
-                     $file = reset($files);
-                  }
-                  echo "<tr class='tab_bg_2'>";
-                  $url = $CFG_GLPI["root_doc"]."/front/link.send.php?lID=".$data['id'].
-                         "&amp;itemtype=".$item->getType().
-                         "&amp;id=".$item->getID()."&amp;rank=$key";
-                  echo "<td class='center'><a href='$url' target='_blank'>";
-                  $linkname = sprintf(__('%1$s #%2$s'), $name, $i);
-                  $linkname = printf(__('%1$s: %2$s'), $linkname, $file);
-                  echo "</a></td></tr>";
-                  $i++;
-               }
+            foreach ($links as $link) {
+               echo "<tr class='tab_bg_2'>";
+               echo "<td class='center'>$link</td></tr>";
             }
          }
          echo "</table></div>";
 
       } else {
-         echo "<tr class='tab_bg_2'><th>".self::getTypeName(2)."</th></tr>";
+         echo "<tr class='tab_bg_2'><th>".self::getTypeName(Session::getPluralNumber())."</th></tr>";
          echo "<tr class='tab_bg_2'><td class='center b'>".__('No link defined')."</td></tr>";
          echo "</table></div>";
       }
+   }
+
+
+   /**
+    * Show Links for an item
+    *
+    * @since version 0.85
+    *
+    * @param $item                        CommonDBTM object
+    * @param $params    array of params : must contain id / name / link / data
+   **/
+   static function getAllLinksFor($item, $params=array()) {
+      global $CFG_GLPI;
+
+      $computedlinks = array();
+      if (!isset($params['name'])
+          || !isset($params['link'])
+          || !isset($params['data'])
+          || !isset($params['id'])) {
+         return $computedlinks;
+      }
+
+      if (!isset($params['open_window'])) {
+         $params['open_window'] = true;
+      }
+
+      if (empty($params['name'])) {
+         $params['name'] = $params['link'];
+      }
+      $names = self::generateLinkContents($params['name'], $item);
+      $file  = trim($params['data']);
+
+      if (empty($file)) {
+         // Generate links
+         $links = self::generateLinkContents($params['link'], $item);
+         $i     = 1;
+         foreach ($links as $key => $val) {
+            $name    = (isset($names[$key]) ? $names[$key] : reset($names));
+            $url     = $val;
+            $newlink = "<a href='$url'";
+            if ($params['open_window']) {
+               $newlink .= " target='_blank'";
+            }
+            $newlink          .= ">";
+            $linkname          = sprintf(__('%1$s #%2$s'), $name, $i);
+            $newlink          .= sprintf(__('%1$s: %2$s'), $linkname, $val);
+            $newlink          .= "</a>";
+            $computedlinks[]   = $newlink;
+            $i++;
+         }
+      } else {
+         // Generate files
+         $files = self::generateLinkContents($params['link'], $item);
+         $links = self::generateLinkContents($params['data'], $item);
+         $i     = 1;
+         foreach ($links as $key => $val) {
+            $name = (isset($names[$key]) ? $names[$key] : reset($names));
+            if (isset($files[$key])) {
+               // a different name for each file, ex name = foo-[IP].txt
+               $file = $files[$key];
+            } else {
+               // same name for all files, ex name = foo.txt
+               $file = reset($files);
+            }
+            $url             = $CFG_GLPI["root_doc"]."/front/link.send.php?lID=".$params['id'].
+                                 "&amp;itemtype=".$item->getType().
+                                 "&amp;id=".$item->getID()."&amp;rank=$key";
+            $newlink         = "<a href='$url' target='_blank'>";
+            $linkname        = sprintf(__('%1$s #%2$s'), $name, $i);
+            $newlink        .= sprintf(__('%1$s: %2$s'), $linkname, $val);
+            $newlink        .= "</a>";
+            $computedlinks[] = $newlink;
+            $i++;
+         }
+      }
+
+      return $computedlinks;
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   static function getSearchOptionsToAdd() {
+
+      $tab                           = array();
+
+      $tab[145]['table']             = 'glpi_links';
+      $tab[145]['field']             = '_virtual';
+      $tab[145]['name']              = _n('External link', 'External links', Session::getPluralNumber());
+      $tab[145]['datatype']          = 'specific';
+      $tab[145]['additionalfields']  = array('id','link', 'name', 'data', 'open_window');
+      $tab[145]['nosearch']          = true;
+      $tab[145]['forcegroupby']      = true;
+      $tab[145]['nosort']            = true;
+      $tab[145]['joinparams']        = array('beforejoin'
+                                              => array('table'      => 'glpi_links_itemtypes',
+                                                       'joinparams' => array('jointype'
+                                                                              => 'itemtypeonly')));
+
+      return $tab;
    }
 }
 ?>

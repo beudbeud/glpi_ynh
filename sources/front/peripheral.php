@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: peripheral.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: peripheral.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,9 +33,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("peripheral", "r");
+Session::checkRight("peripheral", READ);
 
-Html::header(Peripheral::getTypeName(2), $_SERVER['PHP_SELF'], "inventory", "peripheral");
+Html::header(Peripheral::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "assets", "peripheral");
 
 Search::show('Peripheral');
 

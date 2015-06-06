@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: report.switch.list.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: report.switch.list.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,11 +35,11 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("reports", "r");
+Session::checkRight("reports", READ);
 
 // Titre
 if (isset($_POST["switch"]) && $_POST["switch"]) {
-   Html::header(Report::getTypeName(2), $_SERVER['PHP_SELF'], "utils", "report");
+   Html::header(Report::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "tools", "report");
 
    Report::title();
 
@@ -49,7 +49,7 @@ if (isset($_POST["switch"]) && $_POST["switch"]) {
 
    Report::reportForNetworkInformations("`glpi_networkequipments` AS ITEM",
                                         "PORT_1.`itemtype` = 'NetworkEquipment'
-                                         AND PORT_1.`items_id` = ITEM.`id`",
+                                              AND PORT_1.`items_id` = ITEM.`id`",
                                         "ITEM.`id` = '".$_POST["switch"]."'");
 
    Html::footer();

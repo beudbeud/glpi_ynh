@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ruleright.class.php 22696 2014-02-26 09:53:21Z moyo $
+ * @version $Id: ruleright.class.php 23304 2015-01-21 14:46:37Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -34,11 +34,15 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Rule class for Rights management
+/**
+ * RuleRight Class
+ *
+ * Rule class for Rights management
+**/
 class RuleRight extends Rule {
 
    // From Rule
-   static public $right        = 'rule_ldap';
+   static $rightname           = 'rule_ldap';
    public $orderby             = "name";
    public $specific_parameters = true;
 
@@ -48,15 +52,6 @@ class RuleRight extends Rule {
       return 'glpi_rules';
    }
 
-
-   static function canCreate() {
-      return Session::haveRight('rule_ldap', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('rule_ldap', 'r');
-   }
 
 
    /**
@@ -124,9 +119,11 @@ class RuleRight extends Rule {
       $is_recursive = 0;
       $continue     = true;
       $output_src   = $output;
+
       if (count($this->actions)) {
          $entity = array();
          foreach ($this->actions as $action) {
+
             switch ($action->fields["action_type"]) {
                case "assign" :
                   switch ($action->fields["field"]) {
@@ -212,7 +209,7 @@ class RuleRight extends Rule {
             if ($right != '') {
                foreach ($entity as $entID) {
                   $output["_ldap_rules"]["rules_entities_rights"][] = array($entID, $right,
-                                                                           $is_recursive);
+                                                                            $is_recursive);
                }
             } else {
                foreach ($entity as $entID) {
@@ -320,7 +317,7 @@ class RuleRight extends Rule {
       $actions['_affect_entity_by_completename']['force_actions'] = array('regex_result');
       $actions['_affect_entity_by_completename']['duplicatewith'] = 'entities_id';
 
-      $actions['profiles_id']['name']                       = _n('Profile', 'Profiles', 2);
+      $actions['profiles_id']['name']                       = _n('Profile', 'Profiles', Session::getPluralNumber());
       $actions['profiles_id']['type']                       = 'dropdown';
       $actions['profiles_id']['table']                      = 'glpi_profiles';
 

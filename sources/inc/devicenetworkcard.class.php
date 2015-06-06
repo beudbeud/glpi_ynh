@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: devicenetworkcard.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: devicenetworkcard.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,8 +35,12 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class DeviceNetworkCard
+/**
+ * DeviceNetworkCard Class
+**/
 class DeviceNetworkCard extends CommonDevice {
+
+   static protected $forward_entity_to = array('Item_DeviceNetworkCard', 'Infocom');
 
    static function getTypeName($nb=0) {
       return _n('Network card', 'Network cards', $nb);
@@ -49,6 +53,7 @@ class DeviceNetworkCard extends CommonDevice {
     * @since version 0.84
    **/
    function getImportCriteria() {
+
       return array('designation'      => 'equal',
                    'manufacturers_id' => 'equal',
                    'mac'              => 'equal');
@@ -63,7 +68,13 @@ class DeviceNetworkCard extends CommonDevice {
                                      'type'  => 'text'),
                                array('name'  => 'bandwidth',
                                      'label' => __('Flow'),
-                                     'type'  => 'text')));
+                                     'type'  => 'text'),
+                               array('name'  => 'none',
+                                     'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
+                                        RegisteredID::showAddChildButtonForItemForm($this,
+                                                                                    '_registeredID',
+                                                                                    NULL, false),
+                                     'type'  => 'registeredIDChooser')));
    }
 
 
@@ -74,7 +85,7 @@ class DeviceNetworkCard extends CommonDevice {
       $tab[11]['table']    = $this->getTable();
       $tab[11]['field']    = 'mac_default';
       $tab[11]['name']     = __('MAC address by default');
-      $tab[11]['datatype'] = 'string';
+      $tab[11]['datatype'] = 'mac';
 
       $tab[12]['table']    = $this->getTable();
       $tab[12]['field']    = 'bandwidth';

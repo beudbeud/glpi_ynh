@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,31 +46,20 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryCollect_Wmi_Content extends CommonDBTM {
 
+   static $rightname = 'plugin_fusioninventory_collect';
+
    static function getTypeName($nb=0) {
       return __('Windows WMI content', 'fusioninventory');
    }
 
-   
-   
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("collect", "w");
-   }
-
-
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("collect", "r");
-   }
-
-
 
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
-      
+
       if ($item->getID() > 0) {
          if (get_class($item) == 'PluginFusioninventoryCollect') {
             if ($item->fields['type'] == 'wmi') {
-               $a_colregs = getAllDatasFromTable('glpi_plugin_fusioninventory_collects_wmis', 
+               $a_colregs = getAllDatasFromTable('glpi_plugin_fusioninventory_collects_wmis',
                                                  "`plugin_fusioninventory_collects_id`='".$item->getID()."'");
                if (count($a_colregs) == 0) {
                   return array();
@@ -79,13 +68,13 @@ class PluginFusioninventoryCollect_Wmi_Content extends CommonDBTM {
                foreach ($a_colregs as $id=>$data) {
                   $in[] = $id;
                }
-               if (countElementsInTable('glpi_plugin_fusioninventory_collects_wmis_contents', 
+               if (countElementsInTable('glpi_plugin_fusioninventory_collects_wmis_contents',
                                 "`plugin_fusioninventory_collects_wmis_id` IN ('".implode("','", $in)."')") > 0) {
                   return array(__('Windows WMI content', 'fusioninventory'));
                }
             }
          } else if (get_class($item) == 'Computer') {
-            if (countElementsInTable('glpi_plugin_fusioninventory_collects_wmis_contents', 
+            if (countElementsInTable('glpi_plugin_fusioninventory_collects_wmis_contents',
                              "`computers_id`='".$item->getID()."'") > 0) {
                return array(__('Windows WMI content', 'fusioninventory'));
             }
@@ -97,7 +86,7 @@ class PluginFusioninventoryCollect_Wmi_Content extends CommonDBTM {
 
 
    static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
-      
+
       $pfCollect_Wmi = new PluginFusioninventoryCollect_Wmi_Content();
       if (get_class($item) == 'PluginFusioninventoryCollect') {
          $pfCollect_Wmi->showForCollect($item->getID());
@@ -106,12 +95,12 @@ class PluginFusioninventoryCollect_Wmi_Content extends CommonDBTM {
       }
       return TRUE;
    }
-   
+
 
 
    function updateComputer($computers_id, $wmi_data, $collects_wmis_id) {
       global $DB;
-      
+
       $db_wmis = array();
       $query = "SELECT `id`, `property`, `value`
             FROM `glpi_plugin_fusioninventory_collects_wmis_contents`
@@ -165,26 +154,26 @@ class PluginFusioninventoryCollect_Wmi_Content extends CommonDBTM {
          }
       }
    }
-   
-   
-   
+
+
+
    function showForCollect($collects_id) {
-      
-      $a_colregs = getAllDatasFromTable('glpi_plugin_fusioninventory_collects_wmis', 
+
+      $a_colregs = getAllDatasFromTable('glpi_plugin_fusioninventory_collects_wmis',
                                               "`plugin_fusioninventory_collects_id`='".$collects_id."'");
       foreach ($a_colregs as $data) {
          $this->showForCollectWmi($data['id']);
       }
    }
-   
-   
-   
+
+
+
    function showForComputer($computers_id) {
-      
+
       $pfCollect_Wmi = new PluginFusioninventoryCollect_Wmi();
-      
+
       echo "<table class='tab_cadre_fixe'>";
-      
+
       echo "<tr>";
       echo "<th>".__('Moniker', 'fusioninventory')."</th>";
       echo "<th>".__('Class', 'fusioninventory')."</th>";
@@ -193,7 +182,7 @@ class PluginFusioninventoryCollect_Wmi_Content extends CommonDBTM {
       echo "</tr>";
 
       $a_data = $this->find("`computers_id`='".$computers_id."'",
-                              "`plugin_fusioninventory_collects_wmis_id`, 
+                              "`plugin_fusioninventory_collects_wmis_id`,
                                  `property`");
       foreach ($a_data as $data) {
          echo "<tr class='tab_bg_1'>";
@@ -208,23 +197,23 @@ class PluginFusioninventoryCollect_Wmi_Content extends CommonDBTM {
          echo $data['property'];
          echo '</td>';
          echo '<td>';
-         echo $data['value'];         
+         echo $data['value'];
          echo '</td>';
          echo "</tr>";
       }
       echo '</table>';
    }
 
-   
-   
+
+
    function showForCollectWmi($collects_wmis_id) {
       $pfCollect_Wmi = new PluginFusioninventoryCollect_Wmi();
       $computer = new Computer();
-      
+
       $pfCollect_Wmi->getFromDB($collects_wmis_id);
-      
+
       echo "<table class='tab_cadre_fixe'>";
-      
+
       echo "<tr>";
       echo "<th colspan='3'>";
       echo $pfCollect_Wmi->fields['class'];
@@ -249,7 +238,7 @@ class PluginFusioninventoryCollect_Wmi_Content extends CommonDBTM {
          echo $data['property'];
          echo '</td>';
          echo '<td>';
-         echo $data['value'];         
+         echo $data['value'];
          echo '</td>';
          echo "</tr>";
       }

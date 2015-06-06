@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ticketsatisfaction.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ticketsatisfaction.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,7 +38,7 @@ Session::checkLoginUser();
 $inquest = new TicketSatisfaction();
 
 if (isset($_POST["update"])) {
-   $inquest->check($_POST["tickets_id"], 'w');
+   $inquest->check($_POST["tickets_id"], UPDATE);
    $inquest->update($_POST);
 
    Event::log($inquest->getField('tickets_id'), "ticket", 4, "tracking",

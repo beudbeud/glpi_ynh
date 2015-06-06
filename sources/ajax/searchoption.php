@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: searchoption.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: searchoption.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -44,15 +44,15 @@ if (!defined('GLPI_ROOT')) {
 
 Session::checkLoginUser();
 
-   $addmeta = "";
-
 // Non define case
 if (isset($_POST["itemtype"])
-    && isset($_POST["field"]) ) {
+    && isset($_POST["field"])
+    && isset($_POST["num"]) ) {
 
    if (isset($_POST['meta']) && $_POST['meta']) {
-      $addmeta = '2';
+      $fieldname = 'metacriteria';
    } else {
+      $fieldname = 'criteria';
       $_POST['meta'] = 0;
    }
 
@@ -68,10 +68,10 @@ if (isset($_POST["itemtype"])
    }
 
    $randsearch   = -1;
-   $dropdownname = "searchtype$addmeta".$_POST["itemtype"].$_POST["num"];
+   $dropdownname = "searchtype$fieldname".$_POST["itemtype"].$_POST["num"];
    $searchopt    = array();
 
-   echo "<table><tr><td>";
+   echo "<table width='100%'><tr><td width='20%'>";
    if (count($actions)>0) {
 
       // get already get search options
@@ -81,11 +81,13 @@ if (isset($_POST["itemtype"])
          unset($searchopt['name']);
          unset($actions['searchopt']);
       }
-      $randsearch = Dropdown::showFromArray("searchtype".$addmeta."[".$_POST["num"]."]",
+      $randsearch = Dropdown::showFromArray($fieldname."[".$_POST["num"]."][searchtype]",
                                             $actions,
-                                            array('value' => $_POST["searchtype"]));
+                                            array('value'  => $_POST["searchtype"],
+                                                  'width'  => '100%'));
+      $fieldsearch_id = Html::cleanId("dropdown_".$fieldname."[".$_POST["num"]."][searchtype]$randsearch");
    }
-   echo "</td><td>";
+   echo "</td><td width='80%'>";
    echo "<span id='span$dropdownname'>\n";
 
    $_POST['value']      = stripslashes($_POST['value']);
@@ -103,7 +105,7 @@ if (isset($_POST["itemtype"])
                          'searchopt'  => $searchopt,
                          'meta'       => $_POST['meta']);
 
-   Ajax::updateItemOnSelectEvent("dropdown_searchtype".$addmeta."[".$_POST["num"]."]$randsearch",
+   Ajax::updateItemOnSelectEvent($fieldsearch_id,
                                  "span$dropdownname",
                                  $CFG_GLPI["root_doc"]."/ajax/searchoptionvalue.php",
                                  $paramsaction);

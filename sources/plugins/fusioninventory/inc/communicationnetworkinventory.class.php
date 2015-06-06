@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Vincent Mazzoni
    @co-author David Durieux
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -49,24 +49,13 @@ class PluginFusioninventoryCommunicationNetworkInventory {
    private $ptd, $logFile, $agent, $arrayinventory;
    private $a_ports = array();
 
+   static $rightname = 'plugin_fusioninventory_networkequipment';
 
 
    function __construct() {
       if (PluginFusioninventoryConfig::isExtradebugActive()) {
          $this->logFile = GLPI_LOG_DIR.'/fusioninventorycommunication.log';
       }
-   }
-
-
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("networkequipment", "w");
-   }
-
-
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("networkequipment", "r");
    }
 
 
@@ -431,7 +420,7 @@ class PluginFusioninventoryCommunicationNetworkInventory {
                $errors .= $this->rulepassed(0, $input['itemtype']);
             }
          } else {
-            $errors .= $this->rulepassed(0, "PluginFusioninventoryUnknownDevice");
+            $errors .= $this->rulepassed(0, "PluginFusioninventoryUnmanaged");
          }
       }
       return $errors;
@@ -499,7 +488,7 @@ class PluginFusioninventoryCommunicationNetworkInventory {
             unset($_SESSION['plugin_fusioninventory_rules_id']);
          }
       }
-      if ($itemtype == "PluginFusioninventoryUnknownDevice") {
+      if ($itemtype == "PluginFusioninventoryUnmanaged") {
          $class->getFromDB($items_id);
          $input = array();
          $input['id'] = $class->fields['id'];
@@ -518,12 +507,12 @@ class PluginFusioninventoryCommunicationNetworkInventory {
          // TODO : add import ports
          PluginFusioninventoryToolbox::writeXML($items_id,
                                                 serialize($_SESSION['SOURCE_XMLDEVICE']),
-                                                'PluginFusioninventoryUnknownDevice');
+                                                'PluginFusioninventoryUnmanaged');
          $class->update($input);
          $_SESSION['plugin_fusinvsnmp_taskjoblog']['comment'] =
             '[==detail==] ==updatetheitem== Update '.
-                 PluginFusioninventoryUnknownDevice::getTypeName().
-                 ' [[PluginFusioninventoryUnknownDevice::'.$items_id.']]';
+                 PluginFusioninventoryUnmanaged::getTypeName().
+                 ' [[PluginFusioninventoryUnmanaged::'.$items_id.']]';
          $this->addtaskjoblog();
       } else {
          $_SESSION['plugin_fusinvsnmp_taskjoblog']['comment'] =

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -325,6 +325,9 @@ class PluginFusioninventoryFormatconvert {
                                                              $a_inventory['Computer']['serial']));
             }
          }
+         if (isset($array['BIOS']['MSN'])){
+            $a_inventory['Computer']['mserial'] = trim($array['BIOS']['MSN']);
+         }
       }
 
       // * Type of computer
@@ -334,6 +337,14 @@ class PluginFusioninventoryFormatconvert {
             && $array['HARDWARE']['VMSYSTEM'] != ''
                && $array['HARDWARE']['VMSYSTEM'] != 'Physical') {
          $a_inventory['Computer']['computertypes_id'] = $array['HARDWARE']['VMSYSTEM'];
+         // HACK FOR BSDJail, remove serial and UUID (because it's of host, not contener)
+         if ($array['HARDWARE']['VMSYSTEM'] == 'BSDJail') {
+            if (isset($a_inventory['Computer']['serial'])) {
+               $a_inventory['Computer']['serial'] = '';
+            }
+
+            $a_inventory['Computer']['uuid'] .= "-".$a_inventory['Computer']['name'];
+         }
       } else {
          //It's not a virtual machine, then check :
          //1 - HARDWARE/CHASSIS_TYPE
@@ -400,14 +411,27 @@ class PluginFusioninventoryFormatconvert {
          }
          if (isset($array_tmp['plugin_fusioninventory_computerarchs_id'])
                  && $array_tmp['plugin_fusioninventory_computerarchs_id'] != '') {
+
+            $rulecollection = new PluginFusioninventoryRuleDictionnaryComputerArchCollection();
+            $res_rule = $rulecollection->processAllRules(array("name"=>$array_tmp['plugin_fusioninventory_computerarchs_id']));
+            if (isset($res_rule['name'])) {
             $a_inventory['fusioninventorycomputer']['plugin_fusioninventory_computerarchs_id'] =
-                 $array_tmp['plugin_fusioninventory_computerarchs_id'];
+                 $res_rule['name'];
+            } else {
+               $a_inventory['fusioninventorycomputer']['plugin_fusioninventory_computerarchs_id'] =
+                  $array_tmp['plugin_fusioninventory_computerarchs_id'];
+            }
          }
       }
 
       // otherserial (on tag) if defined in config
       if ($pfConfig->getValue('otherserial') == 1) {
          if (isset($array['ACCOUNTINFO'])) {
+            //In very rare case, ACCOUNTINFO section is present twice in the XML file...
+            if (isset($array['ACCOUNTINFO'][0])) {
+               $tmpacc = $array['ACCOUNTINFO'][0];
+               $array['ACCOUNTINFO'] = $tmpacc;
+            }
             if (isset($array['ACCOUNTINFO']['KEYNAME'])
                     && $array['ACCOUNTINFO']['KEYNAME'] == 'TAG') {
                if (isset($array['ACCOUNTINFO']['KEYVALUE'])
@@ -481,6 +505,164 @@ class PluginFusioninventoryFormatconvert {
          }
       }
 
+      // * NETWORK CARD
+      $a_inventory['networkcard'] = array();
+      if ($pfConfig->getValue('component_networkcard') == 1) {
+         if (isset($array['NETWORKS'])) {
+            foreach ($array['NETWORKS'] as $a_netcards) {
+               if (is_array($a_netcards)
+                       && isset($a_netcards['DESCRIPTION'])) {
+
+                  // Search in controller if find NAME = CONTROLLER TYPE
+                  $a_found = array();
+                  if (isset($array['CONTROLLERS'])) {
+                     foreach ($array['CONTROLLERS'] as $a_controllers) {
+                        if (count($a_found) == 0) {
+                           if (isset($a_controllers['TYPE'])
+                              && ($a_netcards['DESCRIPTION'] == $a_controllers['TYPE']
+                                   || strtolower($a_netcards['DESCRIPTION']." controller") ==
+                                          strtolower($a_controllers['TYPE']))
+                                 && !isset($ignorecontrollers[$a_controllers['NAME']])) {
+                              $a_found = $a_controllers;
+                              if (isset($a_netcards['MACADDR'])) {
+                                 $a_found['MACADDR'] = $a_netcards['MACADDR'];
+                              }
+                           }
+                        }
+                     }
+                  }
+                  if (count($a_found) > 0) {
+                     $array_tmp = $thisc->addValues($a_found,
+                                                    array(
+                                                       'NAME'          => 'designation',
+                                                       'MANUFACTURER'  => 'manufacturers_id',
+                                                       'MACADDR'       => 'mac'));
+                     if (isset($a_found['PCIID'])) {
+                        $a_PCIData =
+                              PluginFusioninventoryInventoryExternalDB::getDataFromPCIID(
+                                $a_found['PCIID']
+                              );
+                        if (isset($a_PCIData['manufacturer'])) {
+                           $array_tmp['manufacturers_id'] = $a_PCIData['manufacturer'];
+                        }
+                        if (isset($a_PCIData['name'])) {
+                           $array_tmp['designation'] = $a_PCIData['name'];
+                        }
+                        $array_tmp['designation'] = Toolbox::addslashes_deep($array_tmp['designation']);
+                     }
+                     $array_tmp['mac'] = strtolower($array_tmp['mac']);
+                     $a_inventory['networkcard'][] = $array_tmp;
+
+                     if (isset($a_found['NAME'])) {
+                        $ignorecontrollers[$a_found['NAME']] = 1;
+                     }
+                  }
+               }
+            }
+         }
+      }
+
+      // * NETWORKS
+      $a_inventory['networkport'] = array();
+      if ($pfConfig->getValue('component_networkcard') == 1) {
+         if (isset($array['NETWORKS'])) {
+            $a_networknames = array();
+            foreach ($array['NETWORKS'] as $a_networks) {
+               $virtual_import = 1;
+               if ($pfConfig->getValue("component_networkcardvirtual") == 0) {
+                  if (isset($a_networks['VIRTUALDEV'])
+                          && $a_networks['VIRTUALDEV'] == 1) {
+
+                     $virtual_import = 0;
+                  }
+               }
+               if ($virtual_import == 1) {
+                  $array_tmp = $thisc->addValues($a_networks,
+                                                 array(
+                                                    'DESCRIPTION' => 'name',
+                                                    'MACADDR'     => 'mac',
+                                                    'TYPE'        => 'instantiation_type',
+                                                    'IPADDRESS'   => 'ip',
+                                                    'VIRTUALDEV'  => 'virtualdev',
+                                                    'IPSUBNET'    => 'subnet',
+                                                    'SSID'        => 'ssid',
+                                                    'IPGATEWAY'   => 'gateway',
+                                                    'IPMASK'      => 'netmask',
+                                                    'IPDHCP'      => 'dhcpserver',
+                                                    'SPEED'       => 'speed'));
+
+                  if ((isset($array_tmp['name'])
+                          && $array_tmp['name'] != '')
+                       || (isset($array_tmp['mac'])
+                          && $array_tmp['mac'] != '')) {
+
+                     if (!isset($array_tmp['virtualdev'])
+                             || $array_tmp['virtualdev'] != 1) {
+                        $array_tmp['virtualdev'] = 0;
+                     }
+                     $array_tmp['logical_number'] = 1;
+                     if ($array_tmp['virtualdev'] == 1) {
+                        $array_tmp['logical_number'] = 0;
+                     }
+
+                     $array_tmp['mac'] = strtolower($array_tmp['mac']);
+                     if (isset($a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']])) {
+                        if (isset($array_tmp['ip'])
+                                && $array_tmp['ip'] != '') {
+                           if (!in_array($array_tmp['ip'], $a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']]['ipaddress'])) {
+                              $a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']]['ipaddress'][]
+                                      = $array_tmp['ip'];
+                           }
+                        }
+                        if (isset($a_networks['IPADDRESS6'])
+                                && $a_networks['IPADDRESS6'] != '') {
+                           if (!in_array($a_networks['IPADDRESS6'], $a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']]['ipaddress'])) {
+                              $a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']]['ipaddress'][]
+                                      = $a_networks['IPADDRESS6'];
+                           }
+                        }
+                     } else {
+                        if (isset($array_tmp['ip'])
+                                && $array_tmp['ip'] != '') {
+                           $array_tmp['ipaddress'] = array($array_tmp['ip']);
+                           unset($array_tmp['ip']);
+                        } else {
+                           $array_tmp['ipaddress'] = array();
+                        }
+                        if (isset($a_networks['IPADDRESS6'])
+                              && $a_networks['IPADDRESS6'] != '') {
+                           $array_tmp['ipaddress'][] = $a_networks['IPADDRESS6'];
+                        }
+
+                        if (isset($array_tmp["instantiation_type"])
+                                AND $array_tmp["instantiation_type"] == 'Ethernet') {
+                           $array_tmp["instantiation_type"] = 'NetworkPortEthernet';
+                        } else if (isset($array_tmp["instantiation_type"])
+                                AND ($array_tmp["instantiation_type"] == 'wifi'
+                                     OR $array_tmp["instantiation_type"] == 'IEEE')) {
+                           $array_tmp["instantiation_type"] = 'NetworkPortWifi';
+                        } else if ($array_tmp['mac'] != '') {
+                           $array_tmp["instantiation_type"] = 'NetworkPortEthernet';
+                        } else {
+                           $array_tmp["instantiation_type"] = 'NetworkPortLocal';
+                        }
+                        if (isset($array_tmp['ip'])) {
+                           unset($array_tmp['ip']);
+                        }
+                        if (isset($array_tmp['speed'])) {
+                           $array_tmp['speed'] = $array_tmp['speed'] / 1000000;
+                        }
+
+                        $a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']] = $array_tmp;
+                     }
+                  }
+               }
+            }
+            $a_inventory['networkport'] = $a_networknames;
+         }
+      }
+
+
       // * CONTROLLERS
       $a_inventory['controller'] = array();
       if ($pfConfig->getValue('component_control') == 1) {
@@ -525,7 +707,9 @@ class PluginFusioninventoryFormatconvert {
                                                     'SPEED'        => 'frequency',
                                                     'MANUFACTURER' => 'manufacturers_id',
                                                     'SERIAL'       => 'serial',
-                                                    'NAME'         => 'designation'));
+                                                    'NAME'         => 'designation',
+                                                    'CORE'         => 'nbcores',
+                                                    'THREAD'       => 'nbthreads'));
                   if ($array_tmp['designation'] == ''
                           && isset($a_cpus['TYPE'])) {
                      $array_tmp['designation'] = $a_cpus['TYPE'];
@@ -599,7 +783,8 @@ class PluginFusioninventoryFormatconvert {
                                                     'CAPACITY'     => 'size',
                                                     'SPEED'        => 'frequence',
                                                     'TYPE'         => 'devicememorytypes_id',
-                                                    'SERIALNUMBER' => 'serial'));
+                                                    'SERIALNUMBER' => 'serial',
+                                                    'NUMSLOTS'     => 'busID'));
                   if ($array_tmp['size'] > 0) {
                      $array_tmp['designation'] = "";
                      if (isset($a_memories["TYPE"])
@@ -622,52 +807,34 @@ class PluginFusioninventoryFormatconvert {
 
       // * MONITORS
       $a_inventory['monitor'] = array();
-      if ($pfConfig->getValue('import_monitor') > 0) {
-         if (isset($array['MONITORS'])) {
-            $a_serialMonitor = array();
-            foreach ($array['MONITORS'] as $a_monitors) {
-               $array_tmp = $thisc->addValues($a_monitors,
-                                              array(
-                                                 'CAPTION'      => 'name',
-                                                 'MANUFACTURER' => 'manufacturers_id',
-                                                 'SERIAL'       => 'serial',
-                                                 'DESCRIPTION'  => 'comment'));
-
-               $pfBlacklist = new PluginFusioninventoryInventoryComputerBlacklist();
-               $array_tmp2 = array('monitor' => array(0 => $array_tmp));
-               $array_tmp2 = $pfBlacklist->cleanBlacklist($array_tmp2);
-               $array_tmp = $array_tmp2['monitor'][0];
-
-               if (!($pfConfig->getValue('import_monitor') == 3
-                       && (!isset($array_tmp['serial'])
-                           ||$array_tmp['serial'] == ''))) {
-                  $add = 1;
-                  if (isset($array_tmp['serial'])
-                          && $array_tmp['serial'] != ''
-                          && isset($a_serialMonitor[$array_tmp['serial']])) {
-                     $add = 0;
-                  }
-                  if (!isset($array_tmp['name'])) {
-                     $array_tmp['name'] = '';
-                  }
-                  if ($array_tmp['name'] == ''
-                          && isset($array_tmp['comment'])) {
-                     $array_tmp['name'] = $array_tmp['comment'];
-                  }
-                  if (isset($array_tmp['comment'])) {
-                     unset($array_tmp['comment']);
-                  }
-                  if (!isset($array_tmp['serial'])) {
-                     $array_tmp['serial'] = '';
-                  }
-                  if (!isset($array_tmp['manufacturers_id'])) {
-                     $array_tmp['manufacturers_id'] = '';
-                  }
-                  if ($add == 1) {
-                     $a_inventory['monitor'][] = $array_tmp;
-                     $a_serialMonitor[$array_tmp['serial']] = 1;
-                  }
-               }
+      if (isset($array['MONITORS'])) {
+         $a_serialMonitor = array();
+         foreach ($array['MONITORS'] as $a_monitors) {
+            $array_tmp = $thisc->addValues($a_monitors,
+                                           array(
+                                              'CAPTION'      => 'name',
+                                              'MANUFACTURER' => 'manufacturers_id',
+                                              'SERIAL'       => 'serial',
+                                              'DESCRIPTION'  => 'comment'));
+            if (!isset($array_tmp['name'])) {
+               $array_tmp['name'] = '';
+            }
+            if ($array_tmp['name'] == ''
+                    && isset($array_tmp['comment'])) {
+               $array_tmp['name'] = $array_tmp['comment'];
+            }
+            if (isset($array_tmp['comment'])) {
+               unset($array_tmp['comment']);
+            }
+            if (!isset($array_tmp['serial'])) {
+               $array_tmp['serial'] = '';
+            }
+            if (!isset($array_tmp['manufacturers_id'])) {
+               $array_tmp['manufacturers_id'] = '';
+            }
+            if (!isset($a_serialMonitor[$array_tmp['serial']])) {
+               $a_inventory['monitor'][] = $array_tmp;
+               $a_serialMonitor[$array_tmp['serial']] = 1;
             }
          }
       }
@@ -675,45 +842,35 @@ class PluginFusioninventoryFormatconvert {
 
       // * PRINTERS
       $a_inventory['printer'] = array();
-      if ($pfConfig->getValue('import_printer') > 0) {
-         if (isset($array['PRINTERS'])) {
-            $rulecollection = new RuleDictionnaryPrinterCollection();
-            foreach ($array['PRINTERS'] as $a_printers) {
-               $array_tmp = $thisc->addValues($a_printers,
-                                              array(
-                                                 'NAME'         => 'name',
-                                                 'PORT'         => 'port',
-                                                 'SERIAL'       => 'serial'));
-               if (!($pfConfig->getValue('import_printer') == 3
-                       && $array_tmp['serial'] == '')) {
-
-                  if (strstr($array_tmp['port'], "USB")) {
-                     $array_tmp['have_usb'] = 1;
-                  } else {
-                     $array_tmp['have_usb'] = 0;
-                  }
-                  unset($array_tmp['port']);
-                  $res_rule = $rulecollection->processAllRules(array("name"=>$array_tmp['name']));
-                  if (isset($res_rule['_ignore_ocs_import'])
-                          && $res_rule['_ignore_ocs_import'] == "1") {
-                     // Ignrore import printer
-                  } else if (isset($res_rule['_ignore_import'])
-                          && $res_rule['_ignore_import'] == "1") {
-                     // Ignrore import printer
-                  } else {
-                      if (isset($res_rule['name'])) {
-                         $array_tmp['name'] = $res_rule['name'];
-                      }
-                      if (isset($res_rule['manufacturer'])) {
-                         $array_tmp['manufacturers_id'] = $res_rule['manufacturer'];
-                      }
-                      // use config of plugin (unit, global unit, unit with serial)
-//                      if (isset($res_rule['is_global'])) {
-//                         $array_tmp['is_global'] = $res_rule['is_global'];
-//                      }
-                     $a_inventory['printer'][] = $array_tmp;
-                  }
+      if (isset($array['PRINTERS'])) {
+         $rulecollection = new RuleDictionnaryPrinterCollection();
+         foreach ($array['PRINTERS'] as $a_printers) {
+            $array_tmp = $thisc->addValues($a_printers,
+                                           array(
+                                              'NAME'         => 'name',
+                                              'PORT'         => 'port',
+                                              'SERIAL'       => 'serial'));
+            if (strstr($array_tmp['port'], "USB")) {
+               $array_tmp['have_usb'] = 1;
+            } else {
+               $array_tmp['have_usb'] = 0;
+            }
+            unset($array_tmp['port']);
+            $res_rule = $rulecollection->processAllRules(array("name"=>$array_tmp['name']));
+            if (isset($res_rule['_ignore_ocs_import'])
+                    && $res_rule['_ignore_ocs_import'] == "1") {
+               // Ignrore import printer
+            } else if (isset($res_rule['_ignore_import'])
+                    && $res_rule['_ignore_import'] == "1") {
+               // Ignrore import printer
+            } else {
+               if (isset($res_rule['name'])) {
+                  $array_tmp['name'] = $res_rule['name'];
                }
+               if (isset($res_rule['manufacturer'])) {
+                  $array_tmp['manufacturers_id'] = $res_rule['manufacturer'];
+               }
+               $a_inventory['printer'][] = $array_tmp;
             }
          }
       }
@@ -722,171 +879,78 @@ class PluginFusioninventoryFormatconvert {
 
       // * PERIPHERAL
       $a_inventory['peripheral'] = array();
-      if ($pfConfig->getValue('import_peripheral') > 0) {
-         $a_peripheral_name = array();
-         $per = 0;
-         if (isset($array['USBDEVICES'])) {
-            foreach ($array['USBDEVICES'] as $a_peripherals) {
-               $array_tmp = $thisc->addValues($a_peripherals,
-                                              array(
-                                                 'NAME'         => 'name',
-                                                 'MANUFACTURER' => 'manufacturers_id',
-                                                 'SERIAL'       => 'serial',
-                                                 'PRODUCTNAME'  => 'productname'));
+      $a_peripheral_name = array();
+      $per = 0;
+      if (isset($array['USBDEVICES'])) {
+         foreach ($array['USBDEVICES'] as $a_peripherals) {
+            $array_tmp = $thisc->addValues($a_peripherals,
+                                           array(
+                                              'NAME'         => 'name',
+                                              'MANUFACTURER' => 'manufacturers_id',
+                                              'SERIAL'       => 'serial',
+                                              'PRODUCTNAME'  => 'productname'));
 
-               if(isset($a_peripherals['VENDORID'])
-                        AND $a_peripherals['VENDORID'] != ''
-                        AND isset($a_peripherals['PRODUCTID'])) {
+            if(isset($a_peripherals['VENDORID'])
+                     AND $a_peripherals['VENDORID'] != ''
+                     AND isset($a_peripherals['PRODUCTID'])) {
 
-                  $dataArray = PluginFusioninventoryInventoryExternalDB::getDataFromUSBID(
-                             $a_peripherals['VENDORID'],
-                             $a_peripherals['PRODUCTID']
-                          );
-                  $dataArray[0] = preg_replace('/&(?!\w+;)/', '&amp;', $dataArray[0]);
-                  if (!empty($dataArray[0])
-                          AND empty($array_tmp['manufacturers_id'])) {
-                     $array_tmp['manufacturers_id'] = $dataArray[0];
-                  }
-                  $dataArray[1] = preg_replace('/&(?!\w+;)/', '&amp;', $dataArray[1]);
-                  if (!empty($dataArray[1])
-                          AND empty($a_peripherals['productname'])) {
-                     $a_peripherals['productname'] = $dataArray[1];
-                  }
+               $dataArray = PluginFusioninventoryInventoryExternalDB::getDataFromUSBID(
+                          $a_peripherals['VENDORID'],
+                          $a_peripherals['PRODUCTID']
+                       );
+               $dataArray[0] = preg_replace('/&(?!\w+;)/', '&amp;', $dataArray[0]);
+               if (!empty($dataArray[0])
+                       AND empty($array_tmp['manufacturers_id'])) {
+                  $array_tmp['manufacturers_id'] = $dataArray[0];
                }
-
-               if ($array_tmp['productname'] != '') {
-                  $array_tmp['name'] = $array_tmp['productname'];
-               }
-               unset($array_tmp['productname']);
-
-               if (!($pfConfig->getValue('import_peripheral') == 3
-                       && $array_tmp['serial'] == '')) {
-
-                  $a_inventory['peripheral'][] = $array_tmp;
-                  $a_peripheral_name[$array_tmp['name']] = $per;
-                  $per++;
+               $dataArray[1] = preg_replace('/&(?!\w+;)/', '&amp;', $dataArray[1]);
+               if (!empty($dataArray[1])
+                       AND empty($a_peripherals['productname'])) {
+                  $a_peripherals['productname'] = $dataArray[1];
                }
             }
-         }
-         if (isset($array['INPUTS'])) {
-            $a_pointingtypes = array(
-                3 => 'Mouse',
-                4 => 'Trackball',
-                5 => 'Track Point',
-                6 => 'Glide Point',
-                7 => 'Touch Pad',
-                8 => 'Touch Screen',
-                9 => 'Mouse - Optical Sensor'
-            );
-            foreach ($array['INPUTS'] as $a_peripherals) {
-               $array_tmp = $thisc->addValues($a_peripherals,
-                                              array(
-                                                 'NAME'         => 'name',
-                                                 'MANUFACTURER' => 'manufacturers_id'));
-               $array_tmp['serial'] = '';
-               $array_tmp['peripheraltypes_id'] = '';
-               if (isset($a_peripherals['POINTINGTYPE'])
-                       && isset($a_pointingtypes[$a_peripherals['POINTINGTYPE']])) {
 
-                  $array_tmp['peripheraltypes_id'] = $a_pointingtypes[$a_peripherals['POINTINGTYPE']];
-               }
-               if (isset($a_peripherals['LAYOUT'])) {
-                  $array_tmp['peripheraltypes_id'] = 'keyboard';
-               }
-
-               if (!($pfConfig->getValue('import_peripheral') == 3
-                       && $array_tmp['serial'] == '')) {
-                  if (isset($a_peripheral_name[$array_tmp['name']])) {
-                     $a_inventory['peripheral'][$a_peripheral_name[$array_tmp['name']]]['peripheraltypes_id'] = $array_tmp['peripheraltypes_id'];
-                  } else {
-                     $a_inventory['peripheral'][] = $array_tmp;
-                  }
-               }
+            if ($array_tmp['productname'] != '') {
+               $array_tmp['name'] = $array_tmp['productname'];
             }
+            unset($array_tmp['productname']);
+
+            $a_inventory['peripheral'][] = $array_tmp;
+            $a_peripheral_name[$array_tmp['name']] = $per;
+            $per++;
          }
       }
+      if (isset($array['INPUTS'])) {
+         $a_pointingtypes = array(
+             3 => 'Mouse',
+             4 => 'Trackball',
+             5 => 'Track Point',
+             6 => 'Glide Point',
+             7 => 'Touch Pad',
+             8 => 'Touch Screen',
+             9 => 'Mouse - Optical Sensor'
+         );
+         foreach ($array['INPUTS'] as $a_peripherals) {
+            $array_tmp = $thisc->addValues($a_peripherals,
+                                           array(
+                                              'NAME'         => 'name',
+                                              'MANUFACTURER' => 'manufacturers_id'));
+            $array_tmp['serial'] = '';
+            $array_tmp['peripheraltypes_id'] = '';
+            if (isset($a_peripherals['POINTINGTYPE'])
+                    && isset($a_pointingtypes[$a_peripherals['POINTINGTYPE']])) {
 
-
-      // * NETWORKS
-      $a_inventory['networkport'] = array();
-      if ($pfConfig->getValue('component_networkcard') == 1) {
-         if (isset($array['NETWORKS'])) {
-            $a_networknames = array();
-            foreach ($array['NETWORKS'] as $a_networks) {
-               $virtual_import = 1;
-               if ($pfConfig->getValue("component_networkcardvirtual") == 0) {
-                  if (isset($a_networks['VIRTUALDEV'])
-                          && $a_networks['VIRTUALDEV'] == 1) {
-
-                     $virtual_import = 0;
-                  }
-               }
-               if ($virtual_import == 1) {
-                  $array_tmp = $thisc->addValues($a_networks,
-                                                 array(
-                                                    'DESCRIPTION' => 'name',
-                                                    'MACADDR'     => 'mac',
-                                                    'TYPE'        => 'instantiation_type',
-                                                    'IPADDRESS'   => 'ip',
-                                                    'VIRTUALDEV'  => 'virtualdev',
-                                                    'IPSUBNET'    => 'subnet',
-                                                    'SSID'        => 'ssid',
-                                                    'IPGATEWAY'   => 'gateway',
-                                                    'IPMASK'      => 'netmask',
-                                                    'IPDHCP'      => 'dhcpserver'));
-                  if ((isset($array_tmp['name'])
-                          && $array_tmp['name'] != '')
-                       || (isset($array_tmp['mac'])
-                          && $array_tmp['mac'] != '')) {
-
-                     if (!isset($array_tmp['virtualdev'])
-                             || $array_tmp['virtualdev'] != 1) {
-                        $array_tmp['virtualdev'] = 0;
-                     }
-                     $array_tmp['logical_number'] = 1;
-                     if ($array_tmp['virtualdev'] == 1) {
-                        $array_tmp['logical_number'] = 0;
-                     }
-
-                     $array_tmp['mac'] = strtolower($array_tmp['mac']);
-                     if (isset($a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']])) {
-                        if (isset($array_tmp['ip'])) {
-                           if (!in_array($array_tmp['ip'], $a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']]['ipaddress'])) {
-                              $a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']]['ipaddress'][]
-                                      = $array_tmp['ip'];
-                           }
-                        }
-                     } else {
-                        if (isset($array_tmp['ip'])
-                                && $array_tmp['ip'] != '') {
-                           $array_tmp['ipaddress'] = array($array_tmp['ip']);
-                           unset($array_tmp['ip']);
-                        } else {
-                           $array_tmp['ipaddress'] = array();
-                        }
-                        if (isset($a_networks['IPADDRESS6'])
-                              && $a_networks['IPADDRESS6'] != '') {
-                           $array_tmp['ipaddress'][] = $a_networks['IPADDRESS6'];
-                        }
-
-                        if (isset($array_tmp["instantiation_type"])
-                                AND $array_tmp["instantiation_type"] == 'Ethernet') {
-                           $array_tmp["instantiation_type"] = 'NetworkPortEthernet';
-                        } else if (isset($array_tmp["instantiation_type"])
-                                AND ($array_tmp["instantiation_type"] == 'Wifi'
-                                     OR $array_tmp["instantiation_type"] == 'IEEE')) {
-                           $array_tmp["instantiation_type"] = 'NetworkPortWifi';
-                        } else if ($array_tmp['mac'] != '') {
-                           $array_tmp["instantiation_type"] = 'NetworkPortEthernet';
-                        } else {
-                           $array_tmp["instantiation_type"] = 'NetworkPortLocal';
-                        }
-                        $a_networknames[$array_tmp['name'].'-'.$array_tmp['mac']] = $array_tmp;
-                     }
-                  }
-               }
+               $array_tmp['peripheraltypes_id'] = $a_pointingtypes[$a_peripherals['POINTINGTYPE']];
             }
-            $a_inventory['networkport'] = $a_networknames;
+            if (isset($a_peripherals['LAYOUT'])) {
+               $array_tmp['peripheraltypes_id'] = 'keyboard';
+            }
+
+            if (isset($a_peripheral_name[$array_tmp['name']])) {
+               $a_inventory['peripheral'][$a_peripheral_name[$array_tmp['name']]]['peripheraltypes_id'] = $array_tmp['peripheraltypes_id'];
+            } else {
+               $a_inventory['peripheral'][] = $array_tmp;
+            }
          }
       }
 
@@ -907,13 +971,13 @@ class PluginFusioninventoryFormatconvert {
             $type_tmp = PluginFusioninventoryFormatconvert::getTypeDrive($a_storage);
             if ($type_tmp == "Drive") {
                // it's cd-rom / dvd
-//               if ($pfConfig->getValue($_SESSION["plugin_fusioninventory_moduleid"],
+//               if ($pfConfig->getValue(,
 //                    "component_drive") =! 0) {
 //// TODO ***
 //                }
             } else {
                // it's harddisk
-//               if ($pfConfig->getValue($_SESSION["plugin_fusioninventory_moduleid"],
+//               if ($pfConfig->getValue(,
 //                    "component_harddrive") != 0) {
                if (is_array($a_storage)) {
                   if ($pfConfig->getValue('component_harddrive') == 1) {
@@ -1010,6 +1074,11 @@ class PluginFusioninventoryFormatconvert {
                                                  'STATUS'      => 'virtualmachinestates_id',
                                                  'UUID'        => 'uuid'));
                $array_tmp['is_dynamic'] = 1;
+               // Hack for BSD jails
+               if ($array_tmp['virtualmachinetypes_id'] == 'jail') {
+                  $array_tmp['uuid'] = $a_inventory['Computer']['uuid']."-".$array_tmp['name'];
+               }
+
                $a_inventory['virtualmachine'][] = $array_tmp;
             }
          }
@@ -1017,6 +1086,18 @@ class PluginFusioninventoryFormatconvert {
       if ($pfConfig->getValue('create_vm') == 1) {
          if (isset($array['VIRTUALMACHINES'])) {
             foreach ($array['VIRTUALMACHINES'] as $a_virtualmachines) {
+               if (strstr($a_virtualmachines['MEMORY'], 'MB')) {
+                  $a_virtualmachines['MEMORY'] = str_replace('MB', '', $a_virtualmachines['MEMORY']);
+               } else if (strstr($a_virtualmachines['MEMORY'], 'KB')) {
+                  $a_virtualmachines['MEMORY'] = str_replace('KB', '', $a_virtualmachines['MEMORY']);
+                  $a_virtualmachines['MEMORY'] = $a_virtualmachines['MEMORY'] / 1000;
+               } else if (strstr($a_virtualmachines['MEMORY'], 'GB')) {
+                  $a_virtualmachines['MEMORY'] = str_replace('GB', '', $a_virtualmachines['MEMORY']);
+                  $a_virtualmachines['MEMORY'] = $a_virtualmachines['MEMORY'] * 1000;
+               } else if (strstr($a_virtualmachines['MEMORY'], 'B')) {
+                  $a_virtualmachines['MEMORY'] = str_replace('B', '', $a_virtualmachines['MEMORY']);
+                  $a_virtualmachines['MEMORY'] = $a_virtualmachines['MEMORY'] / 1000000;
+               }
                $array_tmp = $thisc->addValues($a_virtualmachines,
                                               array(
                                                  'NAME'            => 'name',
@@ -1544,9 +1625,9 @@ class PluginFusioninventoryFormatconvert {
          'pages_total', 'pages_n_b', 'pages_color', 'pages_recto_verso', 'scanned',
          'pages_total_print', 'pages_n_b_print', 'pages_color_print', 'pages_total_copy',
          'pages_n_b_copy', 'pages_color_copy', 'pages_total_fax',
-         'cpu', 'trunk', 'is_active', 'uptodate', 'frequency',
-         'ifinerrors', 'ifinoctets', 'ifouterrors', 'ifoutoctets', 'ifmtu',
-         'speed', 'vcpu', 'ram');
+         'cpu', 'trunk', 'is_active', 'uptodate', 'nbthreads', 'vcpu', 'ram',
+         'ifinerrors', 'ifinoctets', 'ifouterrors', 'ifoutoctets', 'ifmtu', 'speed',
+         'nbcores', 'nbthreads', 'frequency');
 
       foreach ($a_key as $key=>$value) {
          if (!isset($a_return[$value])
@@ -1567,7 +1648,6 @@ class PluginFusioninventoryFormatconvert {
    function replaceids($array) {
       global $CFG_GLPI;
 
-      $manufacturer = new Manufacturer();
       foreach ($array as $key=>$value) {
          if (!is_int($key)
                  && ($key == "software"
@@ -1582,6 +1662,7 @@ class PluginFusioninventoryFormatconvert {
                if (!is_numeric($key)
                        && ($key == "manufacturers_id"
                            || $key == 'bios_manufacturers_id')) {
+                  $manufacturer = new Manufacturer();
                   $array[$key]  = $manufacturer->processName($value);
                   if ($key == 'bios_manufacturers_id') {
                      $this->foreignkey_itemtype[$key] =
@@ -1592,28 +1673,36 @@ class PluginFusioninventoryFormatconvert {
                      }
                   }
                }
-               if (!is_numeric($key)
-                       && $key == "locations_id") {
+               if (!is_numeric($key)) {
+                  if ($key == "bios_manufacturers_id") {
+                     $array[$key] = Dropdown::importExternal($this->foreignkey_itemtype['manufacturers_id'],
+                                                             $value);
+                  } else if ($key == "locations_id") {
                         $array[$key] = Dropdown::importExternal('Location',
                                                                 $value,
                                                                 $_SESSION["plugin_fusioninventory_entity"]);
-               } else if (!is_numeric($key)) {
-                  if (isset($this->foreignkey_itemtype[$key])) {
+                  } else if (isset($this->foreignkey_itemtype[$key])) {
                      $array[$key] = Dropdown::importExternal($this->foreignkey_itemtype[$key],
-                                                             $value);
+                                                             $value,
+                                                             $_SESSION["plugin_fusioninventory_entity"]);
                   } else if (isForeignKeyField($key)
                           && $key != "users_id") {
                      $this->foreignkey_itemtype[$key] =
                                  getItemTypeForTable(getTableNameForForeignKeyField($key));
                      if ($key == 'computermodels_id') {
-                        $manufacturer = current($CFG_GLPI['plugin_fusioninventory_computermanufacturer']);
-                        $array[$key] = Dropdown::importExternal($this->foreignkey_itemtype[$key],
-                                                                $value,
-                                                                '-1',
-                                                                array('manufacturer' => $manufacturer));
+                        if (isset($CFG_GLPI['plugin_fusioninventory_computermanufacturer'])) {
+                           $manufacturer = current($CFG_GLPI['plugin_fusioninventory_computermanufacturer']);
+                           $array[$key] = Dropdown::importExternal($this->foreignkey_itemtype[$key],
+                                                                   $value,
+                                                                   $_SESSION["plugin_fusioninventory_entity"],
+                                                                   array('manufacturer' => $manufacturer));
+                        } else {
+                           $array[$key] = 0;
+                        }
                      } else {
                         $array[$key] = Dropdown::importExternal($this->foreignkey_itemtype[$key],
-                                                                $value);
+                                                                $value,
+                                                                $_SESSION["plugin_fusioninventory_entity"]);
                      }
                   }
                }
@@ -1703,7 +1792,8 @@ class PluginFusioninventoryFormatconvert {
                                               'IFOUTOCTETS'       => 'ifoutoctets',
                                               'IFSTATUS'          => 'ifstatus',
                                               'IFTYPE'            => 'iftype',
-                                              'TRUNK'             => 'trunk'));
+                                              'TRUNK'             => 'trunk',
+                                              'IFPORTDUPLEX'      => 'portduplex'));
             $array_tmp['ifspeed'] = $array_tmp['speed'];
             if ($array_tmp['ifdescr'] == '') {
                $array_tmp['ifdescr'] = $array_tmp['name'];

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ssovariable.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ssovariable.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
@@ -39,23 +39,28 @@ if (!defined('GLPI_ROOT')) {
 **/
 class SsoVariable extends CommonDropdown {
 
-   var $refresh_page = true;
+   static $rightname = 'config';
 
-
-   static function canCreate() {
-      return Session::haveRight('config', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('config', 'r');
-   }
+   var $can_be_translated = false;
 
 
    static function getTypeName($nb=0) {
 
       return _n('Field storage of the login in the HTTP request',
                 'Fields storage of the login in the HTTP request', $nb);
+   }
+
+
+   static function canCreate() {
+      return static::canUpdate();
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   static function canPurge() {
+      return static::canUpdate();
    }
 
 }

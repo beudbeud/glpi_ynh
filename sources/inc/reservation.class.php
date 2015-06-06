@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: reservation.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: reservation.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,15 +35,19 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Reservation class
+/**
+ * Reservation Class
+**/
 class Reservation extends CommonDBChild {
 
    // From CommonDBChild
-   static public $itemtype = 'ReservationItem';
-   static public $items_id = 'reservationitems_id';
+   static public $itemtype          = 'ReservationItem';
+   static public $items_id          = 'reservationitems_id';
 
-   static public $checkParentRights  = self::HAVE_VIEW_RIGHT_ON_ITEM;
-   
+   static $rightname                = 'reservation';
+   static public $checkParentRights = self::HAVE_VIEW_RIGHT_ON_ITEM;
+
+
    /**
     * @param $nb  integer  for singular or plural
    **/
@@ -58,8 +62,8 @@ class Reservation extends CommonDBChild {
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
       if (!$withtemplate
-          && Session::haveRight("reservation_central", "r")) {
-         return self::getTypeName(2);
+          && Session::haveRight("reservation", READ)) {
+         return self::getTypeName(Session::getPluralNumber());
       }
       return '';
    }
@@ -72,8 +76,9 @@ class Reservation extends CommonDBChild {
    **/
    static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
 
+
       if ($item->getType() == 'User') {
-         self::showForUser($_POST["id"]);
+         self::showForUser($_GET["id"]);
       } else {
          self::showForItem($item);
       }
@@ -86,7 +91,7 @@ class Reservation extends CommonDBChild {
 
       if (isset($this->fields["users_id"])
           && (($this->fields["users_id"] === Session::getLoginUserID())
-              || Session::haveRight("reservation_central", "w"))) {
+              || Session::haveRight("reservation", DELETE))) {
 
          // Processing Email
          if ($CFG_GLPI["use_mailing"]) {
@@ -291,21 +296,7 @@ class Reservation extends CommonDBChild {
     * @since version 0.84
    **/
    static function canCreate() {
-
-      return ((Session::haveRight("reservation_helpdesk", "1")
-               || Session::haveRight("reservation_central", "w"))
-              && parent::canCreate());
-   }
-
-
-   /**
-    * @since version 0.84
-   **/
-   static function canView() {
-
-      return ((Session::haveRight("reservation_helpdesk", "1")
-               || Session::haveRight("reservation_central", "r"))
-              && parent::canView());
+      return (Session::haveRight(self::$rightname, ReservationItem::RESERVEANITEM));
    }
 
 
@@ -313,10 +304,7 @@ class Reservation extends CommonDBChild {
     * @since version 0.84
    **/
    static function canUpdate() {
-
-      return ((Session::haveRight("reservation_helpdesk", "1")
-               || Session::haveRight("reservation_central", "w"))
-              && parent::canUpdate());
+      return (Session::haveRight(self::$rightname, ReservationItem::RESERVEANITEM));
    }
 
 
@@ -324,10 +312,7 @@ class Reservation extends CommonDBChild {
     * @since version 0.84
    **/
    static function canDelete() {
-
-      return ((Session::haveRight("reservation_helpdesk", "1")
-               || Session::haveRight("reservation_central", "w"))
-              && parent::canDelete());
+      return (Session::haveRight(self::$rightname, ReservationItem::RESERVEANITEM));
    }
 
 
@@ -337,18 +322,15 @@ class Reservation extends CommonDBChild {
    **/
    function canChildItem($methodItem, $methodNotItem) {
 
-
       // Original user always have right
       if ($this->fields['users_id'] === Session::getLoginUserID()) {
          return true;
       }
-      
+
       if (!parent::canChildItem($methodItem, $methodNotItem)) {
          return false;
       }
 
-
-      
       $ri = $this->getItem();
       if ($ri === false) {
          return false;
@@ -387,7 +369,7 @@ class Reservation extends CommonDBChild {
    static function showCalendar($ID="") {
       global $CFG_GLPI;
 
-      if (!Session::haveRight("reservation_helpdesk", "1")) {
+      if (!Session::haveRight("reservation", ReservationItem::RESERVEANITEM)) {
          return false;
       }
 
@@ -465,7 +447,7 @@ class Reservation extends CommonDBChild {
       echo "<div class='center'><table class='tab_glpi'><tr><td>";
       echo "<img src='".$CFG_GLPI["root_doc"]."/pics/reservation.png' alt='' title=''></td>";
       echo "<td class ='b'>".$name."</td></tr>";
-      echo "<tr><td colspan='2' class ='center'>$all</td></tr></table></div></br>\n";
+      echo "<tr><td colspan='2' class ='center'>$all</td></tr></table></div><br>\n";
 
       // Check bisextile years
       if (($annee_courante%4) == 0) {
@@ -573,7 +555,7 @@ class Reservation extends CommonDBChild {
          if (!empty($ID)) {
             echo "<tr><td class='center'>";
             echo "<a href='reservation.form.php?id=&amp;item[$ID]=$ID&amp;".
-                  "date=".$annee_courante."-".$mois_courant."-".$ii."'>";
+                  "begin=".$annee_courante."-".$mois_courant."-".$ii." 12:00:00'>";
             echo "<img  src='".$CFG_GLPI["root_doc"]."/pics/addresa.png' alt=\"".
                   __s('Reserve')."\" title=\"".__s('Reserve')."\"></a></td></tr>\n";
          }
@@ -614,7 +596,8 @@ class Reservation extends CommonDBChild {
    **/
    function showForm($ID, $options=array()) {
       global $CFG_GLPI;
-      if (!Session::haveRight("reservation_helpdesk","1")) {
+
+      if (!Session::haveRight("reservation", ReservationItem::RESERVEANITEM)) {
          return false;
       }
 
@@ -625,7 +608,7 @@ class Reservation extends CommonDBChild {
             return false;
          }
 
-         if (!$resa->can($ID,"w")) {
+         if (!$resa->can($ID, UPDATE)) {
             return false;
          }
          // Set item if not set
@@ -636,8 +619,13 @@ class Reservation extends CommonDBChild {
 
       } else {
          $resa->getEmpty();
-         $resa->fields["begin"] = $options['date']." 12:00:00";
-         $resa->fields["end"]   = $options['date']." 13:00:00";
+         $resa->fields["begin"] = $options['begin'];
+         if (!isset($options['end'])) {
+            $resa->fields["end"] = date("Y-m-d H:00:00",
+                                        strtotime($resa->fields["begin"])+HOUR_TIMESTAMP);
+         } else {
+            $resa->fields["end"] = $options['end'];
+         }
       }
 
       // No item : problem
@@ -680,7 +668,7 @@ class Reservation extends CommonDBChild {
       }
 
       echo "</td></tr>\n";
-      if (!Session::haveRight("reservation_central","w")
+      if (!Session::haveRight("reservation", UPDATE)
           || is_null($item)
           || !Session::haveAccessToEntity($item->fields["entities_id"])) {
 
@@ -701,12 +689,14 @@ class Reservation extends CommonDBChild {
          echo "</td></tr>\n";
       }
       echo "<tr class='tab_bg_2'><td>".__('Start date')."</td><td>";
-      $rand_begin = Html::showDateTimeFormItem("resa[begin]", $resa->fields["begin"], -1, false);
+      $rand_begin = Html::showDateTimeField("resa[begin]",
+                                            array('value'      => $resa->fields["begin"],
+                                                  'timestep'   => -1,
+                                                  'maybeempty' => false));
       echo "</td></tr>\n";
       $default_delay = floor((strtotime($resa->fields["end"])-strtotime($resa->fields["begin"]))
                              /$CFG_GLPI['time_step']/MINUTE_TIMESTAMP)
                        *$CFG_GLPI['time_step']*MINUTE_TIMESTAMP;
-
       echo "<tr class='tab_bg_2'><td>".__('Duration')."</td><td>";
       $rand = Dropdown::showTimeStamp("resa[_duration]",
                                       array('min'        => 0,
@@ -731,25 +721,25 @@ class Reservation extends CommonDBChild {
       if (empty($ID)) {
          echo "<tr class='tab_bg_2'><td>".__('Rehearsal')."</td>";
          echo "<td>";
-         echo "<select name='periodicity[type]' id='resaperiod$rand'>";
-         echo "<option value=''>"._x('periodicity', 'None')."</option>\n";
-         echo "<option value='day'>"._x('periodicity', 'Daily')."</option>\n";
-         echo "<option value='week'>"._x('periodicity', 'Weekly')."</option>\n";
-         echo "<option value='month'>"._x('periodicity', 'Monthly')."</option>\n";
-         echo "</select>";
-         $params = array('type'     => '__VALUE__',
-                         'end'      => $resa->fields["end"]);
+         $values   = array(''      => _x('periodicity', 'None'),
+                           'day'   => _x('periodicity', 'Daily'),
+                           'week'  => _x('periodicity', 'Weekly'),
+                           'month' => _x('periodicity', 'Monthly'));
+         $rand     = Dropdown::showFromArray('periodicity[type]', $values);
+         $field_id = Html::cleanId("dropdown_periodicity[type]$rand");
 
-         Ajax::updateItemOnSelectEvent("resaperiod$rand", "resaperiodcontent$rand",
+         $params   = array('type'     => '__VALUE__',
+                           'end'      => $resa->fields["end"]);
+
+         Ajax::updateItemOnSelectEvent($field_id, "resaperiodcontent$rand",
                                        $CFG_GLPI["root_doc"]."/ajax/resaperiod.php", $params);
          echo "<br><div id='resaperiodcontent$rand'></div>";
 
-//         Dropdown::showInteger('periodicity_times', 1, 1, 60);
          echo "</td></tr>\n";
       }
 
       echo "<tr class='tab_bg_2'><td>".__('Comments')."</td>";
-      echo "<td><textarea name='comment' rows='8' cols='30'>".$resa->fields["comment"]."</textarea>";
+      echo "<td><textarea name='comment' rows='8' cols='60'>".$resa->fields["comment"]."</textarea>";
       echo "</td></tr>\n";
 
       if (empty($ID)) {
@@ -761,7 +751,7 @@ class Reservation extends CommonDBChild {
       } else {
          echo "<tr class='tab_bg_2'>";
          echo "<td class='top center'>";
-         echo "<input type='submit' name='delete' value=\""._sx('button', 'Delete permanently')."\"
+         echo "<input type='submit' name='purge' value=\""._sx('button', 'Delete permanently')."\"
                 class='submit'>";
          if ($resa->fields["group"] > 0) {
             echo "<br><input type='checkbox' name='_delete_group'>&nbsp;".
@@ -798,11 +788,11 @@ class Reservation extends CommonDBChild {
          switch ($options['type']) {
             case 'day' :
                $begin_time = strtotime("+1 day",$begin_time);
-               $end_time = strtotime("+1 day",$end_time);
+               $end_time   = strtotime("+1 day",$end_time);
                while ($begin_time < $repeat_end) {
                   $toadd[date('Y-m-d H:i:s', $begin_time)] = date('Y-m-d H:i:s', $end_time);
                   $begin_time = strtotime("+1 day",$begin_time);
-                  $end_time = strtotime("+1 day",$end_time);
+                  $end_time   = strtotime("+1 day",$end_time);
                }
                break;
 
@@ -1013,7 +1003,7 @@ class Reservation extends CommonDBChild {
 
                $rand  = mt_rand();
                $modif = $modif_end = "";
-               if ($resa->can($row['id'],"w")) {
+               if ($resa->canEdit($row['id'])) {
                   $modif      = "<a id='content_".$ID.$rand."'
                                   href='reservation.form.php?id=".$row['id']."'>";
                   $modif_end  = "</a>";
@@ -1045,7 +1035,7 @@ class Reservation extends CommonDBChild {
       global $DB, $CFG_GLPI;
 
       $resaID = 0;
-      if (!Session::haveRight("reservation_central", "r")) {
+      if (!Session::haveRight("reservation", READ)) {
          return false;
       }
 
@@ -1165,7 +1155,7 @@ class Reservation extends CommonDBChild {
 
       $resaID = 0;
 
-      if (!Session::haveRight("reservation_central", "r")) {
+      if (!Session::haveRight("reservation", READ)) {
          return false;
       }
 
@@ -1175,6 +1165,10 @@ class Reservation extends CommonDBChild {
       // Print reservation in progress
       $query = "SELECT *
                 FROM `glpi_reservations`
+                LEFT JOIN `glpi_reservationitems`
+                  ON `glpi_reservations`.`reservationitems_id` = `glpi_reservationitems`.`id`
+                LEFT JOIN `glpi_entities`
+                  ON  `glpi_reservationitems`.`entities_id` = `glpi_entities`.`id`
                 WHERE `end` > '".$now."'
                       AND `users_id` = '$ID'
                 ORDER BY `begin`";
@@ -1192,6 +1186,7 @@ class Reservation extends CommonDBChild {
          echo "<tr><th>".__('Start date')."</th>";
          echo "<th>".__('End date')."</th>";
          echo "<th>".__('Item')."</th>";
+         echo "<th>".__('Entity')."</th>";
          echo "<th>".__('By')."</th>";
          echo "<th>".__('Comments')."</th><th>&nbsp;</th></tr>\n";
 
@@ -1209,6 +1204,7 @@ class Reservation extends CommonDBChild {
                   }
                }
                echo "<td class='center'>$link</td>";
+               echo "<td class='center'>".$data['completename']."</td>";
 
             } else {
                echo "<td class='center'>&nbsp;</td>";
@@ -1230,6 +1226,10 @@ class Reservation extends CommonDBChild {
       // Print old reservations
       $query = "SELECT *
                 FROM `glpi_reservations`
+                LEFT JOIN `glpi_reservationitems`
+                  ON `glpi_reservations`.`reservationitems_id` = `glpi_reservationitems`.`id`
+                LEFT JOIN `glpi_entities`
+                  ON  `glpi_reservationitems`.`entities_id` = `glpi_entities`.`id`
                 WHERE `end` <= '".$now."'
                       AND `users_id` = '$ID'
                 ORDER BY `begin` DESC";
@@ -1247,6 +1247,7 @@ class Reservation extends CommonDBChild {
          echo "<tr><th>".__('Start date')."</th>";
          echo "<th>".__('End date')."</th>";
          echo "<th>".__('Item')."</th>";
+         echo "<th>".__('Entity')."</th>";
          echo "<th>".__('By')."</th>";
          echo "<th>".__('Comments')."</th><th>&nbsp;</th></tr>\n";
 
@@ -1264,6 +1265,7 @@ class Reservation extends CommonDBChild {
                   }
                }
                echo "<td class='center'>$link</td>";
+               echo "<td class='center'>".$data['completename']."</td>";
 
             } else {
                echo "<td class='center'>&nbsp;</td>";

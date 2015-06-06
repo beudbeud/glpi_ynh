@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Vincent Mazzoni
    @co-author David Durieux
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -90,16 +90,37 @@ class PluginFusioninventoryCommunicationRest {
    static function getConfigByAgent($params = array()) {
       $schedule = array();
 
+      $pfAgentModule = new PluginFusioninventoryAgentmodule();
+
       $a_agent = PluginFusioninventoryAgent::getByDeviceID($params['machineid']);
 
       if (isset($params['task'])) {
          foreach (array_keys($params['task']) as $task) {
             foreach (PluginFusioninventoryStaticmisc::getmethods() as $method) {
+               $classname = '';
+               if (strtolower($task) == 'deploy') {
+                  $classname = 'PluginFusioninventoryDeployPackage';
+               } else if (strtolower($task) == 'esx') {
+                  $classname = 'PluginFusioninventoryCredentialIp';
+               } else if (strtolower($task) == 'collect') {
+                  $classname = 'PluginFusioninventoryCollect';
+               }
+
+               $taskname = $method['method'];
+               if (strstr($taskname, 'deploy')) {
+                  $taskname = $method['task'];
+               }
                $class= PluginFusioninventoryStaticmisc::getStaticmiscClass($method['module']);
+
                if (
                      (isset($method['task']) && strtolower($method['task']) == strtolower($task))
                   && (isset($method['use_rest']) && $method['use_rest'])
                   && method_exists($class, self::getMethodForParameters($task))
+                  && $pfAgentModule->isAgentCanDo($taskname, $a_agent['id'])
+                  && countElementsInTable('glpi_plugin_fusioninventory_taskjobstates',
+                          "`plugin_fusioninventory_agents_id`='".$a_agent['id']."' "
+                          . " AND `itemtype`='".$classname."'"
+                          . " AND `state`='0'") > 0
                ) {
                   /*
                    * Since migration, there is only one plugin in one directory
@@ -257,8 +278,8 @@ class PluginFusioninventoryCommunicationRest {
       }
    }
 
-   
-   
+
+
    /**
     * Manage REST parameters
     **/

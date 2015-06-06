@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: monitor.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: monitor.class.php 23435 2015-04-09 13:37:15Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,13 +35,17 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// CLASSES Monitors
-
+/**
+ * Monitor Class
+**/
 class Monitor extends CommonDBTM {
 
    // From CommonDBTM
    public $dohistory                   = true;
    static protected $forward_entity_to = array('Infocom', 'ReservationItem');
+
+   static $rightname                   = 'monitor';
+   protected $usenotepadrights         = true;
 
 
    /**
@@ -51,16 +55,6 @@ class Monitor extends CommonDBTM {
    **/
    static function getTypeName($nb=0) {
       return _n('Monitor', 'Monitors', $nb);
-   }
-
-
-   static function canCreate() {
-      return Session::haveRight('monitor', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('monitor', 'r');
    }
 
 
@@ -80,14 +74,17 @@ class Monitor extends CommonDBTM {
    function defineTabs($options=array()) {
 
       $ong = array();
+      $this->addDefaultFormTab($ong);
+      $this->addStandardTab('Item_Devices', $ong, $options);
       $this->addStandardTab('Computer_Item', $ong, $options);
       $this->addStandardTab('Infocom', $ong, $options);
       $this->addStandardTab('Contract_Item', $ong, $options);
       $this->addStandardTab('Document_Item', $ong, $options);
       $this->addStandardTab('Ticket', $ong, $options);
       $this->addStandardTab('Item_Problem', $ong, $options);
+      $this->addStandardTab('Change_Item', $ong, $options);      
       $this->addStandardTab('Link', $ong, $options);
-      $this->addStandardTab('Note', $ong, $options);
+      $this->addStandardTab('Notepad', $ong, $options);
       $this->addStandardTab('Reservation', $ong, $options);
       $this->addStandardTab('Log', $ong, $options);
 
@@ -119,6 +116,9 @@ class Monitor extends CommonDBTM {
 
       // Manage add from template
       if (isset($this->input["_oldID"])) {
+         // ADD Devices
+         Item_devices::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
+
          // ADD Infocoms
          Infocom::cloneItem($this->getType(), $this->input["_oldID"], $this->fields['id']);
 
@@ -139,25 +139,21 @@ class Monitor extends CommonDBTM {
    function cleanDBonPurge() {
       global $DB;
 
-      $query = "SELECT `id`
-                FROM `glpi_computers_items`
-                WHERE `itemtype` = '".$this->getType()."'
-                      AND `items_id` = '".$this->fields['id']."'";
-
-      if ($result = $DB->query($query)) {
-         if ($DB->numrows($result) > 0) {
-            $conn = new Computer_Item();
-
-            while ($data = $DB->fetch_assoc($result)) {
-               $data['_no_auto_action'] = true;
-               $conn->delete($data);
-            }
-         }
-      }
+      $ci = new Computer_Item();
+      $ci->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
       
       $ip = new Item_Problem();
       $ip->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-      
+
+      $ci = new Change_Item();
+      $ci->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
+
+      $ip = new Item_Project();
+      $ip->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
+
+      Item_Devices::cleanItemDeviceDBOnItemDelete($this->getType(), $this->fields['id'],
+                                                  (!empty($this->input['keep_devices'])));
+
    }
 
 
@@ -176,7 +172,6 @@ class Monitor extends CommonDBTM {
 
       $target       = $this->getFormURL();
       $withtemplate = $this->initForm($ID, $options);
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
@@ -192,7 +187,9 @@ class Monitor extends CommonDBTM {
       echo "</td>";
       echo "<td>".__('Status')."</td>";
       echo "<td>";
-      State::dropdown(array('value' => $this->fields["states_id"]));
+      State::dropdown(array('value'     => $this->fields["states_id"],
+                            'entity'    => $this->fields["entities_id"],
+                            'condition' => "`is_visible_monitor`"));
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
@@ -297,18 +294,18 @@ class Monitor extends CommonDBTM {
       echo "<td>".('Flags')."</td>";
       echo "<td><table>";
       // micro?
-      echo "<tr><td>".__('Microphone')."</td><td>";
+      echo "<tr><td width='20%'>".__('Microphone')."</td><td width='30%'>";
       Dropdown::showYesNo("have_micro", $this->fields["have_micro"]);
       // speakers?
-      echo "</td><td>".__('Speakers')."</td><td>";
+      echo "</td><td width='20%'>".__('Speakers')."</td><td width='30%'>";
       Dropdown::showYesNo("have_speaker", $this->fields["have_speaker"]);
       echo "</td></tr>";
 
      // sub-d?
-      echo "<tr><td>".__('Sub-D')."</td><td>";
+      echo "<tr><td width='20%'>".__('Sub-D')."</td><td width='30%'>";
       Dropdown::showYesNo("have_subd", $this->fields["have_subd"]);
       // bnc?
-      echo "</td><td>".__('BNC')."</td><td>";
+      echo "</td><td width='20%'>".__('BNC')."</td><td width='30%'>";
       Dropdown::showYesNo("have_bnc", $this->fields["have_bnc"]);
       echo "</td></tr>";
 
@@ -322,7 +319,6 @@ class Monitor extends CommonDBTM {
       // hdmi?
       echo "<tr><td>".__('HDMI')."</td><td>";
       Dropdown::showYesNo("have_hdmi", $this->fields["have_hdmi"]);
-      echo "</td>";
       //Displayport
       echo "</td><td>".__('DisplayPort')."</td><td>";
       Dropdown::showYesNo("have_displayport", $this->fields["have_displayport"]);
@@ -350,7 +346,7 @@ class Monitor extends CommonDBTM {
       echo "</td></tr>\n";
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
+
       return true;
    }
 
@@ -365,13 +361,13 @@ class Monitor extends CommonDBTM {
       global $DB;
 
       $query = "SELECT 'Computer', `computers_id`
-              FROM `glpi_computers_items`
-              WHERE `itemtype` = '".$this->getType()."'
-                    AND `items_id` = '" . $this->fields['id']."'";
+                FROM `glpi_computers_items`
+                WHERE `itemtype` = '".$this->getType()."'
+                      AND `items_id` = '" . $this->fields['id']."'";
       $tab = array();
       foreach ($DB->request($query) as $data) {
          $tab['Computer'][$data['computers_id']] = $data['computers_id'];
-      };
+      }
       return $tab;
    }
 
@@ -381,57 +377,13 @@ class Monitor extends CommonDBTM {
    **/
    function getSpecificMassiveActions($checkitem=NULL) {
 
-      $isadmin = static::canUpdate();
       $actions = parent::getSpecificMassiveActions($checkitem);
-      if ($isadmin) {
-         $actions['connect']    = _x('button', 'Connect');
-         $actions['disconnect'] = _x('button', 'Disconnect');
+      if (static::canUpdate()) {
+         Computer_Item::getMassiveActionsForItemtype($actions, __CLASS__, 0, $checkitem);
+         MassiveAction::getAddTransferList($actions);
       }
-      if (Session::haveRight('transfer','r')
-          && Session::isMultiEntitiesMode()
-          && $isadmin) {
-         $actions['add_transfer_list'] = _x('button', 'Add to transfer list');
-      }
+
       return $actions;
-   }
-
-   /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
-   **/
-   function showSpecificMassiveActionsParameters($input=array()) {
-
-      switch ($input['action']) {
-         case "connect" :
-         case "disconnect" :
-            $ci = new Computer_Item();
-            return $ci->showSpecificMassiveActionsParameters($input);
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
-      }
-      return false;
-   }
-
-
-   /**
-    * @see CommonDBTM::doSpecificMassiveActions()
-   **/
-   function doSpecificMassiveActions($input=array()) {
-
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "connect" :
-         case "disconnect" :
-            $ci = new Computer_Item();
-            return $ci->doSpecificMassiveActions($input);
-
-         default :
-            return parent::doSpecificMassiveActions($input);
-      }
-      return $res;
    }
 
 
@@ -468,6 +420,7 @@ class Monitor extends CommonDBTM {
       $tab[31]['field']          = 'completename';
       $tab[31]['name']           = __('Status');
       $tab[31]['datatype']        = 'dropdown';
+      $tab[31]['condition']      = "`is_visible_monitor`";
 
       $tab[5]['table']           = $this->getTable();
       $tab[5]['field']           = 'serial';
@@ -511,12 +464,6 @@ class Monitor extends CommonDBTM {
       $tab[16]['field']          = 'comment';
       $tab[16]['name']           = __('Comments');
       $tab[16]['datatype']       = 'text';
-
-      $tab[90]['table']          = $this->getTable();
-      $tab[90]['field']          = 'notepad';
-      $tab[90]['name']           = __('Notes');
-      $tab[90]['massiveaction']  = false;
-      $tab[90]['datatype']       = 'text';
 
       $tab[11]['table']          = $this->getTable();
       $tab[11]['field']          = 'size';
@@ -568,6 +515,7 @@ class Monitor extends CommonDBTM {
       $tab[23]['name']           = __('Manufacturer');
       $tab[23]['datatype']       = 'dropdown';
 
+
       $tab[24]['table']          = 'glpi_users';
       $tab[24]['field']          = 'name';
       $tab[24]['linkfield']      = 'users_id_tech';
@@ -593,6 +541,8 @@ class Monitor extends CommonDBTM {
       $tab[82]['name']           = __('Global management');
       $tab[82]['datatype']       = 'bool';
       $tab[82]['massiveaction']  = false;
+
+      $tab += Notepad::getSearchOptionsToAdd();
 
       return $tab;
    }

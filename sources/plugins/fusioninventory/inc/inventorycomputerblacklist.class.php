@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,18 +46,11 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryInventoryComputerBlacklist extends CommonDBTM {
 
+   static $rightname = 'plugin_fusioninventory_blacklist';
+
+
    static function getTypeName($nb=0) {
       return _n('Blacklist', 'Blacklists', $nb);
-   }
-
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("blacklist", "w");
-   }
-
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("blacklist", "r");
    }
 
 
@@ -78,7 +71,7 @@ class PluginFusioninventoryInventoryComputerBlacklist extends CommonDBTM {
       $tab[2]['table']     = 'glpi_plugin_fusioninventory_inventorycomputercriterias';
       $tab[2]['field']     = 'name';
       $tab[2]['linkfield'] = 'plugin_fusioninventory_criterium_id';
-      $tab[2]['name']      = __('Name');
+      $tab[2]['name']      = __('Type');
       $tab[2]['datetype']  = "itemlink";
 
       return $tab;
@@ -126,7 +119,7 @@ class PluginFusioninventoryInventoryComputerBlacklist extends CommonDBTM {
       echo "<td>";
       Html::autocompletionTextField($this,'value');
       echo "</td>";
-      echo "<td>".__('Name')."</td>";
+      echo "<td>".__('Type')."</td>";
       echo "<td>";
       Dropdown::show('PluginFusioninventoryInventoryComputerCriteria',
                      array('name' => 'plugin_fusioninventory_criterium_id',
@@ -165,6 +158,16 @@ class PluginFusioninventoryInventoryComputerBlacklist extends CommonDBTM {
                       && (strtolower($a_computerinventory['Computer']['serial'])
                               == strtolower($blacklist_data['value']))) {
                      $a_computerinventory['Computer']['serial'] = "";
+                  }
+                  if (((!isset($a_computerinventory['Computer']['serial']))
+                          || ($a_computerinventory['Computer']['serial'] == ""))
+                         && isset($a_computerinventory['Computer']['mserial'])) {
+                     $a_computerinventory['Computer']['serial'] = $a_computerinventory['Computer']['mserial'];
+                     foreach($a_blacklist as $blacklist_id=>$blacklist_data) {
+                        if ($a_computerinventory['Computer']['serial'] == $blacklist_data['value']) {
+                           $a_computerinventory['Computer']['serial'] = "";
+                        }
+                     }
                   }
                   if (isset($a_computerinventory['monitor'])) {
                      foreach($a_computerinventory['monitor'] as $num_m=>$data_m) {
@@ -333,6 +336,20 @@ class PluginFusioninventoryInventoryComputerBlacklist extends CommonDBTM {
                   }
                }
               break;
+
+            case 'IP':
+               $a_blacklist = $this->find("`plugin_fusioninventory_criterium_id`='".$id."'");
+
+               foreach($a_blacklist as $blacklist_id=>$blacklist_data) {
+                  foreach ($a_computerinventory['networkport'] as $key=>$netport_data) {
+                     foreach ($netport_data['ipaddress'] as $num_ip=>$ip) {
+                        if ($ip == $blacklist_data['value']) {
+                           unset($a_computerinventory['networkport'][$key]['ipaddress'][$num_ip]);
+                        }
+                     }
+                  }
+               }
+               break;
 
          }
       }

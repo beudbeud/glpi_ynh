@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rulecriteria.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: rulecriteria.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,8 +38,10 @@ if (!defined('GLPI_ROOT')) {
 class RuleCriteria extends CommonDBChild {
 
    // From CommonDBChild
-   static public $items_id  = 'rules_id';
-   public $dohistory = true;
+   static public $items_id        = 'rules_id';
+   public $dohistory              = true;
+   public $auto_message_on_action = false;
+
 
 
    /**
@@ -60,7 +62,14 @@ class RuleCriteria extends CommonDBChild {
       static::$itemtype = $rule_type;
    }
 
+
+   /**
+    * @since version 0.84.3
+    *
+    * @see CommonDBTM::post_getFromDB()
+    */
    function post_getFromDB() {
+
       // Get correct itemtype if defult one is used
       if (static::$itemtype == 'Rule') {
          $rule = new Rule();
@@ -69,7 +78,8 @@ class RuleCriteria extends CommonDBChild {
          }
       }
    }
-   
+
+
    /**
     * Get title used in rule
     *
@@ -83,14 +93,46 @@ class RuleCriteria extends CommonDBChild {
 
 
    /**
-    * @see CommonDBTM::getName()
+    * @see CommonDBTM::getRawName()
    **/
-   function getName($options=array()) {
+   function getRawName() {
 
       if ($rule = getItemForItemtype(static::$itemtype)) {
          return Html::clean($rule->getMinimalCriteriaText($this->fields));
       }
-      return NOT_AVAILABLE;
+      return '';
+   }
+
+
+   /**
+    * @since version 0.84
+    *
+    * @see CommonDBChild::post_addItem()
+   **/
+   function post_addItem() {
+
+      parent::post_addItem();
+      if (isset($this->input['rules_id'])
+          && ($realrule = Rule::getRuleObjectByID($this->input['rules_id']))) {
+         $realrule->update(array('id'       => $this->input['rules_id'],
+                                 'date_mod' => $_SESSION['glpi_currenttime']));
+      }
+   }
+
+
+   /**
+    * @since version 0.84
+    *
+    * @see CommonDBTM::post_purgeItem()
+   **/
+   function post_purgeItem() {
+
+      parent::post_purgeItem();
+      if (isset($this->fields['rules_id'])
+          && ($realrule = Rule::getRuleObjectByID($this->fields['rules_id']))) {
+         $realrule->update(array('id'       => $this->fields['rules_id'],
+                                 'date_mod' => $_SESSION['glpi_currenttime']));
+      }
    }
 
 
@@ -105,24 +147,7 @@ class RuleCriteria extends CommonDBChild {
       return parent::prepareInputForAdd($input);
    }
 
-   function post_addItem() {
-      parent::post_addItem();
-      if (isset($this->input['rules_id'])
-         && $realrule = Rule::getRuleObjectByID($this->input['rules_id'])) {
-         $realrule->update(array('id'       => $this->input['rules_id'],
-                                 'date_mod' => $_SESSION['glpi_currenttime']));
-      }
-   }
 
-   function post_purgeItem() {
-      parent::post_purgeItem();
-      if (isset($this->fields['rules_id'])
-         && $realrule = Rule::getRuleObjectByID($this->fields['rules_id'])) {
-         $realrule->update(array('id'       => $this->fields['rules_id'],
-                                 'date_mod' => $_SESSION['glpi_currenttime']));
-      }
-   }
-   
    function getSearchOptions() {
 
       $tab                     = array();
@@ -341,7 +366,6 @@ class RuleCriteria extends CommonDBChild {
                //Perform comparison with fields in lower case
                $field                        = Toolbox::strtolower($field);
                $pattern                      = Toolbox::strtolower($pattern);
-
                if ($field == $pattern) {
                   $criterias_results[$criteria] = $pattern;
                   return true;
@@ -536,6 +560,72 @@ class RuleCriteria extends CommonDBChild {
          }
       }
       return Dropdown::showFromArray($p['name'], $elements, array('value' => $p['value']));
+   }
+
+
+   /** form for rule criteria
+    *
+    * @since version 0.85
+    *
+    * @param $ID      integer  Id of the criteria
+    * @param $options array    of possible options:
+    *     - rule Object : the rule
+   **/
+   function showForm($ID, $options=array()) {
+      global $CFG_GLPI;
+
+      if (isset($options['parent']) && !empty($options['parent'])) {
+         $rule = $options['parent'];
+      }
+
+      if ($ID > 0) {
+         $this->check($ID, READ);
+      } else {
+         // Create item
+         $options[static::$items_id] = $rule->getField('id');
+
+         $this->check(-1, CREATE, $options);
+      }
+      $this->showFormHeader($options);
+
+      echo "<tr class='tab_bg_1'>";
+      echo "<td class='center'>"._n('Criterion', 'Criteria', 1) . "</td><td colspan='3'>";
+      echo "<input type='hidden' name='".$rule->getRuleIdField()."' value='".
+             $this->fields[$rule->getRuleIdField()]."'>";
+
+      $rand   = $rule->dropdownCriteria(array('value' => $this->fields['criteria']));
+      $params = array('criteria' => '__VALUE__',
+                      'rand'     => $rand,
+                      'sub_type' => $rule->getType());
+
+      Ajax::updateItemOnSelectEvent("dropdown_criteria$rand", "criteria_span",
+                                    $CFG_GLPI["root_doc"]."/ajax/rulecriteria.php", $params);
+
+      if (isset($this->fields['criteria']) && !empty($this->fields['criteria'])) {
+         $params['criteria']  = $this->fields['criteria'];
+         $params['condition'] = $this->fields['condition'];
+         $params['pattern']   = $this->fields['pattern'];
+         echo "<script type='text/javascript' >\n";
+         Ajax::updateItemJsCode("criteria_span",
+                                 $CFG_GLPI["root_doc"]."/ajax/rulecriteria.php",
+                                 $params);
+         echo '</script>';
+      }
+
+      if ($rule->specific_parameters) {
+         $itemtype = get_class($rule).'Parameter';
+         echo "<img alt='' title=\"".__s('Add a criterion')."\" src='".$CFG_GLPI["root_doc"].
+                "/pics/add_dropdown.png' style='cursor:pointer; margin-left:2px;'
+                onClick=\"".Html::jsGetElementbyID('addcriterion'.$rand).".dialog('open');\">";
+         Ajax::createIframeModalWindow('addcriterion'.$rand,
+                                       Toolbox::getItemTypeFormURL($itemtype),
+                                       array('reloadonclose' => true));
+      }
+
+      echo "</td></tr>";
+      echo "<tr><td colspan='4'><span id='criteria_span'>\n";
+      echo "</span></td></tr>\n";
+      $this->showFormButtons($options);
    }
 
 }

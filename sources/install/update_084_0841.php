@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: update_084_0841.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: update_084_0841.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -66,19 +66,21 @@ function update084to0841() {
    }
 
    // Convert html fields from numeric encoding to raw encoding
-   $fields_to_clean = array('glpi_knowbaseitems'     => 'answer',
-                            'glpi_tickets'           => 'solution',
-                            'glpi_problems'          => 'solution',
-                            'glpi_reminders'         => 'text',
-                            'glpi_solutiontemplates' => 'content',
+   $fields_to_clean = array('glpi_knowbaseitems'                    => 'answer',
+                            'glpi_tickets'                          => 'solution',
+                            'glpi_problems'                         => 'solution',
+                            'glpi_reminders'                        => 'text',
+                            'glpi_solutiontemplates'                => 'content',
                             'glpi_notificationtemplatetranslations' => 'content_text');
    foreach ($fields_to_clean as $table => $field) {
       foreach ($DB->request($table) as $data) {
-         $text = Toolbox::unclean_html_cross_side_scripting_deep($data[$field]);
-         $text = html_entity_decode($text,ENT_NOQUOTES,'UTF-8');
-         $text = addslashes($text);
-         $text = Toolbox::clean_cross_side_scripting_deep($text);
-         $query = "UPDATE `$table` SET `$field` = '$text' WHERE `id` = '".$data['id']."';";
+         $text  = Toolbox::unclean_html_cross_side_scripting_deep($data[$field]);
+         $text  = html_entity_decode($text,ENT_NOQUOTES,'UTF-8');
+         $text  = addslashes($text);
+         $text  = Toolbox::clean_cross_side_scripting_deep($text);
+         $query = "UPDATE `$table`
+                   SET `$field` = '$text'
+                   WHERE `id` = '".$data['id']."';";
          $DB->queryOrDie($query, "0.84.1 fix encoding of html field : $table.$field");
       }
    }
@@ -103,9 +105,9 @@ function update084to0841() {
    $DB->queryOrDie($query_doc_i, "0.84.1 change entities_id in documents_items");
 
 
-   // add delet_problem
+   // add delete_problem
    $migration->addField('glpi_profiles', 'delete_problem', 'char',
-                        array('after' => 'edit_all_problem',
+                        array('after'  => 'edit_all_problem',
                               'update' => 'edit_all_problem'));
 
    // ************ Keep it at the end **************

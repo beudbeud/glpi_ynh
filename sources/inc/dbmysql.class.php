@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: dbmysql.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: dbmysql.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -164,25 +164,11 @@ class DBmysql {
       $res = @$this->dbh->query($query);
       if (!$res) {
          // no translation for error logs
-         $error = "*** MySQL query error: \n***\nSQL: ".addslashes($query)."\nError: ".
+         $error = "  *** MySQL query error:\n  SQL: ".addslashes($query)."\n  Error: ".
                    $this->dbh->error."\n";
+         $error .= toolbox::backtrace(false, 'DBmysql->query()', array('Toolbox::backtrace()'));
 
-         if (function_exists("debug_backtrace")) {
-            $error .= "Backtrace :\n";
-            $traces = debug_backtrace();
-            foreach ($traces as $trace) {
-               $error .= (isset($trace["file"]) ? $trace["file"] : "") . "&nbsp;:" .
-                         (isset($trace["line"]) ? $trace["line"] : "") . "\t\t" .
-                         (isset($trace["class"]) ? $trace["class"] : "") .
-                         (isset($trace["type"]) ? $trace["type"] : "") .
-                         (isset($trace["function"]) ? $trace["function"]."()" : "") ."\n";
-            }
-         } else {
-            $error .= "Script : " ;
-         }
-
-         $error .= $_SERVER["SCRIPT_FILENAME"]. "\n";
-         Toolbox::logInFile("sql-errors", $error."\n");
+         Toolbox::logInFile("sql-errors", $error);
 
          if (($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE)
              && $CFG_GLPI["debug_sql"]) {
@@ -623,7 +609,6 @@ class DBmysql {
       return $ret;
    }
 
-
    /**
     * Get a global DB lock
     *
@@ -750,9 +735,37 @@ class DBmysqlIterator  implements Iterator {
 
          // ORDER BY
          if (is_array($orderby)) {
-            $this->sql .= " ORDER BY `".implode("`, `",$orderby)."`";
+            $cleanorderby = array();
+            foreach ($orderby as $o) {
+               $new = '';
+               $tmp = explode(' ',$o);
+               // Already strip
+               if ($tmp[0][0] == '`') {
+                  $new .= $tmp[0];
+               } else {
+                  $new .= '`'.$tmp[0].'`';
+               }
+               // ASC OR DESC added
+               if (isset($tmp[1]) && in_array($tmp[1],array('ASC', 'DESC'))) {
+                  $new .= ' '.$tmp[1];
+               }
+               $cleanorderby[] = $new;
+            }
+            
+            $this->sql .= " ORDER BY ".implode(", ",$cleanorderby);
          } else if (!empty($orderby)) {
-            $this->sql .= " ORDER BY `$orderby`";
+            $this->sql .= " ORDER BY ";
+            $tmp = explode(' ',$orderby);
+            // Already strip
+            if ($tmp[0][0] == '`') {
+               $this->sql .= $tmp[0];
+            } else {
+               $this->sql .= '`'.$tmp[0].'`';
+            }
+            // ASC OR DESC added
+            if (isset($tmp[1]) && in_array($tmp[1],array('ASC', 'DESC'))) {
+               $this->sql .= ' '.$tmp[1];
+            }
          }
 
          if (is_numeric($limit) && ($limit > 0)) {
@@ -820,8 +833,7 @@ class DBmysqlIterator  implements Iterator {
             // NULL condition
             $ret .= "$name IS NULL";
 
-         } else if ((is_numeric($value))
-                    || (preg_match("/^`.*?`$/", $value))) {
+         } else if (is_numeric($value) || preg_match("/^`.*?`$/", $value)) {
             // Integer or field name
             $ret .= "$name=$value";
 

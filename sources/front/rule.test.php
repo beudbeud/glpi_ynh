@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rule.test.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: rule.test.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -56,13 +56,11 @@ if (isset($_POST["rules_id"])) {
 if (!$rule = getItemForItemtype($sub_type)) {
    exit;
 }
-$rule->checkGlobal('r');
+$rule->checkGlobal(READ);
 
 $test_rule_output = null;
 
-if (!strpos($_SERVER['PHP_SELF'],"popup")) {
-   Html::header(__('Setup'),$_SERVER['PHP_SELF'],"config","display");
-}
+Html::popHeader(__('Setup'),$_SERVER['PHP_SELF']);
 
 $rule->showRulePreviewCriteriasForm($_SERVER['PHP_SELF'], $rules_id);
 
@@ -87,7 +85,5 @@ if (isset($_POST["test_rule"])) {
    $rule->showRulePreviewResultsForm($_SERVER['PHP_SELF'], $input, $params);
 }
 
-if (!strpos($_SERVER['PHP_SELF'],"popup")) {
-   Html::footer();
-}
+Html::popFooter();
 ?>

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,42 +46,25 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryCollect extends CommonDBTM {
 
+   static $rightname = 'plugin_fusioninventory_collect';
+
    static function getTypeName($nb=0) {
       return __('Collect information', 'fusioninventory');
    }
-
-
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("collect", "w");
-   }
-
-
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("collect", "r");
-   }
-
-
-
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
       return array();
    }
 
-
-
    static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
       return TRUE;
    }
 
-
-
    static function getTypes() {
-      $elements = array();
+      $elements             = array();
       $elements['registry'] = __('Registry', 'fusioninventory');
-      $elements['wmi'] = __('WMI', 'fusioninventory');
-      $elements['file'] = __('Find file', 'fusioninventory');
+      $elements['wmi']      = __('WMI', 'fusioninventory');
+      $elements['file']     = __('Find file', 'fusioninventory');
 
       return $elements;
    }
@@ -91,7 +74,6 @@ class PluginFusioninventoryCollect extends CommonDBTM {
    function showForm($ID, $options=array()) {
 
       $this->initForm($ID, $options);
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
@@ -124,7 +106,6 @@ class PluginFusioninventoryCollect extends CommonDBTM {
       echo "</tr>\n";
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
 
       return TRUE;
    }
@@ -137,19 +118,17 @@ class PluginFusioninventoryCollect extends CommonDBTM {
       $task       = new PluginFusioninventoryTask();
       $job        = new PluginFusioninventoryTaskjob();
       $joblog     = new PluginFusioninventoryTaskjoblog();
-      $jobstate  = new PluginFusioninventoryTaskjobstate();
+      $jobstate   = new PluginFusioninventoryTaskjobstate();
       $agent      = new PluginFusioninventoryAgent();
-
-      $uniqid= uniqid();
+      $uniqid     = uniqid();
 
       $job->getFromDB($taskjobs_id);
       $task->getFromDB($job->fields['plugin_fusioninventory_tasks_id']);
 
-      $communication= $task->fields['communication'];
-
-      $actions     = importArrayFromDB($job->fields['action']);
+      $communication = $task->fields['communication'];
+      $actions       = importArrayFromDB($job->fields['action']);
       $definitions   = importArrayFromDB($job->fields['definition']);
-      $taskvalid = 0;
+      $taskvalid     = 0;
 
       $computers = array();
       foreach ($actions as $action) {
@@ -262,6 +241,7 @@ class PluginFusioninventoryCollect extends CommonDBTM {
       $c_input['plugin_fusioninventory_taskjobs_id'] = $taskjobs_id;
       $c_input['state']                              = 0;
       $c_input['plugin_fusioninventory_agents_id']   = 0;
+      $c_input['execution_id']                       = $task->fields['execution_id'];
 
       $pfCollect = new PluginFusioninventoryCollect();
 

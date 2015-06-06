@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -42,82 +42,24 @@
 
 include ("../../../inc/includes.php");
 
-$pft = new PluginFusioninventoryTask();
+$pfTask = new PluginFusioninventoryTask();
 
-Html::header(__('FusionInventory', 'fusioninventory'), $_SERVER["PHP_SELF"], "plugins", "fusioninventory", "tasks");
+Html::header(__('FusionInventory', 'fusioninventory'), $_SERVER["PHP_SELF"],
+        "plugins", "pluginfusioninventorymenu", "task");
 
-PluginFusioninventoryProfile::checkRight("task", "r");
+
+
+Session::checkRight('plugin_fusioninventory_task', READ);
 
 PluginFusioninventoryMenu::displayMenu("mini");
 
-if (isset($_GET['taskjoblogsort'])) {
-   if ($_SESSION['plugin_fusioninventory_tasks_sort'] == $_GET['taskjoblogsort']) {
-      $_SESSION['plugin_fusioninventory_tasks_sort_order'] = 'ASC';
-   } else {
-      $_SESSION['plugin_fusioninventory_tasks_sort'] = $_GET['taskjoblogsort'];
-      $_SESSION['plugin_fusioninventory_tasks_sort_order'] = 'DESC';
-   }
-   Html::back();
-} elseif (isset($_POST['forcestart'])) {
-   PluginFusioninventoryProfile::checkRight("task", "w");
-   $pfTaskjob = new PluginFusioninventoryTaskjob();
-   $pfTaskjob->forceRunningTask($_POST['id']);
-   Html::back();
-} else if (isset($_POST['reset'])) {
-   $pfTask    = new PluginFusioninventoryTask();
+//PluginFusioninventoryTaskjob::isAllowurlfopen();
 
-   $pfTask->getFromDB($_POST['id']);
-   $query = "UPDATE `glpi_plugin_fusioninventory_taskjobs`
-         SET `execution_id`='".$pfTask->fields['execution_id']."',
-            `status`='0'
-      WHERE `plugin_fusioninventory_tasks_id`='".$_POST['id']."'";
-   $DB->query($query);
-   Html::back();
+//Submit the task form parameters
+$pfTask->submitForm($_POST);
 
-} else if (isset ($_POST["add"])) {
-   PluginFusioninventoryProfile::checkRight("task", "w");
-
-   $itens_id = $pft->add($_POST);
-   Html::redirect(str_replace("add=1", "", $_SERVER['HTTP_REFERER'])."id=".$itens_id);
-} else if (isset($_POST["delete"])) {
-   PluginFusioninventoryProfile::checkRight("task", "w");
-
-   $pftj = new PluginFusioninventoryTaskjob();
-
-   $a_taskjob = $pftj->find("`plugin_fusioninventory_tasks_id` = '".$_POST['id']."' ");
-   foreach ($a_taskjob as $datas) {
-      $pftj->delete($datas);
-   }
-   $pft->delete($_POST);
-   Html::redirect(Toolbox::getItemTypeSearchURL('PluginFusioninventoryTask'));
-} else if (isset($_POST["update"])) {
-   PluginFusioninventoryProfile::checkRight("task", "w");
-
-  $pft->getFromDB($_POST['id']);
-
-  if ((($_POST['date_scheduled'] != $pft->fields['date_scheduled'])
-            AND ($_POST['periodicity_count'] == '0'))
-          OR ($_POST['periodicity_count'] == '0'
-            AND $_POST['periodicity_count'] != $pft->fields['periodicity_count'])){
-     $_POST['execution_id'] = 0;
-     $query = "UPDATE `glpi_plugin_fusioninventory_taskjobs`
-            SET `execution_id`='0',
-               `status`='0'
-         WHERE `plugin_fusioninventory_tasks_id`='".$_POST['id']."'";
-     $DB->query($query);
-  }
-  $pft->update($_POST);
-
-   Html::back();
-}
-
-PluginFusioninventoryTaskjob::isAllowurlfopen();
-
-if (isset($_GET["id"])) {
-   $pft->showForm($_GET["id"]);
-} else {
-   $pft->showForm("");
-}
+//If there is no form to submit, display the form
+$pfTask->display($_GET);
 
 Html::footer();
 

@@ -438,24 +438,6 @@ function toggleCheckboxes( container_id ) {
    return true;
 }
 
-
-/**
- * select all options inside the given select
- * 
- * @since version 0.84
- *
- * @param    select_id    DOM select id
-**/
-function selectAllOptions(select_id) {
-
-   var options = document.getElementById(select_id).getElementsByTagName('option');
-   for (var j=0 ; j<options.length ; j++ ) {
-      options[j].selected = true;
-   }
-   return true;
-}
-
-
 /**
  * display "other" text input field in case of selecting "other" option
  * 
@@ -476,21 +458,7 @@ function displayOtherSelectOptions(select_object, other_option_name) {
 }
 
 
-/**
- * unselect all option inside the given select
- * 
- * @since version 0.84
- *
- * @param    select_id    DOM select id
-**/
-function unselectAllOptions(select_id) {
 
-   var options = document.getElementById(select_id).getElementsByTagName('option');
-   for (var j=0 ; j<options.length ; j++ ) {
-      options[j].selected = false;
-   }
-   return true;
-}
 
 
 /**
@@ -504,6 +472,7 @@ function checkAsCheckboxes( reference_id, container_id ) {
 
    var ref        =  document.getElementById(reference_id);
    var checkboxes = document.getElementById(container_id).getElementsByTagName('input');
+
    for (var j=0 ; j<checkboxes.length ; j++ ) {
       checkbox = checkboxes[j];
       if (checkbox && (checkbox.type == 'checkbox')) {
@@ -652,7 +621,7 @@ function toggleTableDisplay(tbl,img_name,img_src_close,img_src_open) {
 
    var tblRows = document.getElementById(tbl).rows;
    for (i=0 ; i < tblRows.length ; i++) {
-      if (tblRows[i].className != "headerRow") {
+      if (tblRows[i].className.indexOf("headerRow") == -1) {
          if (tblRows[i].style.display == 'none') {
             tblRows[i].style.display = "table-row";
             if (img_name != ''){
@@ -683,7 +652,7 @@ function toggleTableDisplay(tbl,img_name,img_src_close,img_src_open) {
 
 
 /**
- * @since v ersion 0.84
+ * @since version 0.84
  * 
  * @param target
  * @param fields
@@ -703,3 +672,95 @@ function submitGetLink(target,fields) {
     myForm.submit() ;
     document.body.removeChild(myForm) ;
 }
+
+
+/**
+ * @since version 0.85
+ *
+ * @param id
+**/
+function selectAll(id) {
+   var element =$('#'+id);var selected = [];
+   element.find('option').each(function(i,e){
+      selected[selected.length]=$(e).attr('value');
+   });
+   element.select2('val', selected);
+}
+
+/**
+ * @since version 0.85
+ *
+ * @param id
+**/
+function deselectAll(id) {
+   $('#'+id).val('').trigger('change');
+}
+
+
+/**
+ * Set all the checkbox that refere to the criterion
+ *
+ * @since version 0.85
+ *
+ * @param criterion jquery criterion
+ * @param reference the new reference object, boolean, id ... (default toggle)
+ *
+**/
+function massiveUpdateCheckbox(criterion, reference) {
+    if (typeof(reference) == 'undefined') {
+        var value = null;
+    } else if (typeof(reference) == 'boolean') {
+        var value = reference;
+    } else if (typeof(reference) == 'string') {
+        var value = $('#' + reference).prop('checked');
+    } else if (typeof(reference) == 'object') {
+        var value = $(reference).prop('checked');
+    }
+    if (typeof(value) == 'undefined') {
+        return false;
+    }
+    $(criterion).each(function() {
+        if (typeof(reference) == 'undefined') {
+            value = !$(this).prop('checked');
+        }
+        $(this).prop('checked', value);
+    });
+    return true;
+}
+
+
+$(function(){
+
+        $("body").delegate('td','mouseover mouseleave', function(e) {
+            var col = $(this).closest('tr').children().index($(this));
+            var tr = $(this).closest('tr');
+            if (!$(this).closest('tr').hasClass('noHover')) {
+            if (e.type == 'mouseover') {
+               tr.addClass("rowHover");
+               // If rowspan
+               if (tr.has('td[rowspan]').length == 0) {
+
+                     tr.prevAll('tr:has(td[rowspan]):first').find('td[rowspan]').addClass("rowHover");
+               }
+
+               $(this).closest('table').find('tr:not(.noHover) th:nth-child('+(col+1)+')').addClass("headHover");
+            } else {
+               tr.removeClass("rowHover");
+               // remove rowspan
+               tr.removeClass("rowHover").prevAll('tr:has(td[rowspan]):first').find('td[rowspan]').removeClass("rowHover");
+               $(this).closest('table').find('tr:not(.noHover) th:nth-child('+(col+1)+')').removeClass("headHover");
+            }
+            }
+        });
+
+});
+
+//Hack for Jquery Ui Date picker
+var _gotoToday = jQuery.datepicker._gotoToday;
+jQuery.datepicker._gotoToday = function(a){
+   var target = jQuery(a);
+   var inst = this._getInst(target[0]);
+   _gotoToday.call(this, a);
+   jQuery.datepicker._selectDate(a, jQuery.datepicker._formatDate(inst,inst.selectedDay, inst.selectedMonth, inst.selectedYear));
+};
+

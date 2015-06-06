@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: db.function.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: db.function.php 23436 2015-04-09 14:06:48Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -330,6 +330,34 @@ function countElementsInTable($table, $condition="") {
    return $ligne['cpt'];
 }
 
+/**
+ * Count the number of elements in a table.
+ *
+ * @param $table        string/array   table names
+ * @param $condition    string         condition to use (default '')
+ *
+ * @return int nb of elements in table
+**/
+function countDistinctElementsInTable($table, $field='*', $condition="") {
+   global $DB;
+
+   if (is_array($table)) {
+      $table = implode('`,`',$table);
+   }
+
+   $query = "SELECT COUNT(DISTINCT $field) AS cpt
+             FROM `$table`";
+
+   if (!empty($condition)) {
+      $query .= " WHERE $condition ";
+   }
+
+   $result = $DB->query($query);
+   $ligne  = $DB->fetch_assoc($result);
+   return $ligne['cpt'];
+}
+
+
 
 /**
  * Count the number of elements in a table for a specific entity
@@ -428,25 +456,63 @@ function getAllDatasFromTable($table, $condition='', $usecache=false, $order='')
  * @param $table        string   Dropdown Tree table
  * @param $ID           integer  ID of the element
  * @param $withcomment  boolean  1 if you want to give the array with the comments (false by default)
+ * @param $translate    boolean  (true by default)
  *
  * @return string : name of the element
  *
  * @see getTreeValueCompleteName
 **/
-function getTreeLeafValueName($table, $ID, $withcomment=false) {
+function getTreeLeafValueName($table, $ID, $withcomment=false, $translate=true) {
    global $DB;
 
    $name    = "";
    $comment = "";
 
-   $query = "SELECT *
+   $SELECTNAME    = "`$table`.`name`, '' AS transname";
+   $SELECTCOMMENT = "`$table`.`comment`, '' AS transcomment";
+   $JOIN          = '';
+   if  ($translate) {
+      if (Session::haveTranslations(getItemTypeForTable($table), 'name')) {
+         $SELECTNAME  = "`$table`.`name`, `namet`.`value` AS transname";
+         $JOIN       .= " LEFT JOIN `glpi_dropdowntranslations` AS namet
+                           ON (`namet`.`itemtype` = '".getItemTypeForTable($table)."'
+                               AND `namet`.`items_id` = `$table`.`id`
+                               AND `namet`.`language` = '".$_SESSION['glpilanguage']."'
+                               AND `namet`.`field` = 'name')";
+      }
+      if (Session::haveTranslations(getItemTypeForTable($table), 'comment')) {
+         $SELECTCOMMENT  = "`$table`.`comment`, `namec`.`value` AS transcomment";
+         $JOIN          .= " LEFT JOIN `glpi_dropdowntranslations` AS namet
+                           ON (`namec`.`itemtype` = '".getItemTypeForTable($table)."'
+                               AND `namec`.`items_id` = `$table`.`id`
+                               AND `namec`.`language` = '".$_SESSION['glpilanguage']."'
+                               AND `namec`.`field` = 'comment')";
+      }
+
+   }
+
+   $query = "SELECT $SELECTNAME, $SELECTCOMMENT
              FROM `$table`
-             WHERE `id` = '$ID'";
+             $JOIN
+             WHERE `$table`.`id` = '$ID'";
 
    if ($result = $DB->query($query)) {
       if ($DB->numrows($result) == 1) {
-         $name    = $DB->result($result, 0, "name");
-         $comment = $DB->result($result, 0, "comment");
+         $transname = $DB->result($result,0,"transname");
+         if ($translate && !empty($transname)) {
+            $name = $transname;
+         } else {
+            $name = $DB->result($result,0,"name");
+         }
+
+         $comment      = $name." :<br>";
+         $transcomment = $DB->result($result,0,"transcomment");
+
+         if ($translate && !empty($transcomment)) {
+            $comment .= nl2br($transcomment);
+         } else {
+            $comment .= nl2br($DB->result($result,0,"comment"));
+         }
       }
    }
 
@@ -464,29 +530,65 @@ function getTreeLeafValueName($table, $ID, $withcomment=false) {
  * @param $table        string   Dropdown Tree table
  * @param $ID           integer  ID of the element
  * @param $withcomment  boolean  1 if you want to give the array with the comments (false by default)
+ * @param $translate    boolean  (true by default)
  *
  * @return string : completename of the element
  *
  * @see getTreeLeafValueName
 **/
-function getTreeValueCompleteName($table, $ID, $withcomment=false) {
+function getTreeValueCompleteName($table, $ID, $withcomment=false, $translate=true) {
    global $DB;
 
    $name    = "";
    $comment = "";
 
-   $query = "SELECT *
+   $SELECTNAME    = "`$table`.`completename`, '' AS transname";
+   $SELECTCOMMENT = "`$table`.`comment`, '' AS transcomment";
+   $JOIN          = '';
+   if  ($translate) {
+      if (Session::haveTranslations(getItemTypeForTable($table), 'completename')) {
+         $SELECTNAME  = "`$table`.`completename`, `namet`.`value` AS transname";
+         $JOIN       .= " LEFT JOIN `glpi_dropdowntranslations` AS namet
+                           ON (`namet`.`itemtype` = '".getItemTypeForTable($table)."'
+                               AND `namet`.`items_id` = `$table`.`id`
+                               AND `namet`.`language` = '".$_SESSION['glpilanguage']."'
+                               AND `namet`.`field` = 'completename')";
+      }
+      if (Session::haveTranslations(getItemTypeForTable($table), 'comment')) {
+         $SELECTCOMMENT  = "`$table`.`comment`, `namec`.`value` AS transcomment";
+         $JOIN          .= " LEFT JOIN `glpi_dropdowntranslations` AS namec
+                              ON (`namec`.`itemtype` = '".getItemTypeForTable($table)."'
+                                  AND `namec`.`items_id` = `$table`.`id`
+                                  AND `namec`.`language` = '".$_SESSION['glpilanguage']."'
+                                  AND `namec`.`field` = 'comment')";
+      }
+
+   }
+
+   $query = "SELECT $SELECTNAME, $SELECTCOMMENT
              FROM `$table`
-             WHERE `id` = '$ID'";
+             $JOIN
+             WHERE `$table`.`id` = '$ID'";
 
    if ($result = $DB->query($query)) {
       if ($DB->numrows($result) == 1) {
-         $name     = $DB->result($result,0,"completename");
+         $transname = $DB->result($result,0,"transname");
+         if ($translate && !empty($transname)) {
+            $name = $transname;
+         } else {
+            $name = $DB->result($result,0,"completename");
+         }
          $comment  = sprintf(__('%1$s: %2$s')."<br>",
-                             "<span class='b'>".__('Complete name'),
-                             "</span>".$name);
-         $comment .= "<span class='b'>".__('Comments')."&nbsp;</span>".
-                      nl2br($DB->result($result, 0, "comment"));
+                             "<span class='b'>".__('Complete name')."</span>",
+                             $name);
+         $comment .= "<span class='b'>&nbsp;".__('Comments')."&nbsp;</span>";
+
+         $transcomment = $DB->result($result,0,"transcomment");
+         if ($translate && !empty($transcomment)) {
+            $comment .= nl2br($transcomment);
+         } else {
+            $comment .= nl2br($DB->result($result,0,"comment"));
+         }
       }
    }
 
@@ -1220,11 +1322,20 @@ function getUserName($ID, $link=0) {
                                                                         $data["usercategories_id"]));
             }
             if (count($comments)) {
-               foreach ($comments as $data) {
-               // Do not use SPAN here
-               $user['comment'] .= sprintf(__('%1$s: %2$s')."<br>",
-                                   "<strong>".$data['name']."</strong>", $data['value']);
+               $user['comment'] = $user['comment'];
+               foreach ($comments as $datas) {
+                  // Do not use SPAN here
+                  $user['comment'] .= sprintf(__('%1$s: %2$s')."<br>",
+                                              "<strong>".$datas['name']."</strong>",
+                                              $datas['value']);
                }
+            }
+
+            if (!empty($data['picture'])) {
+               $user['comment'] = "<div class='tooltip_picture_border'>".
+                                  "<img  class='tooltip_picture' src='".
+                                     User::getThumbnailURLForPicture($data['picture'])."' /></div>".
+                                  "<div class='tooltip_text'>".$user['comment']."</div>";
             }
          } else {
             $user = $username;
@@ -1383,7 +1494,7 @@ function autoName($objectName, $field, $isTemplate, $itemtype, $entities_id=-1) 
                       FROM `$table`
                       WHERE `$field` LIKE '$like' ";
 
-            if ($itemtype != INFOCOM_TYPE) {
+            if ($itemtype != 'Infocom') {
                $query .= " AND `is_deleted` = '0'
                            AND `is_template` = '0'";
 
@@ -1628,8 +1739,8 @@ function getEntitiesRestrictRequest($separator="AND", $table="", $field="",$valu
          if ($table == 'glpi_entities') {
             $query .= " OR `$table`.`$field` IN ('" . implode("','",$ancestors) . "')";
          } else {
-            $query .= " OR (`$table`.`is_recursive`='1'
-                            AND `$table`.`$field` IN ('" . implode("','",$ancestors) . "'))";
+            $query .= " OR (`$table`.`is_recursive`='1' ".
+                           "AND `$table`.`$field` IN ('" . implode("','",$ancestors) . "'))";
          }
       }
    }

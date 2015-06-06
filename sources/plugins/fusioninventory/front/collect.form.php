@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -45,7 +45,7 @@ include ("../../../inc/includes.php");
 Html::header(__('Collect management', 'fusioninventory'),
              $_SERVER["PHP_SELF"],
              "plugins",
-             "fusioninventory",
+             "pluginfusioninventorymenu",
              "collect");
 
 $pfCollect = new PluginFusioninventoryCollect();
@@ -67,7 +67,7 @@ PluginFusioninventoryMenu::displayMenu("mini");
 if (!isset($_GET["id"])) {
    $_GET['id'] = '';
 }
-$pfCollect->showForm($_GET['id']);
+$pfCollect->display($_GET);
 
 Html::footer();
 

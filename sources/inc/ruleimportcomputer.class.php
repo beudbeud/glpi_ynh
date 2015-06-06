@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ruleimportcomputer.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ruleimportcomputer.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -44,18 +44,9 @@ class RuleImportComputer extends Rule {
 
 
    // From Rule
-   static public $right    = 'rule_import';
-   public $can_sort        = true;
+   static $rightname = 'rule_import';
+   public $can_sort  = true;
 
-
-   static function canCreate() {
-      return Session::haveRight('rule_import', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('rule_import', 'r');
-   }
 
 
    function getTitle() {
@@ -125,11 +116,7 @@ class RuleImportComputer extends Rule {
    function getActions() {
 
       $actions                           = array();
-// TODO OCS
-/*
-      $actions['_fusion']['name']        = __('OCSNG link');
-      $actions['_fusion']['type']        = 'fusion_type';
-*/
+
       $actions['_ignore_import']['name'] = __('To be unaware of import');
       $actions['_ignore_import']['type'] = 'yesonly';
 
@@ -229,7 +216,7 @@ class RuleImportComputer extends Rule {
    /**
     * @see Rule::displayAdditionalRuleAction()
    **/
-   function displayAdditionalRuleAction(array $action) {
+   function displayAdditionalRuleAction(array $action, $value = '') {
 
       switch ($action['type']) {
          case 'fusion_type' :
@@ -276,6 +263,7 @@ class RuleImportComputer extends Rule {
             }
          }
       }
+
       foreach ($global_criteria as $criterion) {
          $criteria = $this->getCriteriaByID($criterion);
          if (!empty($criteria)) {
@@ -317,7 +305,6 @@ class RuleImportComputer extends Rule {
       $sql_where = '1';
       $sql_from  = '';
 
-      // TODO : why don't take care of Rule match attribute ?
       $needport = false;
       $needip   = false;
       foreach ($complex_criterias as $criteria) {

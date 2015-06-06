@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: report.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: report.class.php 23371 2015-02-27 14:22:59Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -40,13 +40,33 @@ if (!defined('GLPI_ROOT')) {
  *
  * @ since version 0.84
 **/
-class Report {
+class Report extends CommonGLPI{
 
    static protected $notable = false;
+   static $rightname         = 'reports';
+
+
+
+   /**
+    * @since version 0.85.3
+   **/
+   static function canView() {
+      return Session::haveRight(self::$rightname, READ);
+   }
 
 
    static function getTypeName($nb=0) {
       return _n('Report', 'Reports', $nb);
+   }
+
+
+   /**
+    * @see CommonGLPI::getMenuShorcut()
+    *
+    *  @since version 0.85
+   **/
+   static function getMenuShorcut() {
+      return 'e';
    }
 
 
@@ -61,12 +81,12 @@ class Report {
       $report_list["default"]["name"] = __('Default report');
       $report_list["default"]["file"] = "report.default.php";
 
-      if (Session::haveRight("contract","r")) {
+      if (Contract::canView()) {
          // Rapport ajoute par GLPI V0.2
          $report_list["Contrats"]["name"] = __('By contract');
          $report_list["Contrats"]["file"] = "report.contract.php";
       }
-      if (Session::haveRight("infocom","r")) {
+      if (Infocom::canView()) {
          $report_list["Par_annee"]["name"] = __('By year');
          $report_list["Par_annee"]["file"] = "report.year.php";
          $report_list["Infocoms"]["name"]  = __('Hardware financial and administrative information');
@@ -74,39 +94,41 @@ class Report {
          $report_list["Infocoms2"]["name"] = __('Other financial and administrative information (licenses, cartridges, consumables)');
          $report_list["Infocoms2"]["file"] = "report.infocom.conso.php";
       }
-      if (Session::haveRight("networking","r")) {
+      if (Session::haveRight("networking", READ)) {
          $report_list["Rapport prises reseau"]["name"] = __('Network report');
          $report_list["Rapport prises reseau"]["file"] = "report.networking.php";
       }
-      if (Session::haveRight("reservation_central","r")) {
+      if (Session::haveRight("reservation", READ)) {
          $report_list["reservation"]["name"] = __('Loan');
          $report_list["reservation"]["file"] = "report.reservation.php";
       }
-      if (Session::haveRight("computer","r")
-          || Session::haveRight("monitor","r")
-          || Session::haveRight("networking","r")
-          || Session::haveRight("peripheral","r")
-          || Session::haveRight("printer","r")
-          || Session::haveRight("phone","r")) {
-         $report_list["state"]["name"] = _n('Status', 'Statuses', 2);
+      if (Computer::canView()
+          || Monitor::canView()
+          || Session::haveRight("networking", READ)
+          || Peripheral::canView()
+          || Printer::canView()
+          || Phone::canView()) {
+         $report_list["state"]["name"] = _n('Status', 'Statuses', Session::getPluralNumber());
          $report_list["state"]["file"] = "report.state.php";
       }
       //Affichage du tableau de presentation des stats
       echo "<table class='tab_cadre_fixe'>";
       echo "<tr><th colspan='2'>".__('Select the report you want to generate')."</th></tr>";
       echo "<tr class='tab_bg_1'><td class='center'>";
-      echo "<select name='statmenu' onchange='window.location.href=this.options
-             [this.selectedIndex].value'>";
-      echo "<option value='-1' selected>".Dropdown::EMPTY_VALUE."</option>";
 
-      $i     = 0;
-      $count = count($report_list);
+      $count    = count($report_list);
+      $selected = -1;
+      $values   = array($CFG_GLPI["root_doc"].'/front/report.php' => Dropdown::EMPTY_VALUE);
+
       while ($data = each($report_list)) {
-         $val  = $data[0];
-         $name = $report_list["$val"]["name"];
-         $file = $report_list["$val"]["file"];
-         echo "<option value='".$CFG_GLPI["root_doc"]."/front/".$file."'>".$name."</option>";
-         $i++;
+         $val           = $data[0];
+         $name          = $report_list["$val"]["name"];
+         $file          = $report_list["$val"]["file"];
+         $key           = $CFG_GLPI["root_doc"]."/front/".$file;
+         $values[$key]  = $name;
+         if (stripos($_SERVER['REQUEST_URI'],$key) !== false) {
+            $selected = $key;
+         }
       }
 
       $names    = array();
@@ -125,18 +147,21 @@ class Report {
       }
 
       foreach ($optgroup as $opt => $title) {
-         echo "<optgroup label=\"". $title ."\">";
-
+         $group = $title;
          foreach ($names as $key => $val) {
              if ($opt == $val["plug"]) {
-               echo "<option value='".$CFG_GLPI["root_doc"]."/plugins/".$key."'>".$val["name"].
-                    "</option>";
+               $file                  = $CFG_GLPI["root_doc"]."/plugins/".$key;
+               $values[$group][$file] = $val["name"];
+               if (stripos($_SERVER['REQUEST_URI'],$file) !== false) {
+                  $selected = $file;
+               }
              }
          }
-          echo "</optgroup>";
       }
 
-      echo "</select>";
+      Dropdown::showFromArray('statmenu', $values,
+                              array('on_change' => "window.location.href=this.options[this.selectedIndex].value",
+                                    'value'     => $selected));
       echo "</td>";
       echo "</tr>";
       echo "</table>";
@@ -152,49 +177,38 @@ class Report {
       global $DB;
 
       # Title
-      echo "<span class='big b'>GLPI ".Report::getTypeName(2)."</span><br><br>";
+      echo "<span class='big b'>GLPI ".Report::getTypeName(Session::getPluralNumber())."</span><br><br>";
 
       # 1. Get counts of itemtype
-      $items = array('Computer',
-                     'Printer',
-                     'NetworkEquipment',
-                     'Software',
-                     'Monitor',
-                     'Peripheral',
-                     'Phone');
+      $items     = array('Computer', 'Monitor', 'NetworkEquipment', 'Peripheral', 'Phone',
+                         'Printer', 'Software');
 
-      $linkitems = array('Printer',
-                     'Monitor',
-                     'Peripheral',
-                     'Phone');
+      $linkitems = array('Monitor', 'Peripheral', 'Phone', 'Printer');
 
       echo "<table class='tab_cadrehov'>";
 
       foreach ($items as $itemtype) {
-
          $table_item = getTableForItemType($itemtype);
+         $where      = "WHERE `".$table_item."`.`is_deleted` = '0'
+                              AND `".$table_item."`.`is_template` = '0' ";
 
-         $where = "WHERE `".$table_item."`.`is_deleted` = '0'
-                      AND `".$table_item."`.`is_template` = '0' ";
-
-         $join ="";
+         $join       = "";
          if (in_array($itemtype, $linkitems)) {
             $join =  "LEFT JOIN `glpi_computers_items`
                         ON (`glpi_computers_items`.`itemtype` = '".$itemtype."'
-                       AND `glpi_computers_items`.`items_id` = `".$table_item."`.`id`)";
+                            AND `glpi_computers_items`.`items_id` = `".$table_item."`.`id`)";
 
          }
          $query = "SELECT COUNT(*)
-                FROM `".$table_item."`
-                $join
-                $where ".
-                  getEntitiesRestrictRequest("AND",$table_item);
-         $result              = $DB->query($query);
+                   FROM `".$table_item."`
+                   $join
+                   $where ".
+                         getEntitiesRestrictRequest("AND",$table_item);
+         $result = $DB->query($query);
          $number = $DB->result($result,0,0);
 
-         echo "<tr class='tab_bg_2'><td>".$itemtype::getTypeName(2)."</td>";
+         echo "<tr class='tab_bg_2'><td>".$itemtype::getTypeName(Session::getPluralNumber())."</td>";
          echo "<td class='numeric'>$number</td></tr>";
-
       }
 
       echo "<tr class='tab_bg_1'><td colspan='2' class='b'>".__('Operating system')."</td></tr>";
@@ -210,11 +224,11 @@ class Report {
                 LEFT JOIN `glpi_operatingsystems`
                    ON (`glpi_computers`.`operatingsystems_id` = `glpi_operatingsystems`.`id`)
                 $where ".
-                  getEntitiesRestrictRequest("AND","glpi_computers")."
+                        getEntitiesRestrictRequest("AND","glpi_computers")."
                 GROUP BY `glpi_operatingsystems`.`name`";
       $result = $DB->query($query);
 
-      while ($data=$DB->fetch_assoc($result)) {
+      while ($data = $DB->fetch_assoc($result)) {
          if (empty($data['name'])) {
             $data['name'] = Dropdown::EMPTY_VALUE;
          }
@@ -224,42 +238,40 @@ class Report {
 
       # Get counts of types
 
-      $val = array_flip($items);
+      $val   = array_flip($items);
       unset($val["Software"]);
       $items = array_flip($val);
 
       foreach ($items as $itemtype) {
-
-         echo "<tr class='tab_bg_1'><td colspan='2' class='b'>".$itemtype::getTypeName(2)."</td></tr>";
+         echo "<tr class='tab_bg_1'><td colspan='2' class='b'>".$itemtype::getTypeName(Session::getPluralNumber()).
+              "</td></tr>";
 
          $table_item = getTableForItemType($itemtype);
-         $typeclass = $itemtype."Type";
+         $typeclass  = $itemtype."Type";
          $type_table = getTableForItemType($typeclass);
-         $typefield = getForeignKeyFieldForTable(getTableForItemType($typeclass));
+         $typefield  = getForeignKeyFieldForTable(getTableForItemType($typeclass));
 
          $where = "WHERE `".$table_item."`.`is_deleted` = '0'
-                      AND `".$table_item."`.`is_template` = '0' ";
+                          AND `".$table_item."`.`is_template` = '0' ";
 
-         $join ="";
+         $join = "";
          if (in_array($itemtype, $linkitems)) {
             $join =  "LEFT JOIN `glpi_computers_items`
                         ON (`glpi_computers_items`.`itemtype` = '".$itemtype."'
-                       AND `glpi_computers_items`.`items_id` = `".$table_item."`.`id`)";
-
+                            AND `glpi_computers_items`.`items_id` = `".$table_item."`.`id`)";
          }
 
          $query = "SELECT COUNT(*) AS count, `".$type_table."`.`name` AS name
-                FROM `".$table_item."`
-                LEFT JOIN `".$type_table."`
-                   ON (`".$table_item."`.`".$typefield."`
-                        = `".$type_table."`.`id`)
-                $join
-                $where ".
-                    getEntitiesRestrictRequest("AND",$table_item)."
-                GROUP BY `".$type_table."`.`name`";
+                   FROM `".$table_item."`
+                   LEFT JOIN `".$type_table."`
+                         ON (`".$table_item."`.`".$typefield."` = `".$type_table."`.`id`)
+                   $join
+                   $where ".
+                          getEntitiesRestrictRequest("AND",$table_item)."
+                   GROUP BY `".$type_table."`.`name`";
          $result = $DB->query($query);
 
-         while ($data=$DB->fetch_assoc($result)) {
+         while ($data = $DB->fetch_assoc($result)) {
             if (empty($data['name'])) {
                $data['name'] = Dropdown:: EMPTY_VALUE;
             }
@@ -277,13 +289,12 @@ class Report {
     * @param $networkport_prefix
     * @param $networkport_crit
     * @param $where_crit
-    * @param $order                  (default '')
-    * @param $field                  (default '')
-    * @param $extra                  (default '')
+    * @param $order                 (default '')
+    * @param $field                 (default '')
+    * @param $extra                 (default '')
    **/
    static function reportForNetworkInformations($networkport_prefix, $networkport_crit,
-                                                $where_crit, $order = '', $field = '',
-                                                $extra = '') {
+                                                $where_crit, $order='', $field='', $extra='') {
       global $DB;
 
       // This SQL request matches the NetworkPort, then its NetworkName and IPAddreses. It also
@@ -304,7 +315,8 @@ class Report {
                        GROUP_CONCAT(ADDR_2.`name` SEPARATOR ',') AS ip_2
                 FROM $networkport_prefix
                 INNER JOIN `glpi_networkports` AS PORT_1
-                     ON ($networkport_crit AND PORT_1.`is_deleted` = 0)
+                    ON ($networkport_crit
+                        AND PORT_1.`is_deleted` = 0)
                 LEFT JOIN `glpi_networknames` AS NAME_1
                     ON (NAME_1.`itemtype` = 'NetworkPort'
                         AND PORT_1.`id` = NAME_1.`items_id`
@@ -317,9 +329,9 @@ class Report {
                     ON (LINK.`networkports_id_1` = PORT_1.`id`
                         OR LINK.`networkports_id_2` = PORT_1.`id`)
                 LEFT JOIN `glpi_networkports` AS PORT_2
-                    ON (PORT_2.`id`=IF(LINK.`networkports_id_1`=PORT_1.`id`,
-                                       LINK.`networkports_id_2`,
-                                       LINK.`networkports_id_1`))
+                    ON (PORT_2.`id` = IF(LINK.`networkports_id_1` = PORT_1.`id`,
+                                         LINK.`networkports_id_2`,
+                                         LINK.`networkports_id_1`))
                 LEFT JOIN `glpi_networknames` AS NAME_2
                     ON (NAME_2.`itemtype` = 'NetworkPort'
                         AND PORT_2.`id` = NAME_2.`items_id`
@@ -328,8 +340,8 @@ class Report {
                     ON (ADDR_2.`itemtype` = 'NetworkName'
                         AND NAME_2.`id` = ADDR_2.`items_id`
                         AND ADDR_2.`is_deleted` = 0)
-                WHERE $where_crit GROUP BY PORT_1.`id`";
-
+                WHERE $where_crit
+                GROUP BY PORT_1.`id`";
 
       if (!empty($order)) {
          $query .= "ORDER BY $order";
@@ -338,7 +350,6 @@ class Report {
       $result = $DB->request($query);
       if ($result->numrows() > 0) {
          echo "<table class='tab_cadre_fixehov'>";
-
          echo "<tr>";
          if (!empty($extra)) {
             echo "<td>&nbsp;</td>";
@@ -424,6 +435,18 @@ class Report {
          echo "</table><br><hr><br>";
       }
    }
-}
 
+
+   /**
+    * @since version 0.85
+    *
+    * @see commonDBTM::getRights()
+   **/
+   function getRights($interface='central') {
+
+      $values = array( READ => __('Read'));
+      return $values;
+   }
+
+}
 ?>

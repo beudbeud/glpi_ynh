@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: fqdnlabel.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: fqdnlabel.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -225,28 +225,27 @@ abstract class FQDNLabel extends CommonDBChild {
    static function getUniqueItemByFQDN($value, $entity) {
 
       $labels_with_items = self::getItemsByFQDN($value);
-      
       // Filter : Do not keep ip not linked to asset
       if (count($labels_with_items)) {
          foreach ($labels_with_items as $key => $tab) {
             if (isset($tab[0])
-                  && (($tab[0] instanceof NetworkName)
-                  || ($tab[0] instanceof NetworkPort))) {
+                && (($tab[0] instanceof NetworkName)
+                    || ($tab[0] instanceof NetworkPort)
+                    || $tab[0]->isDeleted()
+                    || $tab[0]->isTemplate()
+                    || ($tab[0]->getEntityID() != $entity))) {
                unset($labels_with_items[$key]);
             }
          }
       }
-      
+
       if (count($labels_with_items) == 1) {
          $label_with_items = current($labels_with_items);
          $item             = $label_with_items[0];
-         if ($item->getEntityID() == $entity) {
-            $result = array("id"       => $item->getID(),
-                            "itemtype" => $item->getType());
-            unset($labels_with_items);
-            return $result;
-         }
-
+         $result           = array("id"       => $item->getID(),
+                                   "itemtype" => $item->getType());
+         unset($labels_with_items);
+         return $result;
       }
 
       return array();

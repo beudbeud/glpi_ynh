@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -42,15 +42,12 @@
 
 include ("../../../inc/includes.php");
 
-Session::checkRight("networking", "r");
-PluginFusioninventoryProfile::checkRight("networkequipment", "w");
+Session::checkRight('networking', READ);
+Session::checkRight('plugin_fusioninventory_networkequipment', UPDATE);
 
 if ((isset($_POST['update'])) && (isset($_POST['id']))) {
    $pfNetworkEquipment = new PluginFusioninventoryNetworkEquipment();
    $pfNetworkEquipment->update_network_infos($_POST['id'], $_POST['model_infos'], $_POST['plugin_fusioninventory_configsecurities_id'], $_POST['sysdescr']);
-} else if ((isset($_POST["GetRightModel"])) && (isset($_POST['id']))) {
-   $pfModel = new PluginFusioninventorySnmpmodel();
-   $pfModel->getrightmodel($_POST['id'], NETWORKING_TYPE);
 }
 
 Html::back();

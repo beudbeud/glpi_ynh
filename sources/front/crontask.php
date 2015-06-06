@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: crontask.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: crontask.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,9 +33,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("config", "w");
+Session::checkRight("config", UPDATE);
 
-Html::header(Crontask::getTypeName(2), $_SERVER['PHP_SELF'], 'config', 'crontask');
+Html::header(Crontask::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], 'config', 'crontask');
 
 $crontask = new CronTask();
 if ($crontask->getNeedToRun(CronTask::MODE_INTERNAL)) {
@@ -46,7 +46,14 @@ if ($crontask->getNeedToRun(CronTask::MODE_INTERNAL)) {
    Html::displayTitle($CFG_GLPI['root_doc'].'/pics/warning.png', __('Next run'),
                       sprintf(__('Next task to run: %s'), $name));
 } else {
-   Html::displayTitle($CFG_GLPI['root_doc'].'/pics/ok.png', __('No action pending'), __('No action pending'));
+   Html::displayTitle($CFG_GLPI['root_doc'].'/pics/ok.png', __('No action pending'),
+                      __('No action pending'));
+}
+
+if ($CFG_GLPI['cron_limit'] < countElementsInTable('glpi_crontasks',
+                                                   "frequency = '".MINUTE_TIMESTAMP."'") ) {
+   Html::displayTitle('', '',
+                      __('You have more automatic actions which need to run each minute than the number allow each run. Increase this config.'));
 }
 
 Search::show('CronTask');

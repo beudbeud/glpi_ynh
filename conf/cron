@@ -1,0 +1,1 @@
+*/1 * * * * www-data php5 /var/www/glpi/front/cron.php

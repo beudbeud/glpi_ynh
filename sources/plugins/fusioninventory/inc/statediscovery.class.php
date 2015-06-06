@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,12 +46,7 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryStateDiscovery extends CommonDBTM {
 
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("task", "r");
-   }
-
-
+   static $rightname = 'plugin_fusioninventory_task';
 
    function updateState($p_number, $a_input, $agent_id) {
       $data = $this->find("`plugin_fusioninventory_taskjob_id`='".$p_number."'
@@ -106,7 +101,7 @@ class PluginFusioninventoryStateDiscovery extends CommonDBTM {
 
 
 
-   function display() {
+   function display($options=array()) {
       global $DB, $CFG_GLPI;
 
       $pfAgent = new PluginFusioninventoryAgent();

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: group.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: group.class.php 23436 2015-04-09 14:06:48Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -41,20 +41,40 @@ if (!defined('GLPI_ROOT')) {
 class Group extends CommonTreeDropdown {
 
    public $dohistory = true;
-   
+
+   static $rightname = 'group';
+
+
    static function getTypeName($nb=0) {
       return _n('Group', 'Groups', $nb);
    }
 
 
-   static function canCreate() {
-      return Session::haveRight('group', 'w');
+   /**
+    * @see CommonGLPI::getAdditionalMenuOptions()
+    *
+    * @since version 0.85
+   **/
+   static function getAdditionalMenuOptions() {
+
+      if (Session::haveRight('user', User::UPDATEAUTHENT)) {
+         $options['ldap']['title'] = AuthLDAP::getTypeName(Session::getPluralNumber());
+         $options['ldap']['page']  = "/front/ldap.group.php";
+         return $options;
+      }
+      return false;
    }
 
 
-   static function canView() {
-      return Session::haveRight('group', 'r');
+   /**
+    * @see CommonGLPI::getMenuShorcut()
+    *
+    * @since version 0.85
+   **/
+   static function getMenuShorcut() {
+      return 'g';
    }
+
 
    function post_getEmpty () {
 
@@ -63,6 +83,7 @@ class Group extends CommonTreeDropdown {
       $this->fields['is_notify']    = 1;
       $this->fields['is_itemgroup'] = 1;
       $this->fields['is_usergroup'] = 1;
+      $this->fields['is_manager']   = 1;
    }
 
 
@@ -77,6 +98,21 @@ class Group extends CommonTreeDropdown {
 
       $gp = new Group_Problem();
       $gp->cleanDBonItemDelete($this->getType(), $this->fields['id']);
+
+      $cg = new Change_Group();
+      $cg->cleanDBonItemDelete($this->getType(), $this->fields['id']);
+
+      $query1 = "DELETE
+                 FROM `glpi_projecttaskteams`
+                 WHERE `items_id` = '".$this->fields['id']."'
+                       AND `itemtype` = '".__CLASS__."'";
+      $DB->query($query1);
+
+      $query1 = "DELETE
+                 FROM `glpi_projectteams`
+                 WHERE `items_id` = '".$this->fields['id']."'
+                       AND `itemtype` = '".__CLASS__."'";
+      $DB->query($query1);
 
       $gki = new Group_KnowbaseItem();
       $gki->cleanDBonItemDelete($this->getType(), $this->fields['id']);
@@ -102,7 +138,7 @@ class Group extends CommonTreeDropdown {
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
       if (!$withtemplate
-          && Session::haveRight("group","r")) {
+          && Group::canUpdate()) {
          switch ($item->getType()) {
             case 'Group' :
                $ong = array();
@@ -112,7 +148,7 @@ class Group extends CommonTreeDropdown {
                   $nb = countElementsInTable($this->getTable(),
                                              "`groups_id` = '".$item->getID()."'");
                }
-               $ong[4] = self::createTabEntry($this->getTypeName(2), $nb);
+               $ong[4] = self::createTabEntry(__('Child groups'), $nb);
 
                if ($item->getField('is_itemgroup')) {
                   $ong[1] = __('Used items');
@@ -121,8 +157,8 @@ class Group extends CommonTreeDropdown {
                   $ong[2] = __('Managed items');
                }
                if ($item->getField('is_usergroup')
-                   && Session::haveRight("group", "w")
-                   && Session::haveRight("user_authtype", "w")
+                   && Group::canUpdate()
+                   && Session::haveRight("user", User::UPDATEAUTHENT)
                    && AuthLdap::useAuthLdap()) {
                   $ong[3] = __('LDAP directory link');
                }
@@ -164,6 +200,7 @@ class Group extends CommonTreeDropdown {
 
       $ong = array();
 
+      $this->addDefaultFormTab($ong);
       $this->addStandardTab('Group', $ong, $options);
       if ($this->fields['is_usergroup']) {
          $this->addStandardTab('Group_User', $ong, $options);
@@ -174,8 +211,10 @@ class Group extends CommonTreeDropdown {
       if ($this->fields['is_requester']) {
          $this->addStandardTab('Ticket', $ong, $options);
       }
+      $this->addStandardTab('Item_Problem', $ong, $options);
+      $this->addStandardTab('Change_Item', $ong, $options);
+      
       $this->addStandardTab('Log',$ong, $options);
-
       return $ong;
    }
 
@@ -193,22 +232,20 @@ class Group extends CommonTreeDropdown {
    function showForm($ID, $options=array()) {
 
       $this->initForm($ID, $options);
-      $this->showTabs($options);
-      $options['colspan'] = 4;
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td colspan='2'>".__('Name')."</td>";
-      echo "<td colspan='2'>";
+      echo "<td>".__('Name')."</td>";
+      echo "<td>";
       Html::autocompletionTextField($this, "name");
       echo "</td>";
-      echo "<td rowspan='8' class='middle'>".__('Comments')."</td>";
-      echo "<td class='middle' rowspan='8'>";
+      echo "<td rowspan='9' class='middle'>".__('Comments')."</td>";
+      echo "<td class='middle' rowspan='9'>";
       echo "<textarea cols='45' rows='8' name='comment' >".$this->fields["comment"]."</textarea>";
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td colspan='2'>".__('As child of')."</td><td colspan='2'>";
+      echo "<td>".__('As child of')."</td><td>";
       self::dropdown(array('value'  => $this->fields['groups_id'],
                            'name'   => 'groups_id',
                            'entity' => $this->fields['entities_id'],
@@ -216,40 +253,51 @@ class Group extends CommonTreeDropdown {
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td class='b' colspan='4'>".__('Visible in a ticket')."</td>";
+      echo "<td class='subheader' colspan='2'>".__('Visible in a ticket');
       echo "</td></tr>";
 
-      echo "<tr class='tab_bg_1'><td>&nbsp;</td>";
+      echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Requester')."</td>";
       echo "<td>";
       Dropdown::showYesNo('is_requester', $this->fields['is_requester']);
-      echo "</td>";
-      echo "<td>".__('Assigned to')."&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+      echo "</td></tr>";
+
+      echo "<tr  class='tab_bg_1'>";
+      echo "<td>".__('Assigned to')."</td><td>";
       Dropdown::showYesNo('is_assign', $this->fields['is_assign']);
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td colspan='2' class='b'>".__('Can be notified')."</td>";
+      echo "<td>".__('Can be notified')."</td>";
       echo "<td>";
       Dropdown::showYesNo('is_notify', $this->fields['is_notify']);
-      echo "</td><td></td></tr>";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td class='b' colspan='4'>".__('Can contain')."</td>";
       echo "</td></tr>";
 
-      echo "<tr class='tab_bg_1'><td>&nbsp;</td>";
-      echo "<td>"._n('Item', 'Items', 2)."</td>";
+      echo "<tr class='tab_bg_1'>";
+      echo "<td class='subheader' colspan='2'>".__('Visible in a project');
+      echo "</td></tr>";
+
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>".__('Can be manager')."</td>";
+      echo "<td>";
+      Dropdown::showYesNo('is_manager', $this->fields['is_manager']);
+      echo "</td></tr>";
+
+      echo "<tr class='tab_bg_1'>";
+      echo "<td class='subheader' colspan='2'>".__('Can contain');
+      echo "</td></tr>";
+
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>"._n('Item', 'Items', Session::getPluralNumber())."</td>";
       echo "<td>";
       Dropdown::showYesNo('is_itemgroup', $this->fields['is_itemgroup']);
-      echo "</td>";
-      echo "<td>"._n('User', 'Users', 2)."&nbsp;&nbsp;&nbsp;";
-      Dropdown::showYesNo('is_usergroup', $this->fields['is_usergroup']);
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td colspan='4' class='center'>";
-
+      echo "<td>"._n('User', 'Users', Session::getPluralNumber())."</td><td>";
+      Dropdown::showYesNo('is_usergroup', $this->fields['is_usergroup']);
+      echo "</td>";
+      echo "<td colspan='2' class='center'>";
       if (!$ID) {
          //TRANS: %s is the datetime of insertion
          printf(__('Created on %s'), Html::convDateTime($_SESSION["glpi_currenttime"]));
@@ -260,7 +308,6 @@ class Group extends CommonTreeDropdown {
       echo "</td></tr>";
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
 
       return true;
    }
@@ -275,18 +322,18 @@ class Group extends CommonTreeDropdown {
       global $CFG_GLPI;
 
       $buttons = array();
-      if (Session::haveRight("group", "w")
-          && Session::haveRight("user_authtype", "w")
+      if (Group::canUpdate()
+          && Session::haveRight("user", User::UPDATEAUTHENT)
           && AuthLdap::useAuthLdap()) {
 
          $buttons["ldap.group.php"] = __('LDAP directory link');
          $title                     = "";
 
       } else {
-         $title = self::getTypeName(2);
+         $title = self::getTypeName(Session::getPluralNumber());
       }
 
-      Html::displayTitle($CFG_GLPI["root_doc"] . "/pics/groupes.png", self::getTypeName(2), $title,
+      Html::displayTitle($CFG_GLPI["root_doc"] . "/pics/groupes.png", self::getTypeName(Session::getPluralNumber()), $title,
                          $buttons);
    }
 
@@ -299,33 +346,32 @@ class Group extends CommonTreeDropdown {
       $isadmin = static::canUpdate();
       $actions = parent::getSpecificMassiveActions($checkitem);
       if ($isadmin) {
-         $actions['add_user_group']        = _x('button', 'Add a user');
-         $actions['add_supervisor_group']  = _x('button', 'Add a supervisor');
-         $actions['add_delegatee_group']   = _x('button', 'Add a delegatee');
+         $prefix                            = 'Group_User'.MassiveAction::CLASS_ACTION_SEPARATOR;
+         $actions[$prefix.'add']            = _x('button', 'Add a user');
+         $actions[$prefix.'add_supervisor'] = _x('button', 'Add a manager');
+         $actions[$prefix.'add_delegatee']  = _x('button', 'Add a delegatee');
+         $actions[$prefix.'remove']         = _x('button', 'Remove a user');
       }
-      if (Session::haveRight('transfer','r')
-          && Session::isMultiEntitiesMode()
-          && $isadmin) {
-         $actions['add_transfer_list'] = _x('button', 'Add to transfer list');
+
+      if ($isadmin) {
+         MassiveAction::getAddTransferList($actions);
       }
+
       return $actions;
    }
 
 
    /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
+    * @since version 0.85
+    *
+    * @see CommonDBTM::showMassiveActionsSubForm()
    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
-      global $CFG_GLPI;
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
 
-      switch ($input['action']) {
-         case "add_user_group" :
-         case "add_supervisor_group" :
-         case "add_delegatee_group" :
-            $gu = new Group_User();
-            return $gu->showSpecificMassiveActionsParameters($input);
+      $input = $ma->getInput();
 
-         case "changegroup" :
+      switch ($ma->getAction()) {
+         case 'changegroup' :
             if (isset($input['is_tech'])
                 && isset($input['check_items_id'])
                 && isset($input['check_itemtype'])) {
@@ -341,62 +387,46 @@ class Group extends CommonTreeDropdown {
                   }
                }
             }
-            break;
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
-
+            return true;
       }
-      return false;
+      return parent::showMassiveActionsSubForm($ma);
    }
 
 
    /**
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @since version 0.85
+    *
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "add_user_group" :
-         case "add_supervisor_group" :
-         case "add_delegatee_group" :
-            $gu = new Group_User();
-            return $gu->doSpecificMassiveActions($input);
-
-         case "changegroup" :
+      switch ($ma->getAction()) {
+         case 'changegroup' :
+            $input = $ma->getInput();
             if (isset($input["field"])
                 && isset($input['groups_id'])) {
-               foreach ($input['item'] as $type => $ids) {
-                  if ($item = getItemForItemtype($type)) {
-                     foreach ($ids as $id => $val) {
-                        if ($val && $item->can($id, 'w')) {
-                           if ($item->update(array('id'      => $id,
+               foreach ($ids as $id) {
+                  if ($item->can($id, UPDATE)) {
+                     if ($item->update(array('id'            => $id,
                                              $input["field"] => $input["groups_id"]))) {
-                              $res['ok']++;
-                           } else {
-                              $res['ko']++;
-                           }
-                        } else {
-                           $res['noright']++;
-                        }
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
+                     } else {
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                        $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
                      }
                   } else {
-                     $res['ko']++;
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                     $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
                   }
                }
             } else {
-               $res['ko']++;
+               $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
+               $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
             }
-            break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
+            return;
       }
-      return $res;
+      parent::processMassiveActionsForOneItemtype($ma, $baseitem, $ids);
    }
 
 
@@ -431,6 +461,11 @@ class Group extends CommonTreeDropdown {
       $tab[12]['name']          = __('Assigned to');
       $tab[12]['datatype']      = 'bool';
 
+      $tab[18]['table']         = $this->getTable();
+      $tab[18]['field']         = 'is_manager';
+      $tab[18]['name']          = __('Can be manager');
+      $tab[18]['datatype']      = 'bool';
+
       $tab[13]['table']         = $this->getTable();
       $tab[13]['field']         = 'is_notify';
       $tab[13]['name']          = __('Can be notified');
@@ -438,12 +473,12 @@ class Group extends CommonTreeDropdown {
 
       $tab[17]['table']         = $this->getTable();
       $tab[17]['field']         = 'is_itemgroup';
-      $tab[17]['name']          = sprintf(__('%1$s %2$s'), __('Can contain'), _n('Item', 'Items', 2));
+      $tab[17]['name']          = sprintf(__('%1$s %2$s'), __('Can contain'), _n('Item', 'Items', Session::getPluralNumber()));
       $tab[17]['datatype']      = 'bool';
 
       $tab[15]['table']         = $this->getTable();
       $tab[15]['field']         = 'is_usergroup';
-      $tab[15]['name']          = sprintf(__('%1$s %2$s'), __('Can contain'), User::getTypeName(2));
+      $tab[15]['name']          = sprintf(__('%1$s %2$s'), __('Can contain'), User::getTypeName(Session::getPluralNumber()));
       $tab[15]['datatype']      = 'bool';
 
       $tab[70]['table']         = 'glpi_users';
@@ -485,8 +520,8 @@ class Group extends CommonTreeDropdown {
              $this->getFormURL()."'>";
       echo "<div class='spaced'><table class='tab_cadre_fixe'>";
 
-      if (Session::haveRight("group", "w")
-          && Session::haveRight("user_authtype", "w")
+      if (Group::canUpdate()
+          && Session::haveRight("user", User::UPDATEAUTHENT)
           && AuthLdap::useAuthLdap()) {
          echo "<tr class='tab_bg_1'>";
          echo "<th colspan='2' class='center'>".__('In users')."</th></tr>";
@@ -664,7 +699,7 @@ class Group extends CommonTreeDropdown {
          $tree = 0;
       }
       if ($this->getField('is_usergroup')) {
-         echo "</td><td class='center'>".User::getTypeName(2)."&nbsp;";
+         echo "</td><td class='center'>".User::getTypeName(Session::getPluralNumber())."&nbsp;";
          Dropdown::showYesNo('user', $user, -1,
                              array('on_change' => 'reloadTab("start=0&user="+this.value)'));
       } else {
@@ -676,7 +711,7 @@ class Group extends CommonTreeDropdown {
       if ($type) {
          $types = array($type);
       }
-      $start  = (isset($_POST['start']) ? $_POST['start'] : 0);
+      $start  = (isset($_GET['start']) ? intval($_GET['start']) : 0);
       $nb     = $this->getDataItems($types, $field, $tree, $user, $start, $datas);
       $nbcan  = 0;
 
@@ -684,23 +719,34 @@ class Group extends CommonTreeDropdown {
          Html::printAjaxPager('', $start, $nb);
 
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         echo "<input type='hidden' name='field' value='$field'>";
+         echo Html::hidden('field', array('value'                 => $field,
+                                          'data-glpicore-ma-tags' => 'common'));
 
-         $paramsma = array('num_displayed'    => $nb,
+         $massiveactionparams = array('num_displayed'    => $nb,
                            'check_itemtype'   => 'Group',
                            'check_items_id'   => $ID,
-                           'extraparams'      => array('is_tech' => $tech),
-                           'specific_actions' => array('changegroup' => __('Move')) );
-         Html::showMassiveActions(__CLASS__, $paramsma);
+                           'container'        => 'mass'.__CLASS__.$rand,
+                           'extraparams'      => array('is_tech' => $tech,
+                                                       'massive_action_fields' => array('field')),
+                           'specific_actions' => array(__CLASS__.
+                                                       MassiveAction::CLASS_ACTION_SEPARATOR.
+                                                       'changegroup' => __('Move')) );
+         Html::showMassiveActions($massiveactionparams);
 
-         echo "<table class='tab_cadre_fixe'>";
-         echo "<tr><th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
-         echo "<th>".__('Type')."</th><th>".__('Name')."</th><th>".__('Entity')."</th>";
+         echo "<table class='tab_cadre_fixehov'>";
+         $header_begin  = "<tr><th width='10'>";
+         $header_top    = Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom = Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_end    = '</th>';
+
+         $header_end .= "<th>".__('Type')."</th><th>".__('Name')."</th><th>".__('Entity')."</th>";
          if ($tree || $user) {
-            echo "<th>".sprintf(__('%1$s / %2$s'), self::getTypeName(1), User::getTypeName(1)).
-                 "</th>";
+            $header_end .= "<th>".
+                             sprintf(__('%1$s / %2$s'), self::getTypeName(1), User::getTypeName(1)).
+                           "</th>";
          }
-         echo "</tr>";
+         $header_end .= "</tr>";
+         echo $header_begin.$header_top.$header_end;
 
          $tuser = new User();
          $group = new Group();
@@ -710,9 +756,8 @@ class Group extends CommonTreeDropdown {
                continue;
             }
             echo "<tr class='tab_bg_1'><td>";
-            if ($item->can($data['items_id'], 'w')) {
-               echo "<input type='checkbox' name='item[".$data['itemtype']."][".$data['items_id']."]'
-                      value='1'>";
+            if ($item->canEdit($data['items_id'])) {
+               Html::showMassiveActionCheckBox($data['itemtype'], $data['items_id']);
             }
             echo "</td><td>".$item->getTypeName(1);
             echo "</td><td>".$item->getLink(array('comments' => true));
@@ -732,14 +777,15 @@ class Group extends CommonTreeDropdown {
             }
             echo "</td></tr>";
          }
+         echo $header_begin.$header_bottom.$header_end;
          echo "</table>";
       } else {
          echo "<p class='center b'>".__('No item found')."</p>";
       }
 
       if ($nb) {
-         $paramsma['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         $massiveactionparams['ontop'] = false;
+         Html::showMassiveActions($massiveactionparams);
       }
       Html::closeForm();
 

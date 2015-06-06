@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: devicememory.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: devicememory.class.php 22884 2014-04-09 11:48:04Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,6 +38,8 @@ if (!defined('GLPI_ROOT')) {
 /// Class DeviceMemory
 class DeviceMemory extends CommonDevice {
 
+   static protected $forward_entity_to = array('Item_DeviceMemory', 'Infocom');
+   
    static function getTypeName($nb=0) {
       return _n('Memory', 'Memories', $nb);
    }
@@ -80,6 +82,41 @@ class DeviceMemory extends CommonDevice {
       $tab[13]['datatype'] = 'dropdown';
 
       return $tab;
+   }
+
+
+   /**
+    * @since version 0.85
+    * @param $input
+    *
+    * @return number
+   **/
+   function prepareInputForAddOrUpdate($input) {
+
+      foreach (array('size_default') as $field) {
+         if (isset($input[$field]) && !is_numeric($input[$field])) {
+            $input[$field] = 0;
+         }
+      }
+      return $input;
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDropdown::prepareInputForAdd()
+   **/
+   function prepareInputForAdd($input) {
+      return self::prepareInputForAddOrUpdate($input);
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDropdown::prepareInputForUpdate()
+   **/
+   function prepareInputForUpdate($input) {
+      return self::prepareInputForAddOrUpdate($input);
    }
 
 
@@ -150,6 +187,7 @@ class DeviceMemory extends CommonDevice {
     * @since version 0.84
    **/
    function getImportCriteria() {
+
       return array('designation'          => 'equal',
                    'devicememorytypes_id' => 'equal',
                    'manufacturers_id'     => 'equal',

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Alexandre Delaunay
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -74,29 +74,28 @@ $data = $_POST;
 $package = new PluginFusioninventoryDeployPackage();
 //general form
 if (isset ($data["add"])) {
-   PluginFusioninventoryProfile::checkRight("packages", "w");
+   Session::checkRight('plugin_fusioninventory_package', CREATE);
    $newID = $package->add($data);
    html::redirect(Toolbox::getItemTypeFormURL('PluginFusioninventoryDeployPackage')."?id=".$newID);
 } else if (isset ($data["update"])) {
-   PluginFusioninventoryProfile::checkRight("packages", "w");
+   Session::checkRight('plugin_fusioninventory_package', UPDATE);
    $package->update($data);
    Html::back();
 } else if (isset ($data["delete"])) {
-   PluginFusioninventoryProfile::checkRight("packages", "w");
+   Session::checkRight('plugin_fusioninventory_package', PURGE);
    $package->delete($data);
    $package->redirectToList();
 }
 
 
 Html::header(__('FusionInventory DEPLOY'), $_SERVER["PHP_SELF"], "plugins",
-   "fusioninventory", "packages");
+   "pluginfusioninventorymenu", "deploypackage");
 PluginFusioninventoryMenu::displayMenu("mini");
 $id = "";
 if (isset($_GET["id"])) {
    $id = $_GET["id"];
 }
-PluginFusioninventoryProfile::checkRight( "packages", "r");
-$package->showForm($id);
+$package->display($_GET);
 Html::footer();
 
 ?>

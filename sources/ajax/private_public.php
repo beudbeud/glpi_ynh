@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: private_public.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: private_public.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -61,14 +61,17 @@ if (isset($_POST['is_private'])) {
          } else {
             $val = $_SESSION['glpiactive_entity'];
          }
+         echo "<table width='100%'>";
+         echo "<tr><td>";
          echo "<input type='hidden' name='is_private' value='0'>\n";
-         echo __('Public')."&nbsp;";
+         _e('Public');
+         echo "</td><td>";
          Entity::dropdown(array('value' => $val));
-         echo "&nbsp;";
-         _e('Child entities');
-         echo "&nbsp;";
+         echo "</td><td>". __('Child entities')."</td><td>";
          Dropdown::showYesNo('is_recursive', $_POST["is_recursive"]);
-         echo "&nbsp;<a onClick='setPrivate".$_POST['rand']."()'>".__('Set personal')."</a>";
+         echo "</td><td>";
+         echo "<a onClick='setPrivate".$_POST['rand']."()'>".__('Set personal')."</a>";
+         echo "</td></tr></table>";
          break;
    }
 }

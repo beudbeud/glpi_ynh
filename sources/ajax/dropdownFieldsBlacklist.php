@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: dropdownFieldsBlacklist.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: dropdownFieldsBlacklist.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,7 +37,7 @@ if (strpos($_SERVER['PHP_SELF'],"dropdownFieldsBlacklist.php")) {
    Html::header_nocache();
 }
 
-Session::checkRight("config", "w");
+Session::checkRight("config", UPDATE);
 
 $field = new Fieldblacklist();
 if ($_POST['id'] > 0) {

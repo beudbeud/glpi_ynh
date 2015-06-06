@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: htmltableheader.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: htmltableheader.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -145,17 +145,27 @@ abstract class HTMLTableHeader extends HTMLTableEntity {
 
 
    /**
-    * @param $with_content
+    * @param $with_content do we displaye the content ?
+    * @param $main_header  main header (from table) or secondary (from group) ? (true by default)
    **/
-   function displayTableHeader($with_content) {
+   function displayTableHeader($with_content, $main_header=true) {
 
-      echo "<th colspan='".$this->colSpan."'>";
+      if ($main_header) {
+         echo "<th";
+      } else {
+         echo "<td class='subheader'";
+      }
+      echo " colspan='".$this->colSpan."'>";
       if ($with_content) {
          $this->displayContent();
       } else {
          echo "&nbsp;";
       }
-      echo "</th>";
+      if ($main_header) {
+         echo "</th>";
+      } else {
+         echo "</td>";
+      }
    }
 
 

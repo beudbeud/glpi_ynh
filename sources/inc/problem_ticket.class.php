@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: problem_ticket.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: problem_ticket.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -62,6 +62,48 @@ class Problem_Ticket extends CommonDBRelation{
 
 
    /**
+    * @see CommonGLPI::getTabNameForItem()
+   **/
+   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+
+      if (static::canView()) {
+         $nb = 0;
+         switch ($item->getType()) {
+            case 'Ticket' :
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countElementsInTable('glpi_problems_tickets',
+                                             "`tickets_id` = '".$item->getID()."'");
+               }
+               return self::createTabEntry(Problem::getTypeName(Session::getPluralNumber()), $nb);
+
+            case 'Problem' :
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countElementsInTable('glpi_problems_tickets',
+                                             "`problems_id` = '".$item->getID()."'");
+               }
+               return self::createTabEntry(Ticket::getTypeName(Session::getPluralNumber()), $nb);
+         }
+      }
+      return '';
+   }
+
+
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+
+      switch ($item->getType()) {
+         case 'Ticket' :
+            self::showForTicket($item);
+            break;
+
+         case 'Problem' :
+            self::showForProblem($item);
+            break;
+      }
+      return true;
+   }
+
+
+   /**
     * Get search function for the class
     *
     * @return array of search option
@@ -79,9 +121,9 @@ class Problem_Ticket extends CommonDBRelation{
 
       $donotif = $CFG_GLPI["use_mailing"];
 
-      if (isset($this->input["_no_notif"]) && $this->input["_no_notif"]) {
-         $donotif = false;
-      }
+//       if (isset($this->input["_no_notif"]) && $this->input["_no_notif"]) {
+//          $donotif = false;
+//       }
       if ($donotif) {
          $problem = new Problem();
          if ($problem->getFromDB($this->input["problems_id"])) {
@@ -102,9 +144,9 @@ class Problem_Ticket extends CommonDBRelation{
 
       $donotif = $CFG_GLPI["use_mailing"];
 
-      if (isset($this->input["_no_notif"]) && $this->input["_no_notif"]) {
-         $donotif = false;
-      }
+//       if (isset($this->input["_no_notif"]) && $this->input["_no_notif"]) {
+//          $donotif = false;
+//       }
       if ($donotif) {
          $problem = new Problem();
          if ($problem->getFromDB($this->fields["problems_id"])) {
@@ -118,73 +160,68 @@ class Problem_Ticket extends CommonDBRelation{
 
 
    /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
+    * @since version 0.85
     *
-    * @since version 0.84
+    * @see CommonDBTM::showMassiveActionsSubForm()
    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
+      global $CFG_GLPI;
 
-      switch ($input['action']) {
+      switch ($ma->getAction()) {
          case "solveticket" :
             $problem = new Problem();
+            $input = $ma->getInput();
             if (isset($input['problems_id']) && $problem->getFromDB($input['problems_id'])) {
                Ticket::showMassiveSolutionForm($problem->getEntityID());
-               echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                             _sx('button', 'Post')."'>";
+               echo "<br><br>";
+               echo Html::submit(_x('button','Post'), array('name' => 'massiveaction'));
                return true;
             }
             return false;
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
       }
-      return false;
+      return parent::showMassiveActionsSubForm($ma);
    }
 
 
    /**
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @since version 0.85
     *
-    * @since version 0.84
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-          case "solveticket" :
+      switch ($ma->getAction()) {
+          case 'solveticket' :
+            $input  = $ma->getInput();
             $ticket = new Ticket();
-            foreach ($input["item"] as $key => $val) {
-               if ($val == 1) {
-                  if ($this->can($key,'r')) {
-                     if ($ticket->getFromDB($this->fields['tickets_id'])
-                         && $ticket->canSolve()) {
-                        $toupdate                     = array();
-                        $toupdate['id']               = $ticket->getID();
-                        $toupdate['solutiontypes_id'] = $input['solutiontypes_id'];
-                        $toupdate['solution']         = $input['solution'];
+            foreach ($ids as $id) {
+               if ($item->can($id, READ)) {
+                  if ($ticket->getFromDB($item->fields['tickets_id'])
+                      && $ticket->canSolve()) {
+                     $toupdate                     = array();
+                     $toupdate['id']               = $ticket->getID();
+                     $toupdate['solutiontypes_id'] = $input['solutiontypes_id'];
+                     $toupdate['solution']         = $input['solution'];
 
-                        if ($ticket->update($toupdate)) {
-                           $res['ok']++;
-                        } else {
-                           $res['ko']++;
-                        }
+                     if ($ticket->update($toupdate)) {
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                      } else {
-                        $res['noright']++;
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                        $ma->addMessage($ticket->getErrorMessage(ERROR_ON_ACTION));
                      }
                   } else {
-                     $res['noright']++;
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                     $ma->addMessage($ticket->getErrorMessage(ERROR_RIGHT));
                   }
+               } else {
+                  $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                  $ma->addMessage($ticket->getErrorMessage(ERROR_RIGHT));
                }
             }
-           break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
+            return;
       }
-      return $res;
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
 
 
@@ -197,11 +234,11 @@ class Problem_Ticket extends CommonDBRelation{
       global $DB, $CFG_GLPI;
 
       $ID = $problem->getField('id');
-      if (!$problem->can($ID,'r')) {
+      if (!$problem->can($ID, READ)) {
          return false;
       }
 
-      $canedit = $problem->can($ID,'w');
+      $canedit = $problem->canEdit($ID);
 
       $rand = mt_rand();
 
@@ -234,9 +271,9 @@ class Problem_Ticket extends CommonDBRelation{
 
          echo "<tr class='tab_bg_2'><td class='right'>";
          echo "<input type='hidden' name='problems_id' value='$ID'>";
-         $condition = "`glpi_tickets`.`status` NOT IN ('".implode("', '",
-                                                                  array_merge(Ticket::getSolvedStatusArray(),
-                                                                              Ticket::getClosedStatusArray()))."')";
+         $condition = "`glpi_tickets`.`status`
+                        NOT IN ('".implode("', '", array_merge(Ticket::getSolvedStatusArray(),
+                                                               Ticket::getClosedStatusArray()))."')";
          Ticket::dropdown(array('used'        => $used,
                                 'entity'      => $problem->getEntityID(),
                                 'entity_sons' => $problem->isRecursive(),
@@ -255,18 +292,19 @@ class Problem_Ticket extends CommonDBRelation{
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
          $massiveactionparams = array('num_displayed'    => $numrows,
+                                      'container'        => 'mass'.__CLASS__.$rand,
                                       'specific_actions' => array('purge'
                                                                     => _x('button',
                                                                           'Delete permanently'),
-                                                                  'solveticket'
+                                                                  __CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'solveticket'
                                                                     => __('Solve tickets')),
                                       'extraparams'      => array('problems_id' => $problem->getID()),
                                       'width'            => 1000,
                                       'height'           => 500);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
-      echo "<tr><th colspan='11'>".Ticket::getTypeName($numrows)."</th>";
+      echo "<tr class='noHover'><th colspan='12'>".Ticket::getTypeName($numrows)."</th>";
       echo "</tr>";
       if ($numrows) {
          Ticket::commonListHeader(Search::HTML_OUTPUT,'mass'.__CLASS__.$rand);
@@ -279,14 +317,18 @@ class Problem_Ticket extends CommonDBRelation{
          $i = 0;
          foreach ($tickets as $data) {
             Session::addToNavigateListItems('Ticket', $data["id"]);
-            Ticket::showShort($data['id'], false, Search::HTML_OUTPUT, $i, $data['linkID']);
+            Ticket::showShort($data['id'], array('followups'              => false,
+                                                 'row_num'                => $i,
+                                                 'type_for_massiveaction' => __CLASS__,
+                                                 'id_for_massiveaction'   => $data['linkID']));
             $i++;
          }
+         Ticket::commonListHeader(Search::HTML_OUTPUT,'mass'.__CLASS__.$rand);
       }
       echo "</table>";
       if ($canedit && $numrows) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -303,14 +345,13 @@ class Problem_Ticket extends CommonDBRelation{
       global $DB, $CFG_GLPI;
 
       $ID = $ticket->getField('id');
-      if (!Session::haveRight("show_all_problem", 1)
-            || !$ticket->can($ID,'r')) {
+      if (!Session::haveRight("problem", Problem::READALL)
+          || !$ticket->can($ID, READ)) {
 
-//      if (!$ticket->can($ID,'r')) {
          return false;
       }
 
-      $canedit = $ticket->can($ID,'w');
+      $canedit = $ticket->can($ID, UPDATE);
 
       $rand = mt_rand();
 
@@ -361,11 +402,12 @@ class Problem_Ticket extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'  => $numrows);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed'  => $numrows,
+                                      'container'      => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
-      echo "<tr><th colspan='11'>".Problem::getTypeName($numrows)."</th>";
+      echo "<tr class='noHover'><th colspan='12'>".Problem::getTypeName($numrows)."</th>";
       echo "</tr>";
       if ($numrows) {
          Problem::commonListHeader(Search::HTML_OUTPUT,'mass'.__CLASS__.$rand);
@@ -378,47 +420,23 @@ class Problem_Ticket extends CommonDBRelation{
          $i = 0;
          foreach ($problems as $data) {
             Session::addToNavigateListItems('Problem', $data["id"]);
-            Problem::showShort($data['id'], Search::HTML_OUTPUT, $i, $data['linkID']);
+            Problem::showShort($data['id'], array('row_num'                => $i,
+                                                  'type_for_massiveaction' => __CLASS__,
+                                                  'id_for_massiveaction'   => $data['linkID']));
             $i++;
          }
+         Problem::commonListHeader(Search::HTML_OUTPUT,'mass'.__CLASS__.$rand);
       }
 
       echo "</table>";
       if ($canedit && $numrows) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
    }
 
-
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
-
-      if (Session::haveRight("show_all_problem","1")) {
-         $nb = 0;
-         switch ($item->getType()) {
-            case 'Ticket' :
-               if ($_SESSION['glpishow_count_on_tabs']) {
-                  $nb = countElementsInTable('glpi_problems_tickets',
-                                             "`tickets_id` = '".$item->getID()."'");
-               }
-               return self::createTabEntry(self::getTypeName(2), $nb);
-         }
-      }
-      return '';
-   }
-
-
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
-
-      switch ($item->getType()) {
-         case 'Ticket' :
-            self::showForTicket($item);
-            break;
-      }
-      return true;
-   }
 
 }
 ?>

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: dropdownTrackingDeviceType.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: dropdownTrackingDeviceType.php 23346 2015-02-03 15:11:10Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -49,21 +49,29 @@ if (isset($_POST["itemtype"])
    }
 
    echo "<br>";
-   Ajax::displaySearchTextForDropdown($_POST['myname'].$rand,8);
+   $field_id = Html::cleanId("dropdown_".$_POST['myname'].$rand);
 
-   $paramstrackingdt = array('searchText'      => '__VALUE__',
-                             'myname'          => $_POST["myname"],
-                             'table'           => $table,
-                             'itemtype'        => $_POST["itemtype"],
-                             'entity_restrict' => $_POST['entity_restrict']);
+   $p = array('itemtype'            => $_POST["itemtype"],
+              'entity_restrict'     => $_POST['entity_restrict'],
+              'table'               => $table,
+              'myname'              => $_POST["myname"]);
 
-   Ajax::updateItemOnInputTextEvent("search_".$_POST['myname'].$rand, "results_ID$rand",
-                                    $CFG_GLPI["root_doc"]."/ajax/dropdownFindNum.php",
-                                    $paramstrackingdt);
+   if(isset($_POST["used"]) && !empty($_POST["used"])){
+      if(isset($_POST["used"][$_POST["itemtype"]])){
+         $p["used"] = $_POST["used"][$_POST["itemtype"]];
+      }
+   }
+   
+   echo Html::jsAjaxDropdown($_POST['myname'], $field_id,
+                              $CFG_GLPI['root_doc']."/ajax/getDropdownFindNum.php",
+                              $p);
+   // Auto update summary of active or just solved tickets
+   $params = array('items_id' => '__VALUE__',
+                   'itemtype' => $_POST['itemtype']);
 
-   echo "<span id='results_ID$rand'>";
-   echo "<select name='".$_POST["myname"]."'><option value='0'>".Dropdown::EMPTY_VALUE."</option>";
-   echo "</select></span>\n";
+   Ajax::updateItemOnSelectEvent($field_id,"item_ticket_selection_information",
+                                 $CFG_GLPI["root_doc"]."/ajax/ticketiteminformation.php",
+                                 $params);
 
 }
 ?>

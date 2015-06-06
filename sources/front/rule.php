@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rule.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: rule.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,9 @@ include ('../inc/includes.php');
 
 Session::checkCentralAccess();
 
-Html::header(Rule::getTypeName(2), $_SERVER['PHP_SELF'], "admin", "rule", -1);
+Html::header(Rule::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "admin", "rule", -1);
+
+RuleCollection::titleBackup();
 
 echo "<table class='tab_cadre'>";
 echo "<tr><th>" . __('Rule type') . "</th></tr>";
@@ -55,14 +57,14 @@ foreach ($CFG_GLPI["rulecollections_types"] as $rulecollectionclass) {
    }
 }
 
-if (Session::haveRight("transfer","r" )
+if (Session::haveRight("transfer", READ)
     && Session::isMultiEntitiesMode()) {
    echo "<tr class='tab_bg_1'><td class='center b'>";
    echo "<a href='".$CFG_GLPI['root_doc']."/front/transfer.php'>".__('Transfer')."</a>";
    echo "</td></tr>";
 }
 
-if (Session::haveRight("config","r" )) {
+if (Session::haveRight("config", READ)) {
    echo "<tr class='tab_bg_1'><td class='center b'>";
    echo "<a href='".$CFG_GLPI['root_doc']."/front/blacklist.php'>".
         _n('Blacklist','Blacklists',2)."</a>";

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: report.infocom.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: report.infocom.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -34,9 +34,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("reports", "r");
+Session::checkRight("reports", READ);
 
-Html::header(Report::getTypeName(2), $_SERVER['PHP_SELF'], "utils", "report");
+Html::header(Report::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "tools", "report");
 
 if (empty($_POST["date1"]) && empty($_POST["date2"])) {
    $year           = date("Y")-1;
@@ -58,12 +58,12 @@ Report::title();
 echo "<div class='center'><form method='post' name='form' action='".$_SERVER['PHP_SELF']."'>";
 echo "<table class='tab_cadre'><tr class='tab_bg_2'>";
 echo "<td class='right'>".__('Start date')."</td><td>";
-Html::showDateFormItem("date1", $_POST["date1"]);
+Html::showDateField("date1", array('value' => $_POST["date1"]));
 echo "</td><td rowspan='2' class='center'>";
 echo "<input type='submit' class='submit' name='submit' value=\"".__s('Display report')."\"></td>".
      "</tr>";
 echo "<tr class='tab_bg_2'><td class='right'>".__('End date')."</td><td>";
-Html::showDateFormItem("date2" ,$_POST["date2"]);
+Html::showDateField("date2", array('value' => $_POST["date2"]));
 echo "</td></tr>";
 echo "</table>";
 Html::closeForm();
@@ -123,7 +123,7 @@ function display_infocoms_report($itemtype, $begin, $end) {
          echo "<th>".__('Entity')."</th>";
       }
 
-      echo "<th>".__('Value')."</th><th>".__('ANV')."</th>";
+      echo "<th>"._x('price', 'Value')."</th><th>".__('ANV')."</th>";
       echo "<th>".__('TCO')."</th><th>".__('Date of purchase')."</th>";
       echo "<th>".__('Startup date')."</th><th>".__('Warranty expiration date')."</th></tr>";
 
@@ -227,8 +227,8 @@ function display_infocoms_report($itemtype, $begin, $end) {
             $valeurgraphtot[$key] += $valeurgraph[$key];
          }
 
-         Stat::showGraph(array(__('Value') => $valeurgraphdisplay),
-                         array('title' => __('Value'),
+         Stat::showGraph(array(_x('price', 'Value') => $valeurgraphdisplay),
+                         array('title' => _x('price', 'Value'),
                                'width' => 400));
          echo "</td></tr>";
       }
@@ -276,8 +276,8 @@ if (count($valeurnettegraphtot) > 0) {
 }
 if (count($valeurgraphtot) > 0) {
    $valeurgraphtotdisplay = array_map('round', $valeurgraphtot);
-   Stat::showGraph(array(__('Value') => $valeurgraphtotdisplay),
-                   array('title' => __('Value')));
+   Stat::showGraph(array(_x('price', 'Value') => $valeurgraphtotdisplay),
+                   array('title' => _x('price', 'Value')));
 }
 
 Html::footer();

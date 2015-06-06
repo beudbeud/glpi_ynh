@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: install.php 22918 2014-04-16 13:37:20Z moyo $
+ * @version $Id: install.php 23361 2015-02-06 10:05:00Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -36,7 +36,9 @@ define('GLPI_ROOT', realpath('..'));
 
 include_once (GLPI_ROOT . "/inc/autoload.function.php");
 include_once (GLPI_ROOT . "/inc/db.function.php");
+
 Config::detectRootDoc();
+
 
 //Print a correct  Html header for application
 function header_html($etape) {
@@ -89,8 +91,6 @@ function choose_language() {
 }
 
 
-
-
 function acceptLicense() {
 
    echo "<div class='center'>";
@@ -125,13 +125,13 @@ function step0() {
    echo "<form action='install.php' method='post'>";
    echo "<input type='hidden' name='update' value='no'>";
    echo "<p class='submit'><input type='hidden' name='install' value='Etape_0'>";
-   echo "<input type='submit' name='submit' class='submit' value=\"".__('Install')."\"></p>";
+   echo "<input type='submit' name='submit' class='submit' value=\""._sx('button', 'Install')."\"></p>";
    Html::closeForm();
 
    echo "<form action='install.php' method='post'>";
    echo "<input type='hidden' name='update' value='yes'>";
    echo "<p class='submit'><input type='hidden' name='install' value='Etape_0'>";
-   echo "<input type='submit' name='submit' class='submit' value=\"".__('Upgrade')."\"></p>";
+   echo "<input type='submit' name='submit' class='submit' value=\""._sx('button', 'Upgrade')."\"></p>";
    Html::closeForm();
 }
 
@@ -217,13 +217,24 @@ function step3($host, $user, $password, $update) {
 
    error_reporting(16);
    echo "<h3>".__('Test of the connection at the database')."</h3>";
-   $link = new mysqli($host, $user, $password);
+   
+   //Check if the port is in url
+   $hostport = explode(":", $host);
+   if (count($hostport) < 2) {
+     $link = new mysqli($hostport[0], $user, $password);
+   } else {
+     $link = new mysqli($hostport[0], $user, $password, '', $hostport[1]);
+   }
 
-   if (($link->connect_error) || empty($host) || empty($user)) {
+
+   if ($link->connect_error
+       || empty($host)
+       || empty($user)) {
       echo "<p>".__("Can't connect to the database")."\n <br>".
            sprintf(__('The server answered: %s'), $link->connect_error)."</p>";
 
-      if (empty($host) || empty($user)) {
+      if (empty($host)
+          || empty($user)) {
          echo "<p>".__('The server or/and user field is empty')."</p>";
       }
 
@@ -246,9 +257,9 @@ function step3($host, $user, $password, $update) {
 
          $DB_list = $link->query("SHOW DATABASES");
          while ($row = $DB_list->fetch_array()) {
-            if (!in_array($row['Database'],array("information_schema",
-                                               "mysql",
-                                               "performance_schema") )) {
+            if (!in_array($row['Database'], array("information_schema",
+                                                  "mysql",
+                                                  "performance_schema") )) {
                echo "<p><input type='radio' name='databasename' value='". $row['Database']."'>";
                echo $row['Database'].".</p>";
             }
@@ -257,11 +268,6 @@ function step3($host, $user, $password, $update) {
          echo "<p><input type='radio' name='databasename' value='0'>";
          _e('Create a new database or use an existing one:');
          echo "&nbsp;<input type='text' name='newdatabasename'></p>";
-         /*
-         echo "<input type='hidden' name='db_host' value='". $host ."'>";
-         echo "<input type='hidden' name='db_user' value='". $user ."'>";
-         echo "<input type='hidden' name='db_pass' value='". rawurlencode($password) ."'>";
-         */
          echo "<input type='hidden' name='install' value='Etape_3'>";
          echo "<p class='submit'><input type='submit' name='submit' class='submit' value='".
                __('Continue')."'></p>";
@@ -278,11 +284,6 @@ function step3($host, $user, $password, $update) {
             echo $row['Database'].".</p>";
          }
 
-         /*
-         echo "<input type='hidden' name='db_host' value='". $host ."'>";
-         echo "<input type='hidden' name='db_user' value='". $user ."'>";
-         echo "<input type='hidden' name='db_pass' value='". rawurlencode($password) ."'>";
-         */
          echo "<input type='hidden' name='install' value='update_1'>";
          echo "<p class='submit'><input type='submit' name='submit' class='submit' value='".
                 __('Continue')."'></p>";
@@ -332,31 +333,33 @@ function step4 ($databasename, $newdatabasename) {
 
    //Fill the database
    function fill_db() {
-      global $CFG_GLPI;
+      global $CFG_GLPI, $DB;
 
       //include_once (GLPI_ROOT . "/inc/dbmysql.class.php");
       include_once (GLPI_CONFIG_DIR . "/config_db.php");
 
       $DB = new DB();
-      if (!$DB->runFile(GLPI_ROOT ."/install/mysql/glpi-0.84.6-empty.sql")) {
+      if (!$DB->runFile(GLPI_ROOT ."/install/mysql/glpi-0.85.3-empty.sql")) {
          echo "Errors occurred inserting default database";
       }
-
       // update default language
-      $query = "UPDATE `glpi_configs`
-                SET `language` = '".$_SESSION["glpilanguage"]."'";
-      $DB->queryOrDie($query, "4203");
-
+      Config::setConfigurationValues('core', array('language' => $_SESSION["glpilanguage"]));
       $query = "UPDATE `glpi_users`
                 SET `language` = NULL";
       $DB->queryOrDie($query, "4203");
    }
 
-   $link = new mysqli($host, $user, $password);
+   //Check if the port is in url
+   $hostport = explode(":", $host);
+   if (count($hostport) < 2) {
+     $link = new mysqli($hostport[0], $user, $password);
+   } else {
+     $link = new mysqli($hostport[0], $user, $password, '', $hostport[1]);
+   }
 
-   $databasename = $link->real_escape_string($databasename);
+   $databasename    = $link->real_escape_string($databasename);
    $newdatabasename = $link->real_escape_string($newdatabasename);
-   
+
    if (!empty($databasename)) { // use db already created
       $DB_selected = $link->select_db($databasename);
 
@@ -369,6 +372,7 @@ function step4 ($databasename, $newdatabasename) {
          if (create_conn_file($host,$user,$password,$databasename)) {
             fill_db();
             echo "<p>".__('OK - database was initialized')."</p>";
+
             next_form();
 
          } else { // can't create config_db file
@@ -434,9 +438,12 @@ function step7() {
    require_once (GLPI_CONFIG_DIR . "/config_db.php");
    $DB = new DB();
 
+
+   $url_base = str_replace("/install/install.php", "", $_SERVER['HTTP_REFERER']);
    $query = "UPDATE `glpi_configs`
-             SET `url_base` = '".$DB->escape(str_replace("/install/install.php", "", $_SERVER['HTTP_REFERER']))."'
-             WHERE `id` = '1'";
+             SET `value`     = '".$DB->escape($url_base)."'
+             WHERE `context` = 'core'
+                   AND `name`    = 'url_base'";
    $DB->query($query);
 
    echo "<h2>".__('The installation is finished')."</h2>";
@@ -508,7 +515,11 @@ if (isset($_POST["language"])) {
 
 Session::loadLanguage();
 
+/**
+ * @since version 0.84.2
+**/
 function checkConfigFile() {
+
    if (file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
       Html::redirect($CFG_GLPI['root_doc'] ."/index.php");
       die();
@@ -517,12 +528,12 @@ function checkConfigFile() {
 
 if (!isset($_POST["install"])) {
    $_SESSION = array();
+
    checkConfigFile();
    header_html("Select your language");
    choose_language();
 
 } else {
-
    // Check valid Referer :
    Toolbox::checkValidReferer();
    // Check CSRF: ensure nobody strap first page that checks if config file exists ...
@@ -590,6 +601,7 @@ if (!isset($_POST["install"])) {
          break;
 
       case "update_1" :
+         checkConfigFile();
          if (empty($_POST["databasename"])) {
             $_POST["databasename"] = "";
          }

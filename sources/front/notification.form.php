@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notification.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notification.form.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,7 +33,7 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("notification", 'r');
+Session::checkRight("notification", READ);
 
 if (!isset($_GET["id"])) {
    $_GET["id"] = "";
@@ -41,16 +41,16 @@ if (!isset($_GET["id"])) {
 
 $notification = new Notification();
 if (isset($_POST["add"])) {
-   $notification->check(-1,'w',$_POST);
+   $notification->check(-1, CREATE,$_POST);
 
    $newID = $notification->add($_POST);
    Event::log($newID, "notifications", 4, "notification",
               sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
    Html::redirect($_SERVER['PHP_SELF']."?id=$newID");
 
-} else if (isset($_POST["delete"])) {
-   $notification->check($_POST["id"],'d');
-   $notification->delete($_POST);
+} else if (isset($_POST["purge"])) {
+   $notification->check($_POST["id"], PURGE);
+   $notification->delete($_POST, 1);
 
    Event::log($_POST["id"], "notifications", 4, "notification",
               //TRANS: %s is the user login
@@ -58,7 +58,7 @@ if (isset($_POST["add"])) {
    $notification->redirectToList();
 
 } else if (isset($_POST["update"])) {
-   $notification->check($_POST["id"],'w');
+   $notification->check($_POST["id"], UPDATE);
 
    $notification->update($_POST);
    Event::log($_POST["id"], "notifications", 4, "notification",
@@ -67,9 +67,9 @@ if (isset($_POST["add"])) {
    Html::back();
 
 } else {
-   Html::header(Notification::getTypeName(2), $_SERVER['PHP_SELF'], "config", "mailing",
+   Html::header(Notification::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "notification",
                 "notification");
-   $notification->showForm($_GET["id"]);
+   $notification->display(array('id' => $_GET["id"]));
    Html::footer();
 }
 ?>

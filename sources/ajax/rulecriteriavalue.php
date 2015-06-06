@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rulecriteriavalue.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: rulecriteriavalue.php 22716 2014-02-26 14:33:48Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -46,6 +46,10 @@ Session::checkLoginUser();
 
 // Non define case
 if (isset($_POST["sub_type"]) && ($rule = getItemForItemtype($_POST["sub_type"]))) {
-   $rule->displayCriteriaSelectPattern("pattern", $_POST["criteria"], $_POST['condition']);
+   $value = '';
+   if (isset($_POST['value'])) {
+      $value = stripslashes($_POST['value']);
+   }
+   $rule->displayCriteriaSelectPattern("pattern", $_POST["criteria"], $_POST['condition'], $value);
 }
 ?>

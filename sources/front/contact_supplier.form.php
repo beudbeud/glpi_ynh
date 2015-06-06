@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: contact_supplier.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: contact_supplier.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,7 +37,7 @@ include ('../inc/includes.php');
 Session::checkCentralAccess();
 $contactsupplier = new Contact_Supplier();
 if (isset($_POST["add"])) {
-   $contactsupplier->check(-1,'w',$_POST);
+   $contactsupplier->check(-1, CREATE, $_POST);
 
    if (isset($_POST["contacts_id"]) && ($_POST["contacts_id"] > 0)
        && isset($_POST["suppliers_id"]) && ($_POST["suppliers_id"] > 0)) {

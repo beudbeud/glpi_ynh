@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: contractcost.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: contractcost.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -89,14 +89,14 @@ class ContractCost extends CommonDBChild {
 
       // can exists for template
       if (($item->getType() == 'Contract')
-          && Session::haveRight("contract","r")) {
+          && Contract::canView()) {
 
          if ($_SESSION['glpishow_count_on_tabs']) {
-            return self::createTabEntry(self::getTypeName(2),
+            return self::createTabEntry(self::getTypeName(Session::getPluralNumber()),
                                         countElementsInTable('glpi_contractcosts',
                                                              "contracts_id = '".$item->getID()."'"));
          }
-         return self::getTypeName(2);
+         return self::getTypeName(Session::getPluralNumber());
       }
       return '';
    }
@@ -111,6 +111,65 @@ class ContractCost extends CommonDBChild {
 
       self::showForContract($item, $withtemplate);
       return true;
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::getSearchOptions()
+   **/
+   function getSearchOptions() {
+
+      $tab                          = array();
+
+      $tab['common']                = __('Characteristics');
+
+      $tab[1]['table']              = $this->getTable();
+      $tab[1]['field']              = 'name';
+      $tab[1]['name']               =  __('Title');
+      $tab[1]['searchtype']         = 'contains';
+      $tab[1]['datatype']           = 'itemlink';
+      $tab[1]['massiveaction']      = false;
+
+      $tab[2]['table']              = $this->getTable();
+      $tab[2]['field']              = 'id';
+      $tab[2]['name']               = __('ID');
+      $tab[2]['massiveaction']      = false;
+      $tab[2]['datatype']           = 'number';
+
+      $tab[16]['table']             = $this->getTable();
+      $tab[16]['field']             = 'comment';
+      $tab[16]['name']              = __('Comments');
+      $tab[16]['datatype']          = 'text';
+
+      $tab[12]['table']             = $this->getTable();
+      $tab[12]['field']             = 'begin_date';
+      $tab[12]['name']              = __('Begin date');
+      $tab[12]['datatype']          = 'datetime';
+
+      $tab[10]['table']             = $this->getTable();
+      $tab[10]['field']             = 'end_date';
+      $tab[10]['name']              = __('End date');
+      $tab[10]['datatype']          = 'datetime';
+
+      $tab[14]['table']              = $this->getTable();
+      $tab[14]['field']              = 'cost';
+      $tab[14]['name']               = __('Cost');
+      $tab[14]['datatype']           = 'decimal';
+
+      $tab[18]['table']             = 'glpi_budgets';
+      $tab[18]['field']             = 'name';
+      $tab[18]['name']              = _n('Budget', 'Budgets', 1);
+      $tab[18]['datatype']          = 'dropdown';
+
+      $tab[80]['table']             = 'glpi_entities';
+      $tab[80]['field']             = 'completename';
+      $tab[80]['name']              = __('Entity');
+      $tab[80]['massiveaction']     = false;
+      $tab[80]['datatype']          = 'dropdown';
+
+      return $tab;
    }
 
 
@@ -194,11 +253,11 @@ class ContractCost extends CommonDBChild {
    function showForm($ID, $options=array()) {
 
       if ($ID > 0) {
-         $this->check($ID,'r');
+         $this->check($ID, READ);
       } else {
          // Create item
          $options['contracts_id'] = $options['parent']->getField('id');
-         $this->check(-1,'w',$options);
+         $this->check(-1, CREATE, $options);
          $this->initBasedOnPrevious();
       }
 
@@ -217,7 +276,7 @@ class ContractCost extends CommonDBChild {
 
       echo "<tr class='tab_bg_1'><td>".__('Begin date')."</td>";
       echo "<td>";
-      Html::showDateFormItem("begin_date", $this->fields['begin_date']);
+      Html::showDateField("begin_date", array('value' => $this->fields['begin_date']));
       echo "</td>";
       $rowspan = 3;
       echo "<td rowspan='$rowspan'>".__('Comments')."</td>";
@@ -228,7 +287,7 @@ class ContractCost extends CommonDBChild {
 
       echo "<tr class='tab_bg_1'><td>".__('End date')."</td>";
       echo "<td>";
-      Html::showDateFormItem("end_date", $this->fields['end_date']);
+      Html::showDateField("end_date", array('value' => $this->fields['end_date']));
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'><td>".__('Budget')."</td>";
@@ -256,10 +315,10 @@ class ContractCost extends CommonDBChild {
       $ID = $contract->fields['id'];
 
       if (!$contract->getFromDB($ID)
-          || !$contract->can($ID, "r")) {
+          || !$contract->can($ID, READ)) {
          return false;
       }
-      $canedit = $contract->can($ID, "w");
+      $canedit = $contract->can($ID, UPDATE);
 
       echo "<div class='center'>";
 
@@ -338,7 +397,7 @@ class ContractCost extends CommonDBChild {
                echo "</tr>";
                Session::addToNavigateListItems(__CLASS__, $data['id']);
             }
-            echo "<tr class='b'><td colspan='3'>&nbsp;</td>";
+            echo "<tr class='b noHover'><td colspan='3'>&nbsp;</td>";
             echo "<td class='right'>".__('Total cost').'</td>';
             echo "<td class='numeric'>".Html::formatNumber($total).'</td></tr>';
          } else {

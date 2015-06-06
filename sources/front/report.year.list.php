@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: report.year.list.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: report.year.list.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,14 +33,13 @@
 
 include ("../inc/includes.php");
 
-Session::checkRight("reports", "r");
+Session::checkRight("reports", READ);
 
-Html::header(Report::getTypeName(2), $_SERVER['PHP_SELF'], "utils", "report");
+Html::header(Report::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "tools", "report");
 
 Report::title();
 
-$items = array('Computer', 'Monitor', 'NetworkEquipment', 'Peripheral', 'Phone', 'Printer',
-               'SoftwareLicense');
+$items = $CFG_GLPI["contract_types"];
 
 # Titre
 echo "<div class='center b spaced'><big>".__('Device list')."</big></div>";
@@ -58,10 +57,15 @@ if (isset($_POST["item_type"]) && is_array($_POST["item_type"])) {
          $itemtable = getTableForItemType($val);
 
          $deleted_field       = "`$itemtable`.`is_deleted`";
-         $location_field      = "`glpi_locations`.`completename`";
-         $add_leftjoin        = "LEFT JOIN `glpi_locations`
-                                    ON (`$itemtable`.`locations_id` = `glpi_locations`.`id`)";
-         $template_condition  = "`$itemtable`.`is_template` = '0'";
+         $location_field      = "''";
+         $add_leftjoin        = "";
+         $template_condition  = '1';
+         if ($val != 'Project') {
+            $location_field      = "`glpi_locations`.`completename`";
+            $template_condition  = "`$itemtable`.`is_template` = '0'";
+            $add_leftjoin        = "LEFT JOIN `glpi_locations`
+                                       ON (`$itemtable`.`locations_id` = `glpi_locations`.`id`)";
+         }
          if ($val == 'SoftwareLicense') {
             $deleted_field       = "`glpi_softwares`.`is_deleted`";
             $location_field      = "''";
@@ -97,10 +101,10 @@ if (isset($_POST["item_type"]) && is_array($_POST["item_type"])) {
                          WHERE $template_condition ".
                                getEntitiesRestrictRequest("AND",$itemtable);
 
-         if (isset($_POST["annee"][0]) && ($_POST["annee"][0] != 'toutes')) {
+         if (isset($_POST["year"][0]) && ($_POST["year"][0] != 0)) {
             $query[$val] .= " AND ( ";
             $first        = true;
-            foreach ($_POST["annee"] as $key2 => $val2) {
+            foreach ($_POST["year"] as $key2 => $val2) {
                if (!$first) {
                   $query[$val] .= " OR ";
                } else {

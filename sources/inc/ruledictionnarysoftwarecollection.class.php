@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ruledictionnarysoftwarecollection.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ruledictionnarysoftwarecollection.class.php 22746 2014-03-01 17:45:20Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -39,11 +39,10 @@ class RuleDictionnarySoftwareCollection extends RuleCollection {
 
    public $stop_on_first_match = true;
    public $can_replay_rules    = true;
-   static public $right        = 'rule_dictionnary_software';
    public $menu_type           = 'dictionnary';
    public $menu_option         = 'software';
 
-
+   static $rightname           = 'rule_dictionnary_software';
 
    /**
     * @see RuleCollection::getTitle()
@@ -366,7 +365,6 @@ class RuleDictionnarySoftwareCollection extends RuleCollection {
       global $DB;
 
       if (count($soft_ids) > 0) {
-         $ids = implode("','", $soft_ids);
 
          //Try to delete all the software that are not used anymore
          // (which means that don't have version associated anymore)
@@ -376,7 +374,7 @@ class RuleDictionnarySoftwareCollection extends RuleCollection {
                           FROM `glpi_softwares`
                           LEFT JOIN `glpi_softwareversions`
                               ON `glpi_softwareversions`.`softwares_id` = `glpi_softwares`.`id`
-                          WHERE `glpi_softwares`.`id` IN ('$ids')
+                          WHERE `glpi_softwares`.`id` IN (".implode(",", $soft_ids).")
                                 AND `is_deleted` = '0'
                           GROUP BY `glpi_softwares`.`id`
                           HAVING `cpt` = '0'
@@ -415,6 +413,21 @@ class RuleDictionnarySoftwareCollection extends RuleCollection {
                             `softwares_id` = '$new_software_id'
                         WHERE `id` = '$version_id'");
          } else {
+            // Delete software can be in double after update
+            $sql = "SELECT gcs_2.*
+                    FROM `glpi_computers_softwareversions`
+                    LEFT JOIN  `glpi_computers_softwareversions` AS gcs_2
+                       ON `glpi_computers_softwareversions`.`computers_id` = gcs_2.`computers_id`
+                    WHERE `glpi_computers_softwareversions`.`softwareversions_id` = '$new_versionID'
+                          AND gcs_2.`softwareversions_id` = '$version_id'";
+            $res = $DB->query($sql);
+            if ($DB->numrows($res) > 0) {
+               while ($result = $DB->fetch_assoc($res)) {
+                  $DB->query("DELETE FROM `glpi_computers_softwareversions`
+                              WHERE `id` = '".$result['id']."'");
+               }
+            }
+
             //Change ID of the version in glpi_computers_softwareversions
             $DB->query("UPDATE `glpi_computers_softwareversions`
                         SET `softwareversions_id` = '$new_versionID'

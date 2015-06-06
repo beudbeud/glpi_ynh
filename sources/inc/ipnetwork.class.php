@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ipnetwork.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ipnetwork.class.php 22751 2014-03-01 18:36:27Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -48,15 +48,8 @@ class IPNetwork extends CommonImplicitTreeDropdown {
 
    public $dohistory = true;
 
+   static $rightname = 'internet';
 
-   static function canCreate() {
-      return Session::haveRight('internet', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('internet', 'r');
-   }
 
 
    static function getTypeName($nb=0) {
@@ -153,7 +146,7 @@ class IPNetwork extends CommonImplicitTreeDropdown {
             $this->fields["network"] = sprintf(__('%1$s / %2$s'), $this->fields["address"],
                                             $this->fields["netmask"]);
          } else { // IPv6
-            $this->fields["network"] = sprintf(__('%1$s/%2$s'), $this->fields["address"],
+            $this->fields["network"] = sprintf(__('%1$s / %2$s'), $this->fields["address"],
                                             $this->fields["netmask"]);
          }
       }
@@ -643,6 +636,7 @@ class IPNetwork extends CommonImplicitTreeDropdown {
    function defineTabs($options=array()) {
 
       $ong = array();
+      $this->addDefaultFormTab($ong);
       $this->addStandardTab('IPNetwork_Vlan', $ong, $options);
       $this->addStandardTab('IPAddress', $ong, $options);
       $this->addStandardTab('Log', $ong, $options);
@@ -1013,7 +1007,7 @@ class IPNetwork extends CommonImplicitTreeDropdown {
    function title() {
       parent::title();
 
-      if (Session::haveRight('internet', 'w')
+      if (Session::haveRight('internet', UPDATE)
           && Session::isViewAllEntities()) {
 
          echo "<div class='spaced' id='tabsbody'>";

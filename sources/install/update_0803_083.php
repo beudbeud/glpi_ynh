@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: update_0803_083.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: update_0803_083.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -479,9 +479,9 @@ function update0803to083() {
    // Update Itemtype datas in tables
    $itemtype_tables = array("glpi_bookmarks", "glpi_bookmarks_users", "glpi_displaypreferences");
 
-   $typestochange = array ('TicketSolutionTemplate' => 'SolutionTemplate',
-                           'TicketSolutionType'     => 'SolutionType',
-                           'TicketCategory'         => 'ITILCategory',);
+   $typestochange = array('TicketSolutionTemplate' => 'SolutionTemplate',
+                          'TicketSolutionType'     => 'SolutionType',
+                          'TicketCategory'         => 'ITILCategory',);
 
    foreach ($itemtype_tables as $table) {
       foreach ($typestochange as $key => $val) {

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rulemailcollector.class.php 22696 2014-02-26 09:53:21Z moyo $
+ * @version $Id: rulemailcollector.class.php 22695 2014-02-26 09:52:50Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,9 +38,9 @@ if (!defined('GLPI_ROOT')) {
 class RuleMailCollector extends Rule {
 
    // From Rule
-   static public $right    = 'rule_mailcollector';
-   public $orderby         = "name";
-   public $can_sort        = true;
+   static $rightname = 'rule_mailcollector';
+   public $orderby   = "name";
+   public $can_sort  = true;
 
 
    // Temproray hack for this class in 0.84
@@ -48,15 +48,6 @@ class RuleMailCollector extends Rule {
       return 'glpi_rules';
    }
 
-
-   static function canCreate() {
-      return Session::haveRight('rule_mailcollector', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('rule_mailcollector', 'r');
-   }
 
    /**
     * @see Rule::maxActionsCount()

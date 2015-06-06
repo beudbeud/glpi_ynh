@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: printermodel.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: printermodel.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -47,13 +47,10 @@ class PrinterModel extends CommonDropdown {
 
 
    function cleanDBonPurge() {
-      global $DB;
-
       // Temporary solution to clean wrong updated items
-      $query = "DELETE
-                FROM `glpi_cartridgeitems_printermodels`
-                WHERE `printermodels_id` = '".$this->fields['id']."'";
-      $result = $DB->query($query);
+      $cpm = new CartridgeItem_PrinterModel();
+      $cpm->deleteByCriteria(array('printermodels_id' => $this->fields['id']));
+
    }
 
 

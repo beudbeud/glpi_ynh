@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: dropdownTicketCategories.php 22968 2014-04-30 14:08:31Z moyo $
+ * @version $Id: dropdownTicketCategories.php 22967 2014-04-30 14:08:04Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -47,6 +47,7 @@ if ($_SESSION["glpiactiveprofile"]["interface"] == "helpdesk") {
 } else {
    $opt['condition'] = '';
 }
+
 $currentcateg = new ItilCategory();
 $currentcateg->getFromDB($_POST['value']);
 
@@ -63,7 +64,7 @@ if ($_POST["type"]) {
          $opt['condition'].= " `is_request`='1'";
          if ($currentcateg->getField('is_request') == 1) {
             $opt['value'] = $_POST['value'];
-         }         
+         }
          break;
    }
 }

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: report.reservation.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: report.reservation.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,9 +33,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("reports", "r");
+Session::checkRight("reports", READ);
 
-Html::header(Report::getTypeName(2), $_SERVER['PHP_SELF'], "utils", "report");
+Html::header(Report::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "tools", "report");
 
 if (!isset($_GET["id"])) {
    $_GET["id"] = 0;
@@ -44,14 +44,14 @@ if (!isset($_GET["id"])) {
 Report::title();
 
 echo "<form method='get' name='form' action='report.reservation.php'>";
-echo "<table class='tab_cadre'><tr class='tab_bg_2'>";
-echo "<td rowspan='2' class='center'>";
+echo "<table class='tab_cadre' width='500'><tr class='tab_bg_2'>";
+echo "<td class='center' width='300'>";
 User::dropdown(array('name'   => 'id',
                      'value'  => $_GET["id"],
-                     'right'  => 'reservation_helpdesk'));
+                     'right'  => 'reservation'));
 
 echo "</td>";
-echo "<td rowspan='2' class='center'><input type='submit' class='submit' name='submit' value='".
+echo "<td class='center'><input type='submit' class='submit' name='submit' value='".
       __s('Display report')."'></td></tr>";
 echo "</table>";
 Html::closeForm();

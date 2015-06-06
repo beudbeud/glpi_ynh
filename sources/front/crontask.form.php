@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: crontask.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: crontask.form.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,7 +33,7 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("config", "w");
+Session::checkRight("config", UPDATE);
 
 $crontask = new CronTask();
 
@@ -51,13 +51,13 @@ if (isset($_POST['execute'])) {
    }
    Html::back();
 } else if (isset($_POST["update"])) {
-   Session::checkRight('config', 'w');
+   Session::checkRight('config', UPDATE);
    $crontask->update($_POST);
    Html::back();
 
 } else if (isset($_POST['resetdate'])
            && isset($_POST["id"])) {
-   Session::checkRight('config', 'w');
+   Session::checkRight('config', UPDATE);
    if ($crontask->getFromDB($_POST["id"])) {
        $crontask->resetDate();
    }
@@ -65,7 +65,7 @@ if (isset($_POST['execute'])) {
 
 } else if (isset($_POST['resetstate'])
            && isset($_POST["id"])) {
-   Session::checkRight('config', 'w');
+   Session::checkRight('config', UPDATE);
    if ($crontask->getFromDB($_POST["id"])) {
        $crontask->resetState();
    }
@@ -75,8 +75,8 @@ if (isset($_POST['execute'])) {
    if (!isset($_GET["id"]) || empty($_GET["id"])) {
       exit();
    }
-   Html::header(Crontask::getTypeName(2), $_SERVER['PHP_SELF'], 'config', 'crontask');
-   $crontask->showForm($_GET["id"]);
+   Html::header(Crontask::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], 'config', 'crontask');
+   $crontask->display(array('id' =>$_GET["id"]));
    Html::footer();
 }
 ?>

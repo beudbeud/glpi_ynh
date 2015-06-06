@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationmailsetting.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notificationmailsetting.form.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,7 +33,7 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("config", "w");
+Session::checkRight("config", UPDATE);
 $notificationmail = new NotificationMailSetting();
 
 if (!empty($_POST["test_smtp_send"])) {
@@ -46,9 +46,9 @@ if (!empty($_POST["test_smtp_send"])) {
    Html::back();
 }
 
-Html::header(Notification::getTypeName(2), $_SERVER['PHP_SELF'], "config", "mailing", "config");
+Html::header(Notification::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "notification", "config");
 
-$notificationmail->showForm(1);
+$notificationmail->display(array('id' => 1));
 
 Html::footer();
 ?>

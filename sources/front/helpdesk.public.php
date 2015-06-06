@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: helpdesk.public.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: helpdesk.public.php 23421 2015-04-08 09:06:11Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -67,16 +67,20 @@ if (isset($_GET["redirect"])) {
 }
 
 // redirect if no create ticket right
-if (!Session::haveRight('create_ticket',1)) {
-   if (Session::haveRight('observe_ticket',1)
-       || Session::haveRight('validate_request',1)
-       || Session::haveRight('validate_incident',1)) {
+if (!Session::haveRight('ticket', CREATE)
+    && !Session::haveRight('reminder_public', READ)
+    && !Session::haveRight("rssfeed_public", READ)) {
+
+   if (Session::haveRight('followup', TicketFollowup::SEEPUBLIC)
+       || Session::haveRight('task', TicketTask::SEEPUBLIC)
+       || Session::haveRightsOr('ticketvalidation', array(TicketValidation::VALIDATEREQUEST,
+                                                          TicketValidation::VALIDATEINCIDENT))) {
       Html::redirect($CFG_GLPI['root_doc']."/front/ticket.php");
 
-   } else if (Session::haveRight('reservation_helpdesk',1)) {
+   } else if (Session::haveRight('reservation', ReservationItem::RESERVEANITEM)) {
       Html::redirect($CFG_GLPI['root_doc']."/front/reservationitem.php");
 
-   } else if (Session::haveRight('faq','r')) {
+   } else if (Session::haveRight('knowbase', KnowbaseItem::READFAQ)) {
       Html::redirect($CFG_GLPI['root_doc']."/front/helpdesk.faq.php");
    }
 }
@@ -91,40 +95,45 @@ if (isset($_GET['create_ticket'])) {
 
 } else {
    Html::helpHeader(__('Home'), $_SERVER['PHP_SELF'], $_SESSION["glpiname"]);
-   echo "<table class='tab_cadre_central'><tr>";
-   echo "<td class='top'><br>";
-   echo "<table>";
-   if (Session::haveRight('create_ticket',1)) {
-      echo "<tr><td class='top' width='450px'>";
+   echo "<table class='tab_cadre_postonly'><tr class='noHover'>";
+   echo "<td class='top' width='50%'><br>";
+   echo "<table class='central'>";
+   if (Session::haveRight('ticket', CREATE)) {
+      echo "<tr class='noHover'><td class='top'>";
       Ticket::showCentralCount(true);
+      echo "</td></tr>";
+      echo "<tr class='noHover'><td class='top'>";
+      Ticket::showCentralList(0, "survey", false);
       echo "</td></tr>";
    }
 
-   if (Session::haveRight("reminder_public","r")) {
-      echo "<tr><td class='top' width='450px'>";
+   
+   
+   if (Session::haveRight("reminder_public", READ)) {
+      echo "<tr class='noHover'><td class='top'>";
       Reminder::showListForCentral(false);
       echo "</td></tr>";
    }
 
-   if (Session::haveRight("rssfeed_public","r")) {
-      echo "<tr><td class='top' width='450px'>";
+   if (Session::haveRight("rssfeed_public", READ)) {
+      echo "<tr class='noHover'><td class='top'>";
       RSSFeed::showListForCentral(false);
       echo "</td></tr>";
    }
    echo "</table></td>";
 
-   echo "<td class='top' width='450px'><br>";
-   echo "<table>";
+   echo "<td class='top' width='50%'><br>";
+   echo "<table class='central'>";
 
    // Show KB items
-   if (Session::haveRight("faq","r")) {
-      echo "<tr><td class='top' width='450px'>";
+   if (Session::haveRight('knowbase', KnowbaseItem::READFAQ)) {
+      echo "<tr class='noHover'><td class='top'>";
       KnowbaseItem::showRecentPopular("popular");
       echo "</td></tr>";
-      echo "<tr><td class='top' width='450px'><br>";
+      echo "<tr class='noHover'><td class='top'><br>";
       KnowbaseItem::showRecentPopular("recent");
       echo "</td></tr>";
-      echo "<tr><td class='top' width='450px'><br>";
+      echo "<tr class='noHover'><td class='top'><br>";
       KnowbaseItem::showRecentPopular("lastupdate");
       echo "</td></tr>";
    } else {

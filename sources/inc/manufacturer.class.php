@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: manufacturer.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: manufacturer.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -39,9 +39,102 @@ if (!defined('GLPI_ROOT')) {
 /// @todo study if we should integrate getHTMLTableHeader and getHTMLTableCellsForItem ...
 class Manufacturer extends CommonDropdown {
 
+   var $can_be_translated = false;
+
 
    static function getTypeName($nb=0) {
       return _n('Manufacturer', 'Manufacturers', $nb);
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDropdown::displaySpecificTypeField()
+   **/
+   function displaySpecificTypeField($ID, $field=array()) {
+
+      switch ($field['type']) {
+         case 'registeredIDChooser':
+            RegisteredID::showChildsForItemForm($this, '_registeredID');
+            break;
+      }
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDropdown::getAdditionalFields()
+   **/
+   function getAdditionalFields() {
+
+      return array(array('name'  => 'none',
+                         'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
+                                       RegisteredID::showAddChildButtonForItemForm($this,
+                                                                                   '_registeredID',
+                                                                                   NULL, false),
+                         'type'  => 'registeredIDChooser'));
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   function post_workOnItem() {
+
+      if ((isset($this->input['_registeredID']))
+          && (is_array($this->input['_registeredID']))) {
+
+         $input = array('itemtype' => $this->getType(),
+                        'items_id' => $this->getID());
+
+         foreach ($this->input['_registeredID'] as $id => $registered_id) {
+            $id_object     = new RegisteredID();
+            $input['name'] = $registered_id;
+
+            if (isset($this->input['_registeredID_type'][$id])) {
+               $input['device_type'] = $this->input['_registeredID_type'][$id];
+            } else {
+               $input['device_type'] = '';
+            }
+            //$input['device_type'] = ;
+            if ($id < 0) {
+               if (!empty($registered_id)) {
+                  $id_object->add($input);
+               }
+            } else {
+               if (!empty($registered_id)) {
+                  $input['id'] = $id;
+                  $id_object->update($input);
+                  unset($input['id']);
+               } else {
+                  $id_object->delete(array('id' => $id));
+               }
+            }
+         }
+         unset($this->input['_registeredID']);
+      }
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDBTM::post_addItem()
+   **/
+   function post_addItem() {
+
+      $this->post_workOnItem();
+      parent::post_addItem();
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDBTM::post_updateItem()
+   **/
+   function post_updateItem($history=1) {
+
+      $this->post_workOnItem();
+      parent::post_updateItem($history);
    }
 
 
@@ -68,7 +161,6 @@ class Manufacturer extends CommonDropdown {
 
 
    function cleanDBonPurge() {
-
       // Rules use manufacturer intread of manufacturers_id
       Rule::cleanForItemAction($this, 'manufacturer');
    }

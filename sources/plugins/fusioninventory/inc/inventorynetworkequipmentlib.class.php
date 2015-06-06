@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -115,7 +115,6 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
             $idtmp = $db_networkequipment['id'];
             unset($db_networkequipment['id']);
             unset($db_networkequipment['networkequipments_id']);
-            unset($db_networkequipment['plugin_fusioninventory_snmpmodels_id']);
             unset($db_networkequipment['plugin_fusioninventory_configsecurities_id']);
 
             $a_ret = PluginFusioninventoryToolbox::checkLock(
@@ -146,7 +145,7 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
 
       $networkPort = new NetworkPort();
       $iPAddress = new IPAddress();
-      $pfUnknownDevice = new PluginFusioninventoryUnknownDevice();
+      $pfUnmanaged = new PluginFusioninventoryUnmanaged();
       $networkName = new NetworkName();
 
       // Get agregated ports
@@ -221,12 +220,12 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                   $input['name'] = $ip;
                   $iPAddress->add($input);
 
-                  // Search in unknown device if device with IP (LLDP) is yet added, in this case,
-                  // we get id of this unknown device
-                  $a_unknown = $pfUnknownDevice->find("`ip`='".$ip."'", "", 1);
-                  if (count($a_unknown) > 0) {
-                     $datas= current($a_unknown);
-                     $this->unknownDeviceCDP = $datas['id'];
+                  // Search in unmanaged device if device with IP (LLDP) is yet added, in this case,
+                  // we get id of this unmanaged device
+                  $a_manageds = $pfUnmanaged->find("`ip`='".$ip."'", "", 1);
+                  if (count($a_manageds) > 0) {
+                     $datas= current($a_unmanageds);
+                     $this->unmanagedCDP = $datas['id'];
                   }
                }
             }
@@ -246,7 +245,8 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
       foreach ($a_inventory['networkport'] as $a_port) {
          $ifType = $a_port['iftype'];
          if ($pfNetworkporttype->isImportType($ifType)
-                 || isset($a_inventory['aggregate'][$a_port['logical_number']])) {
+                 || isset($a_inventory['aggregate'][$a_port['logical_number']])
+                 || $ifType == '') {
             $a_ports_DB = current($networkPort->find(
                        "`itemtype`='NetworkEquipment'
                           AND `items_id`='".$items_id."'
@@ -317,6 +317,15 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                                           $networkports_id, $items_id);
             }
 
+         } else {
+            // Delete the port
+            $a_ports_DB = current($networkPort->find(
+                       "`itemtype`='NetworkEquipment'
+                          AND `items_id`='".$items_id."'
+                          AND `logical_number` = '".$a_port['logical_number']."'", '', 1));
+            if (count($a_ports_DB) > 0) {
+               $networkPort->delete($a_ports_DB);
+            }
          }
       }
 
@@ -370,7 +379,7 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
       $wire = new NetworkPort_NetworkPort();
       $networkPort = new NetworkPort();
       $pfNetworkPort = new PluginFusioninventoryNetworkPort();
-      $pfUnknownDevice = new PluginFusioninventoryUnknownDevice();
+      $pfUnmanaged = new PluginFusioninventoryUnmanaged();
 
       $a_snmpports = current($pfNetworkPort->find("`networkports_id`='".$networkports_id."'",
                                                   "",
@@ -428,17 +437,17 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                   }
                }
                if (!isset($macNotPhone_id)) {
-                  // Create unknown ports
-                  $unknown_infos = array();
-                  $unknown_infos["name"] = '';
+                  // Create unmanaged ports
+                  $unmanagedn_infos = array();
+                  $unmanagedn_infos["name"] = '';
                   if (isset($_SESSION["plugin_fusioninventory_entity"])) {
                      $input['entities_id'] = $_SESSION["plugin_fusioninventory_entity"];
                   }
-                  $newID = $pfUnknownDevice->add($unknown_infos);
+                  $newID = $pfUnmanaged->add($unmanagedn_infos);
                   // Add networking_port
                   $port_add = array();
                   $port_add["items_id"] = $newID;
-                  $port_add["itemtype"] = 'PluginFusioninventoryUnknownDevice';
+                  $port_add["itemtype"] = 'PluginFusioninventoryUnmanaged';
                   $port_add['mac'] = $macNotPhone;
                   $port_add['instantiation_type'] = "NetworkPortEthernet";
                   $macNotPhone_id = $networkPort->add($port_add);
@@ -446,10 +455,10 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                $wire->add(array('networkports_id_1'=> $portLink_id,
                                 'networkports_id_2' => $macNotPhone_id));
             } else {
-               $pfUnknownDevice->hubNetwork($pfNetworkPort, $a_portconnection);
+               $pfUnmanaged->hubNetwork($pfNetworkPort, $a_portconnection);
             }
          } else if ($count > 1) { // MultipleMac
-            $pfUnknownDevice->hubNetwork($pfNetworkPort, $a_portconnection);
+            $pfUnmanaged->hubNetwork($pfNetworkPort, $a_portconnection);
          } else { // One mac on port
             foreach ($a_portconnection as $ifmac) { //Only 1 time
                $a_ports = $networkPort->find("`mac`='".$ifmac."' AND `logical_number`='1'", "", 1);
@@ -461,9 +470,9 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                   $hub = 0;
                   $id = $networkPort->getContact($a_port['id']);
                   if ($id AND $networkPort->getFromDB($id)) {
-                     if ($networkPort->fields['itemtype'] == 'PluginFusioninventoryUnknownDevice') {
-                        $pfUnknownDevice->getFromDB($networkPort->fields['items_id']);
-                        if ($pfUnknownDevice->fields['hub'] == '1') {
+                     if ($networkPort->fields['itemtype'] == 'PluginFusioninventoryUnmanaged') {
+                        $pfUnmanaged->getFromDB($networkPort->fields['items_id']);
+                        if ($pfUnmanaged->fields['hub'] == '1') {
                            $hub = 1;
                         }
                      }
@@ -477,9 +486,9 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                         $directconnect = 1;
                      } else {
                         $networkPort->getFromDB($direct_id);
-                        if ($networkPort->fields['itemtype'] == 'PluginFusioninventoryUnknownDevice') {
+                        if ($networkPort->fields['itemtype'] == 'PluginFusioninventoryUnmanaged') {
                            // 1. Hub connected to this switch port
-                           $pfUnknownDevice->connectPortToHub(array($a_port),
+                           $pfUnmanaged->connectPortToHub(array($a_port),
                                                               $networkPort->fields['items_id']);
                         } else {
                            // 2. direct connection
@@ -509,9 +518,9 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                         } else {
                            // 2. The hub where this device is connected to is not connected
                            // to this switch port
-                           if ($ddirect['itemtype'] == 'PluginFusioninventoryUnknownDevice') {
+                           if ($ddirect['itemtype'] == 'PluginFusioninventoryUnmanaged') {
                               // b. We have a hub connected to the switch port
-                              $pfUnknownDevice->connectPortToHub(array($a_port),
+                              $pfUnmanaged->connectPortToHub(array($a_port),
                                                                  $ddirect['items_id']);
                            } else {
                               // a. We have a direct connexion to another device
@@ -535,8 +544,8 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                                       'networkports_id_2' => $a_port['id']));
                   }
                } else {
-                  // Create unknown device
-                  $pfUnknownDevice = new PluginFusioninventoryUnknownDevice();
+                  // Create unmanaged device
+                  $pfUnmanaged = new PluginFusioninventoryUnmanaged();
                   $input = array();
                   $manufacturer =
                      PluginFusioninventoryInventoryExternalDB::getManufacturerWithMAC($ifmac);
@@ -544,8 +553,8 @@ class PluginFusioninventoryInventoryNetworkEquipmentLib extends CommonDBTM {
                   if (isset($_SESSION["plugin_fusioninventory_entity"])) {
                      $input['entities_id'] = $_SESSION["plugin_fusioninventory_entity"];
                   }
-                  $newID = $pfUnknownDevice->add($input);
-                  $input['itemtype'] = "PluginFusioninventoryUnknownDevice";
+                  $newID = $pfUnmanaged->add($input);
+                  $input['itemtype'] = "PluginFusioninventoryUnmanaged";
                   $input['items_id'] = $newID;
                   $input['mac'] = $ifmac;
                   $input['instantiation_type'] = "NetworkPortEthernet";

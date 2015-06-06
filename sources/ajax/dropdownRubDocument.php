@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: dropdownRubDocument.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: dropdownRubDocument.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -42,13 +42,10 @@ Session::checkCentralAccess();
 
 // Make a select box
 if (isset($_POST["rubdoc"])) {
-   if (!is_array($_POST['used'])) {
-      $_POST['used'] = Toolbox::decodeArrayFromInput($_POST['used']);
-   }
    $used = array();
 
    // Clean used array
-   if (is_array($_POST['used']) && count($_POST['used'])>0) {
+   if (isset($_POST['used']) && is_array($_POST['used']) && (count($_POST['used']) > 0)) {
       $query = "SELECT `id`
                 FROM `glpi_documents`
                 WHERE `id` IN (".implode(',',$_POST['used']).")
@@ -62,6 +59,7 @@ if (isset($_POST["rubdoc"])) {
    Dropdown::show('Document',
                   array('name'      => $_POST['myname'],
                         'used'      => $used,
+                        'width'     => '50%',
                         'entity'    => $_POST['entity'],
                         'rand'      => $_POST['rand'],
                         'condition' => "glpi_documents.documentcategories_id='".$_POST["rubdoc"]."'"));

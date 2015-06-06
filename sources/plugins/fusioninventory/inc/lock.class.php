@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Vincent Mazzoni
    @co-author David Durieux
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -48,18 +48,10 @@ if (!defined('GLPI_ROOT')) {
 class PluginFusioninventoryLock extends CommonDBTM{
 
 
+   static $rightname = 'plugin_fusioninventory_lock';
+
    static function getTypeName($nb=0) {
       return _n('Lock', 'Locks', $nb)." (".strtolower(_n('Field', 'Fields', 2)).")";
-   }
-
-
-   static function canCreate() {
-      return TRUE;
-   }
-
-
-   static function canView() {
-      return TRUE;
    }
 
 
@@ -83,7 +75,10 @@ class PluginFusioninventoryLock extends CommonDBTM{
       if ($itemtype == 'NetworkEquipment') {
          $itemtype = "networking";
       }
-      if (Session::haveRight(strtolower($itemtype), "w")) {
+      if ($item->getType()=='PluginFusioninventoryConfig') {
+         return PluginFusioninventoryLock::getTypeName(2);
+      }
+      if (Session::haveRight(strtolower($itemtype), UPDATE)) {
          if ($_SESSION['glpishow_count_on_tabs']) {
             return self::createTabEntry(PluginFusioninventoryLock::getTypeName(2),
                                         self::countForLock($item));
@@ -98,6 +93,24 @@ class PluginFusioninventoryLock extends CommonDBTM{
    static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
 
       $pflock = new self();
+      if ($item->getType()=='PluginFusioninventoryConfig') {
+         echo "<table width='950'>";
+         echo "<tr>";
+         echo "<td valign='top' width='33%'>";
+         $pflock->showFormItemtype('Computer');
+         echo "</td>";
+         echo "<td valign='top' width='33%'>";
+         $pflock->showFormItemtype('Printer');
+         echo "</td>";
+         echo "<td valign='top' width='33%'>";
+         $pflock->showFormItemtype('NetworkEquipment');
+         echo "</td>";
+         echo "</tr>";
+
+         echo "</table>";
+         return TRUE;
+      }
+
       if ($item->getID() < 1) {
          $pflock->showForm(Toolbox::getItemTypeFormURL('PluginFusioninventoryLock'),
                            $item->getType());
@@ -130,7 +143,7 @@ class PluginFusioninventoryLock extends CommonDBTM{
       if ($typeright == "networkequipment") {
          $typeright = "networking";
       }
-      if (Session::haveRight($typeright, "w")) {
+      if (Session::haveRight($typeright, UPDATE)) {
         $can = 1;
       }
 
@@ -272,6 +285,90 @@ class PluginFusioninventoryLock extends CommonDBTM{
       if (!strstr($p_target, "ajax/dropdownMassiveAction.php")) {
          Html::closeForm();
       }
+      echo "</div>";
+   }
+
+
+
+   function showFormItemtype($p_itemtype) {
+
+      $can = 0;
+      $typeright = strtolower($p_itemtype);
+      if ($typeright == "networkequipment") {
+         $typeright = "networking";
+      }
+      if (Session::haveRight($typeright, UPDATE)) {
+        $can = 1;
+      }
+
+      $tableName = getTableForItemType($p_itemtype);
+      echo "<div width='50%'>";
+      $locked = PluginFusioninventoryLock::getLockFields($tableName, 0);
+      if (!count($locked)){
+         $locked = array();
+      }
+      $colspan = '2';
+
+      $item = new $p_itemtype;
+      $item->getEmpty();
+
+      echo "<form method='post' action='".PluginFusioninventoryLock::getFormURL()."'>";
+      echo "<input type='hidden' name='id' value='0'>";
+      echo "<input type='hidden' name='type' value='$p_itemtype'>";
+      echo "<table class='tab_cadre'>";
+
+      echo "<tr>";
+      echo "<th colspan='2'>".$item->getTypeName(1)."</th>";
+      echo "</tr>";
+
+      echo "<tr><th>&nbsp;".__('Fields')."&nbsp;</th>";
+      echo "<th>&nbsp;"._n('Lock', 'Locks', 2, 'fusioninventory')."&nbsp;</th>";
+      echo "</tr>";
+
+      $checked = '';
+      $a_exclude = $this->excludeFields();
+      $serialized = $this->getSerialized_InventoryArray($p_itemtype, 0);
+      $array = search::getOptions($p_itemtype);
+      foreach ($item->fields as $key=>$val) {
+         $key_source = $key;
+         if (!in_array($key, $a_exclude)) {
+            if (in_array($key, $locked)) {
+               $checked = 'checked';
+            } else {
+               $checked = '';
+            }
+            // Get name of field
+            $num = search::getOptionNumber($p_itemtype, $key);
+            if (isset($array[$num]['name'])) {
+               $name = $array[$num]['name'];
+            }
+            $css_glpi_value = '';
+            // Get value of field
+            $val = $this->getValueForKey($val, $key);
+            echo "<tr class='tab_bg_1'>";
+            $table = getTableNameForForeignKeyField($key);
+            if ($table != "") {
+               $linkItemtype = getItemTypeForTable($table);
+               $class = new $linkItemtype();
+               $name = $class->getTypeName();
+            }
+            echo "<td>".$name."</td>";
+            echo "<td align='center'><input type='checkbox' name='lockfield_fusioninventory[".
+                    $key_source."]' ".$checked."></td>";
+            echo "</tr>";
+         }
+      }
+
+      if ($can == '1') {
+         echo "<tr class='tab_bg_2'>";
+         echo "<td align='center' colspan='".($colspan + 1)."'>";
+         echo "<input class='submit' type='submit' name='unlock_field_fusioninventory'
+                         value='" . __('Update') . "'>";
+         echo "</td>";
+         echo "</tr>";
+      }
+      echo "</table>";
+      Html::closeForm();
       echo "</div>";
    }
 
@@ -484,6 +581,12 @@ class PluginFusioninventoryLock extends CommonDBTM{
       $db_lock = $DB->fetch_assoc(PluginFusioninventoryLock::getLock($p_table, $p_items_id));
       $lock_fields = $db_lock["tablefields"];
       $lock = importArrayFromDB($lock_fields);
+      if ($p_items_id != 0) {
+         $db_lock = $DB->fetch_assoc(PluginFusioninventoryLock::getLock($p_table, 0));
+         $lock_fields = $db_lock["tablefields"];
+         $lockItemtype = importArrayFromDB($lock_fields);
+         $lock = array_merge($lock, $lockItemtype);
+      }
 
       return $lock;
    }
@@ -523,6 +626,7 @@ class PluginFusioninventoryLock extends CommonDBTM{
       $exclude[] = "is_template";
       $exclude[] = "template_name";
       $exclude[] = "comment";
+      $exclude[] = "ticket_tco";
       return $exclude;
    }
 
@@ -538,6 +642,9 @@ class PluginFusioninventoryLock extends CommonDBTM{
    **/
    static function deleteLock($item) {
 
+      if ($item->fields['items_id'] == 0) {
+         return;
+      }
       $pfLock = new PluginFusioninventoryLock();
 
       $itemtype = getItemTypeForTable($item->fields['tablename']);
@@ -648,7 +755,7 @@ class PluginFusioninventoryLock extends CommonDBTM{
       if ($table != "") {
          $linkItemtype = getItemTypeForTable($table);
          $class = new $linkItemtype();
-         $name = $class->getTypeName();
+//         $name = $class->getTypeName();
          if (($val == "0") OR ($val == "")) {
             $val = "";
          } else {
@@ -657,6 +764,22 @@ class PluginFusioninventoryLock extends CommonDBTM{
          }
       }
       return $val;
+   }
+
+
+
+   static function showLockIcon($itemtype) {
+      global $PLUGIN_HOOKS;
+
+      if (isset($_GET['id'])
+              && $_GET['id'] > 0) {
+         $pfLock = new self();
+         $a_locks = $pfLock->getLockFields(getTableForItemType($itemtype), $_GET['id']);
+         foreach ($a_locks as $field) {
+            $js = '$("input[name='.$field.']").closest("td").prev().toggleClass("lockfield", true);';
+            echo Html::scriptBlock($js);
+         }
+      }
    }
 }
 

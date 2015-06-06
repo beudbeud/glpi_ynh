@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationtargetcontract.class.php 23021 2014-06-17 12:30:02Z yllen $
+ * @version $Id: notificationtargetcontract.class.php 23304 2015-01-21 14:46:37Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,10 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Class NotificationTarget
+
+/**
+ * NotificationTargetContract Class
+**/
 class NotificationTargetContract extends NotificationTarget {
 
 
@@ -55,8 +58,6 @@ class NotificationTargetContract extends NotificationTarget {
     * @param $options   array
    **/
    function getDatasForTemplate($event, $options=array()) {
-      global $CFG_GLPI;
-
       $this->datas['##contract.entity##'] = Dropdown::getDropdownName('glpi_entities',
                                                                       $options['entities_id']);
       $events                             = $this->getEvents();
@@ -97,8 +98,8 @@ class NotificationTargetContract extends NotificationTarget {
                break;
          }
 
-         $tmp['##contract.url##']          = urldecode($CFG_GLPI["url_base"].
-                                                          "/index.php?redirect=contract_".$id);
+         $tmp['##contract.url##']          = $this->formatURL($options['additionnaloption']['usertype'],
+                                                              "Contract_".$id);
          $tmp['##contract.items.number##'] = 0;
          $tmp['##contract.items##']        = '';
          if (isset($contract['items']) && count($contract['items'])) {
@@ -171,7 +172,8 @@ class NotificationTargetContract extends NotificationTarget {
 
 
       //Tags without lang
-      $tags = array('contract.url' => sprintf(__('%1$s: %2$s'), __('Contract'), __('URL')));
+      $tags = array('contract.url' => sprintf(__('%1$s: %2$s'), _n('Contract', 'Contracts', 1),
+                                              __('URL')));
 
       foreach ($tags as $tag => $label) {
          $this->addTagToList(array('tag'   => $tag,
@@ -179,6 +181,17 @@ class NotificationTargetContract extends NotificationTarget {
                                    'value' => true,
                                    'lang'  => false));
       }
+
+      //Foreach global tags
+      $tags = array('contracts' => _n('Contract', 'Contracts', Session::getPluralNumber()));
+
+      foreach ($tags as $tag => $label) {
+         $this->addTagToList(array('tag'     => $tag,
+                                   'label'   => $label,
+                                   'value'   => false,
+                                   'foreach' => true));
+      }
+
       asort($this->tag_descriptions);
    }
 

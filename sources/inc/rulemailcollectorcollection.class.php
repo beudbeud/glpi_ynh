@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rulemailcollectorcollection.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: rulemailcollectorcollection.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
@@ -39,7 +39,7 @@ class RuleMailCollectorCollection extends RuleCollection {
 
    // From RuleCollection
    public $stop_on_first_match = true;
-   static public $right        = 'rule_mailcollector';
+   static $rightname           = 'rule_mailcollector';
    public $menu_option         = 'mailcollector';
 
 

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -45,10 +45,10 @@ include ("../../../inc/includes.php");
 Html::header(__('FusionInventory', 'fusioninventory'),
              $_SERVER["PHP_SELF"],
              "plugins",
-             "fusioninventory",
-             "importxmlfile");
+             "pluginfusioninventorymenu",
+             "inventorycomputerimportxml");
 
-PluginFusioninventoryProfile::checkRight("importxml", "w");
+Session::checkRight('plugin_fusioninventory_importxml', CREATE);
 
 PluginFusioninventoryMenu::displayMenu("mini");
 
@@ -75,7 +75,7 @@ if (isset($_FILES['importfile']) && $_FILES['importfile']['tmp_name'] != '') {
                error_log($xml);
                if (!empty($xml)) {
                   $_SESSION['glpi_fusionionventory_nolock'] = TRUE;
-                  $pfCommunication->handleOCSCommunication($xml);
+                  $pfCommunication->handleOCSCommunication('', $xml);
                   unset($_SESSION['glpi_fusionionventory_nolock']);
                }
                zip_entry_close($zip_entry);
@@ -87,7 +87,7 @@ if (isset($_FILES['importfile']) && $_FILES['importfile']['tmp_name'] != '') {
 
       $xml = file_get_contents($_FILES['importfile']['tmp_name']);
       $_SESSION['glpi_fusionionventory_nolock'] = TRUE;
-      $pfCommunication->handleOCSCommunication($xml, 'glpi');
+      $pfCommunication->handleOCSCommunication('', $xml, 'glpi');
       unset($_SESSION['glpi_fusionionventory_nolock']);
    } else {
       $_SESSION["MESSAGE_AFTER_REDIRECT"] = __('No file to import!', 'fusioninventory');

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -64,12 +64,12 @@ if (isset($_SESSION["glpipopup"]["name"])) {
          Html::popHeader(__('Cache informations', 'fusioninventory'), $_SERVER['PHP_SELF']);
          include "../../../front/rule.cache.php";
          break;
-      
+
       case "pluginfusioninventory_networkport_display_options" :
          Html::popHeader(__('Network ports display options', 'fusioninventory'), $_SERVER['PHP_SELF']);
          include "networkport.display.php";
          break;
-      
+
    }
    echo "<div class='center'><br><a href='javascript:window.close()'>".__('Back')."</a>";
    echo "</div>";

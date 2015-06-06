@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ticketvalidation.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ticketvalidation.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,43 +33,7 @@
 
 include ('../inc/includes.php');
 
-Session::checkLoginUser();
+$validation = new TicketValidation();
 
-if (!isset($_GET["id"])) {
-   $_GET["id"] = "";
-}
-
-$validation = new Ticketvalidation();
-$ticket     = new Ticket();
-$user       = new User();
-
-if (isset($_POST["add"])) {
-   $validation->check(-1,'w',$_POST);
-   $validation->add($_POST);
-
-   Event::log($validation->getField('tickets_id'), "ticket", 4, "tracking",
-              //TRANS: %s is the user login
-              sprintf(__('%s adds an approval'), $_SESSION["glpiname"]));
-   Html::back();
-
-} else if (isset($_POST["update"])) {
-   $validation->check($_POST['id'],'w');
-   $validation->update($_POST);
-
-   Event::log($validation->getField('tickets_id'), "ticket", 4, "tracking",
-              //TRANS: %s is the user login
-              sprintf(__('%s updates an approval'), $_SESSION["glpiname"]));
-   Html::back();
-
-} else if (isset($_POST["delete"])) {
-   $validation->check($_POST['id'], 'd');
-   $validation->delete($_POST);
-
-   Event::log($validation->getField('tickets_id'), "ticket", 4, "tracking",
-              //TRANS: %s is the user login
-              sprintf(__('%s deletes an approval'), $_SESSION["glpiname"]));
-   Html::back();
-}
-
-Html::displayErrorAndDie('Lost');
+include (GLPI_ROOT . "/front/commonitilvalidation.form.php");
 ?>

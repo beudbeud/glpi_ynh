@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: contract_supplier.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: contract_supplier.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -91,22 +91,22 @@ class Contract_Supplier extends CommonDBRelation {
       if (!$withtemplate) {
          switch ($item->getType()) {
             case 'Supplier' :
-               if (Session::haveRight("contract","r")) {
+               if (Contract::canView()) {
                   if ($_SESSION['glpishow_count_on_tabs']) {
-                     return self::createTabEntry(Contract::getTypeName(2),
+                     return self::createTabEntry(Contract::getTypeName(Session::getPluralNumber()),
                                                  self::countForSupplier($item));
                   }
-                  return Contract::getTypeName(2);
+                  return Contract::getTypeName(Session::getPluralNumber());
                }
                break;
 
             case 'Contract' :
-               if (Session::haveRight("contact_enterprise","r")) {
+               if (Session::haveRight("contact_enterprise", READ)) {
                   if ($_SESSION['glpishow_count_on_tabs']) {
-                     return self::createTabEntry(Supplier::getTypeName(2),
+                     return self::createTabEntry(Supplier::getTypeName(Session::getPluralNumber()),
                                                  self::countForContract($item));
                   }
-                  return Supplier::getTypeName(2);
+                  return Supplier::getTypeName(Session::getPluralNumber());
                }
                break;
          }
@@ -143,11 +143,11 @@ class Contract_Supplier extends CommonDBRelation {
       global $DB, $CFG_GLPI;
 
       $ID = $supplier->fields['id'];
-      if (!Session::haveRight("contract","r")
-          || !$supplier->can($ID,'r')) {
+      if (!Contract::canView()
+          || !$supplier->can($ID, READ)) {
          return false;
       }
-      $canedit = $supplier->can($ID,'w');
+      $canedit = $supplier->can($ID, UPDATE);
       $rand    = mt_rand();
 
       $query = "SELECT `glpi_contracts`.*,
@@ -197,22 +197,30 @@ class Contract_Supplier extends CommonDBRelation {
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $number);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('container'     => 'mass'.__CLASS__.$rand,
+                                      'num_displayed' => $number);
+         Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixe'>";
 
-      echo "<tr>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $number) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_top    .= "</th>";
+         $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= "</th>";
       }
-      echo "<th>".__('Name')."</th>";
-      echo "<th>".__('Entity')."</th>";
-      echo "<th>"._x('phone', 'Number')."</th>";
-      echo "<th>".__('Contract type')."</th>";
-      echo "<th>".__('Start date')."</th>";
-      echo "<th>".__('Initial contract period')."</th>";
-      echo "</tr>";
+      $header_end .= "<th>".__('Name')."</th>";
+      $header_end .= "<th>".__('Entity')."</th>";
+      $header_end .= "<th>"._x('phone', 'Number')."</th>";
+      $header_end .= "<th>".__('Contract type')."</th>";
+      $header_end .= "<th>".__('Start date')."</th>";
+      $header_end .= "<th>".__('Initial contract period')."</th>";
+      $header_end .= "</tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $used = array();
       foreach ($contracts as $data) {
@@ -248,11 +256,13 @@ class Contract_Supplier extends CommonDBRelation {
          echo "</td>";
          echo "</tr>";
       }
-
+      if ($number) {
+         echo $header_begin.$header_bottom.$header_end;
+      }
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] =false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -273,11 +283,11 @@ class Contract_Supplier extends CommonDBRelation {
 
       $instID = $contract->fields['id'];
 
-      if (!$contract->can($instID,'r')
-          || !Session::haveRight("contact_enterprise","r")) {
+      if (!$contract->can($instID, READ)
+          || !Session::haveRight("contact_enterprise", READ)) {
          return false;
       }
-      $canedit = $contract->can($instID,'w');
+      $canedit = $contract->can($instID, UPDATE);
       $rand    = mt_rand();
 
       $query = "SELECT `glpi_contracts_suppliers`.`id`,
@@ -330,20 +340,28 @@ class Contract_Supplier extends CommonDBRelation {
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $number);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed' => $number,
+                                      'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixe'>";
-      echo "<tr>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $number) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_top    .= "</th>";
+         $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= "</th>";
       }
-      echo "<th>".__('Supplier')."</th>";
-      echo "<th>".__('Entity')."</th>";
-      echo "<th>".__('Third party type')."</th>";
-      echo "<th>".__('Phone')."</th>";
-      echo "<th>".__('Website')."</th>";
-      echo "</tr>";
+      $header_end .= "<th>".__('Supplier')."</th>";
+      $header_end .= "<th>".__('Entity')."</th>";
+      $header_end .= "<th>".__('Third party type')."</th>";
+      $header_end .= "<th>".__('Phone')."</th>";
+      $header_end .= "<th>".__('Website')."</th>";
+      $header_end .= "</tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $used = array();
       foreach ($suppliers as $data) {
@@ -379,10 +397,13 @@ class Contract_Supplier extends CommonDBRelation {
          echo "<td class='center'>".$website."</td>";
          echo "</tr>";
       }
+      if ($number) {
+         echo $header_begin.$header_bottom.$header_end;
+      }
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";

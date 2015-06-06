@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: change.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: change.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -34,10 +34,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkSeveralRightsOr(array('show_all_change' => '1',
-                                    'show_my_change'  => '1'));
+Session::haveRightsOr('change', array(Change::READALL, Change::READMY));
 
-Html::header(Change::getTypeName(2), '', "maintain", "change");
+Html::header(Change::getTypeName(Session::getPluralNumber()), '', "helpdesk", "change");
 
 Search::show('Change');
 

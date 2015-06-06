@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: displaypreference.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: displaypreference.class.php 23087 2014-07-18 12:30:27Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,10 +37,21 @@ if (!defined('GLPI_ROOT')) {
 
 class DisplayPreference extends CommonDBTM {
 
-   // From CommonDBTM
-   var $auto_message_on_action = false;
+   // From CommonGLPI
+   public $taborientation          = 'horizontal';
+   public $get_item_to_display_tab = false;
 
-   protected $displaylist = false;
+   // From CommonDBTM
+   var $auto_message_on_action     = false;
+
+   protected $displaylist          = false;
+
+
+   static $rightname = 'search_config';
+
+   const PERSONAL = 1024;
+   const GENERAL  = 2048;
+
 
 
    /**
@@ -62,44 +73,39 @@ class DisplayPreference extends CommonDBTM {
 
 
    /**
-    * @since version 0.84
+    * @since version 0.85
     *
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "delete_for_user" :
+      switch ($ma->getAction()) {
+         case 'delete_for_user' :
+            $input = $ma->getInput();
             if (isset($input['users_id'])) {
-               foreach ($input["item"] as $key => $val) {
-                  if ($val == 1) {
-                     //Get software name and manufacturer
-                     if ($input['users_id'] == Session::getLoginUserID()) {
-                        //Process rules
-                        if ($this->deleteByCriteria(array('users_id' => $input['users_id'],
-                                                          'itemtype' => $key))) {
-                           $res['ok']++;
-                        } else {
-                           $res['ko']++;
-                        }
+               $user = new User();
+               $user->getFromDB($input['users_id']);
+               foreach ($ids as $id) {
+                  if ($input['users_id'] == Session::getLoginUserID()) {
+                     if ($item->deleteByCriteria(array('users_id' => $input['users_id'],
+                                                       'itemtype' => $id))) {
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                      } else {
-                        $res['noright']++;
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                        $ma->addMessage($user->getErrorMessage(ERROR_ON_ACTION));
                      }
+                  } else {
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                     $ma->addMessage($user->getErrorMessage(ERROR_RIGHT));
                   }
                }
             } else {
-               $res['ko']++;
+               $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
             }
-            break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
+            return;
       }
-      return $res;
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
 
 
@@ -148,7 +154,7 @@ class DisplayPreference extends CommonDBTM {
    function activatePerso(array $input) {
       global $DB;
 
-      if (!Session::haveRight("search_config", "w")) {
+      if (!Session::haveRight(self::$rightname, self::PERSONAL)) {
          return false;
       }
 
@@ -280,13 +286,13 @@ class DisplayPreference extends CommonDBTM {
       $numrows = $DB->numrows($result);
 
       if ($numrows == 0) {
-         Session::checkRight("search_config", "w");
+         Session::checkRight(self::$rightname, self::PERSONAL);
          echo "<table class='tab_cadre_fixe'><tr><th colspan='4'>";
          echo "<form method='post' action='$target'>";
          echo "<input type='hidden' name='itemtype' value='$itemtype'>";
          echo "<input type='hidden' name='users_id' value='$IDuser'>";
          echo __('No personal criteria. Create personal parameters?')."<span class='small_space'>";
-         echo "<input type='submit' name='activate' value=\""._sx('button', 'Post')."\"
+         echo "<input type='submit' name='activate' value=\"".__('Create')."\"
                 class='submit'>";
          echo "</span>";
          Html::closeForm();
@@ -296,36 +302,38 @@ class DisplayPreference extends CommonDBTM {
          $already_added = self::getForTypeUser($itemtype, $IDuser);
 
          echo "<table class='tab_cadre_fixe'><tr><th colspan='4'>";
-         echo __('Select default items to show')."</th></tr>";
+         echo "<form method='post' action='$target'>";
+         echo "<input type='hidden' name='itemtype' value='$itemtype'>";
+         echo "<input type='hidden' name='users_id' value='$IDuser'>";
+         echo __('Select default items to show')."<span class='small_space'>";
+         echo "<input type='submit' name='disable' value=\"".__('Delete')."\"
+                class='submit'>";
+         echo "</span>";
+         Html::closeForm();
+         
+         echo "</th></tr>";
          echo "<tr class='tab_bg_1'><td colspan='4' class='center'>";
          echo "<form method='post' action=\"$target\">";
          echo "<input type='hidden' name='itemtype' value='$itemtype'>";
          echo "<input type='hidden' name='users_id' value='$IDuser'>";
-         echo "<select name='num'>";
-         $first_group = true;
-
+         $group  = '';
+         $values = array();
          foreach ($searchopt as $key => $val) {
             if (!is_array($val)) {
-               if (!$first_group) {
-                  echo "</optgroup>\n";
-               } else {
-                  $first_group = false;
-               }
-               echo "<optgroup label=\"$val\">";
+               $group = $val;
 
             } else if (($key != 1)
                        && !in_array($key,$already_added)
                        && (!isset($val['nodisplay']) || !$val['nodisplay'])) {
-               echo "<option value='$key'>".$val["name"]."</option>\n";
+               $values[$group][$key] = $val["name"];
             }
          }
-
-         if (!$first_group) {
-            echo "</optgroup>\n";
+         if ($values) {
+            Dropdown::showFromArray('num', $values);
+            echo "<span class='small_space'>";
+            echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
+            echo "</span>";
          }
-         echo "</select><span class='small_space'>";
-         echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
-         echo "</span>";
          Html::closeForm();
          echo "</td></tr>\n";
 
@@ -394,7 +402,7 @@ class DisplayPreference extends CommonDBTM {
                   echo "<input type='hidden' name='id' value='".$data["id"]."'>";
                   echo "<input type='hidden' name='users_id' value='$IDuser'>";
                   echo "<input type='hidden' name='itemtype' value='$itemtype'>";
-                  echo "<input type='image' name='delete' value=\"".
+                  echo "<input type='image' name='purge' value=\"".
                          _sx('button', 'Delete permanently')."\" src='".
                          $CFG_GLPI["root_doc"]."/pics/puce-delete2.png' alt=\"".
                          _sx('button', 'Delete permanently')."\" title=\"".
@@ -434,7 +442,7 @@ class DisplayPreference extends CommonDBTM {
          $item = getItemForItemtype($itemtype);
       }
 
-      $global_write = Session::haveRight("search_config_global", "w");
+      $global_write = Session::haveRight(self::$rightname, self::GENERAL);
 
       echo "<div class='center' id='tabsbody' >";
       // Defined items
@@ -456,33 +464,24 @@ class DisplayPreference extends CommonDBTM {
          echo "<form method='post' action='$target'>";
          echo "<input type='hidden' name='itemtype' value='$itemtype'>";
          echo "<input type='hidden' name='users_id' value='$IDuser'>";
-         echo "<select name='num'>";
-         $first_group = true;
+         $group  = '';
+         $values = array();
          $searchopt   = Search::getCleanedOptions($itemtype);
-
          foreach ($searchopt as $key => $val) {
             if (!is_array($val)) {
-               if (!$first_group) {
-                  echo "</optgroup>\n";
-               } else {
-                  $first_group = false;
-               }
-               echo "<optgroup label=\"$val\">";
-
+               $group = $val;
             } else if (($key != 1)
                        && !in_array($key,$already_added)
                        && (!isset($val['nodisplay']) || !$val['nodisplay'])) {
-               echo "<option value='$key'>".$val["name"]."</option>";
+               $values[$group][$key] = $val["name"];
             }
          }
-
-         if (!$first_group) {
-            echo "</optgroup>\n";
+         if ($values) {
+            Dropdown::showFromArray('num', $values);
+            echo "<span class='small_space'>";
+            echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
+            echo "</span>";
          }
-
-         echo "</select><span class='small_space'>";
-         echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
-         echo "</span>";
          Html::closeForm();
          echo "</td></tr>";
       }
@@ -559,7 +558,7 @@ class DisplayPreference extends CommonDBTM {
                   echo "<input type='hidden' name='id' value='".$data["id"]."'>";
                   echo "<input type='hidden' name='users_id' value='$IDuser'>";
                   echo "<input type='hidden' name='itemtype' value='$itemtype'>";
-                  echo "<input type='image' name='delete' value=\"".
+                  echo "<input type='image' name='purge' value=\"".
                          _sx('button', 'Delete permanently')."\" src='".
                          $CFG_GLPI["root_doc"]."/pics/puce-delete2.png' alt=\"".
                          __s('Delete permanently')."\" title=\"". __s('Delete permanently')."\">";
@@ -598,13 +597,17 @@ class DisplayPreference extends CommonDBTM {
          $rand = mt_rand();
          echo "<div class='spaced'>";
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $paramsma = array('width'            => 400,
+         $massiveactionparams = array('width'            => 400,
                            'height'           => 200,
-                           'specific_actions' => array('delete_for_user'
-                                                         => _x('button', 'Delete permanently')));
+                           'container'        => 'mass'.__CLASS__.$rand,
+                           'specific_actions' => array(__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'delete_for_user'
+                                                       => _x('button', 'Delete permanently')),
+                           'extraparams'      => array('massive_action_fields' => array('users_id')));
 
-         Html::showMassiveActions(__CLASS__, $paramsma);
-         echo "<input type='hidden' name='users_id' value='$users_id'>";
+         Html::showMassiveActions($massiveactionparams);
+
+         echo Html::hidden('users_id', array('value'                 => $users_id,
+                                             'data-glpicore-ma-tags' => 'common'));
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr>";
          echo "<th width='10'>";
@@ -624,8 +627,8 @@ class DisplayPreference extends CommonDBTM {
             echo "</tr>";
          }
          echo "</table>";
-         $paramsma['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         $massiveactionparams['ontop'] = false;
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
          echo "</div>";
 
@@ -660,7 +663,7 @@ class DisplayPreference extends CommonDBTM {
 
       switch ($item->getType()) {
          case 'Preference' :
-            if (Session::haveRight('search_config', 'w')) {
+            if (Session::haveRight(self::$rightname, self::PERSONAL)) {
                return __('Personal View');
             }
             break;
@@ -668,7 +671,7 @@ class DisplayPreference extends CommonDBTM {
          case __CLASS__:
             $ong = array();
             $ong[1] = __('Global View');
-            if (Session::haveRight('search_config', 'w')) {
+            if (Session::haveRight(self::$rightname, self::PERSONAL)) {
                $ong[2] = __('Personal View');
             }
             return $ong;
@@ -687,16 +690,35 @@ class DisplayPreference extends CommonDBTM {
          case __CLASS__ :
             switch ($tabnum) {
                case 1 :
-                  $item->showFormGlobal($_POST['target'], $_POST["displaytype"]);
+                  $item->showFormGlobal($_GET['_target'], $_GET["displaytype"]);
                   return true;
 
                case 2 :
-                  Session::checkRight('search_config', 'w');
-                  $item->showFormPerso($_POST['target'], $_POST["displaytype"]);
+                  Session::checkRight(self::$rightname, self::PERSONAL);
+                  $item->showFormPerso($_GET['_target'], $_GET["displaytype"]);
                   return true;
             }
       }
       return false;
    }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see commonDBTM::getRights()
+   **/
+   function getRights($interface='central') {
+
+      //TRANS: short for : Search result user display
+      $values[self::PERSONAL]  = array('short' => __('User display'),
+                                       'long'  => __('Search result user display'));
+      //TRANS: short for : Search result default display
+      $values[self::GENERAL]  =  array('short' => __('Default display'),
+                                       'long'  => __('Search result default display'));
+
+      return $values;
+   }
+
 }
 ?>

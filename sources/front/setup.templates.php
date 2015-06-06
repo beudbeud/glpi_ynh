@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: setup.templates.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: setup.templates.php 23180 2014-10-06 18:03:12Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -40,10 +40,22 @@ Session::checkCentralAccess();
 
 if (isset($_GET["itemtype"])) {
 
-   $link = Toolbox::getItemTypeFormURL($_GET["itemtype"]);
+   $link = $_GET["itemtype"]::getFormURL();
    $item = str_replace(".form.php","",$link);
    $item = str_replace("front/","",$item);
-   Html::header(__('Manage templates...'), $_SERVER['PHP_SELF'], "inventory", $item);
+
+   // Get right sector
+   $sector = 'assets';
+   if (isset($_SESSION['glpimenu'])) {
+      foreach ($_SESSION['glpimenu'] as $key => $val) {
+         if (isset($val['types']) && in_array($_GET["itemtype"], $val['types'])) {
+            $sector = $key;
+            break;
+         }
+      }
+   }
+   
+   Html::header(__('Manage templates...'), $_SERVER['PHP_SELF'], $sector, $item);
 
    CommonDBTM::listTemplates($_GET["itemtype"], $link, $_GET["add"]);
 

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: item_devicenetworkcard.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: item_devicenetworkcard.class.php 22703 2014-02-26 10:50:34Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -46,10 +46,27 @@ class Item_DeviceNetworkCard extends Item_Devices {
 
    static protected $notable = false;
 
-   static function getSpecificities() {
-      return array('mac' => array('long name'  => __('MAC address'),
-                                  'short name' => __('MAC address'),
-                                  'size'       => 18));
+
+   /**
+    * @since version 0.85
+   **/
+   static function getSpecificities($specif='') {
+
+      return array('mac'    => array('long name'  => __('MAC address'),
+                                     'short name' => __('MAC address'),
+                                     'size'       => 18,
+                                     'id'         => 20,
+                                     'datatype'   => 'mac'),
+                   'serial' => parent::getSpecificities('serial'),
+                   'busID'  => parent::getSpecificities('busID'));
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   static function itemAffinity() {
+      return array('Computer', 'NetworkEquipment', 'Peripheral', 'Phone', 'Printer');
    }
 
 }

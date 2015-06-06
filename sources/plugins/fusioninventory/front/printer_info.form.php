@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -42,10 +42,10 @@
 
 include ("../../../inc/includes.php");
 
-PluginFusioninventoryProfile::checkRight("printer", "r");
+Session::checkRight('plugin_fusioninventory_printer', READ);
 
 if ((isset($_POST['update'])) && (isset($_POST['id']))) {
-      PluginFusioninventoryProfile::checkRight("printer", "w");
+      Session::checkRight('plugin_fusioninventory_printer', UPDATE);
 
    $plugin_fusioninventory_printer = new PluginFusioninventoryPrinter();
 
@@ -72,9 +72,6 @@ if ((isset($_POST['update'])) && (isset($_POST['id']))) {
 
    $plugin_fusioninventory_printer->update($_POST);
 
-} else if ((isset($_POST["GetRightModel"])) && (isset($_POST['id']))) {
-   $plugin_fusioninventory_model_infos = new PluginFusioninventorySnmpmodel();
-   $plugin_fusioninventory_model_infos->getrightmodel($_POST['id'], PRINTER_TYPE);
 }
 
 $arg = "";

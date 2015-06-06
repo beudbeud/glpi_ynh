@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: dropdownMassiveActionField.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: dropdownMassiveActionField.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -40,11 +40,11 @@ if (!isset($_POST["itemtype"]) || !($item = getItemForItemtype($_POST['itemtype'
    exit();
 }
 
-if (in_array($_POST["itemtype"], $CFG_GLPI["infocom_types"])) {
-   Session::checkSeveralRightsOr(array($_POST["itemtype"] => "w",
-                                       "infocom"          => "w"));
+if (InfoCom::canApplyOn($_POST["itemtype"])) {
+   Session::checkSeveralRightsOr(array($_POST["itemtype"] => UPDATE,
+                                       "infocom"          => UPDATE));
 } else {
-   $item->checkGlobal("w");
+   $item->checkGlobal(UPDATE);
 }
 
 $inline = false;
@@ -69,7 +69,7 @@ if (isset($_POST["itemtype"])
    $FIELDNAME_PRINTED = false;
    $USE_TABLE         = false;
 
-   echo "<table class='tab_glpi'><tr><td>";
+   echo "<table class='tab_glpi' width='100%'><tr><td>";
 
    $plugdisplay = false;
    // Specific plugin Type case
@@ -93,11 +93,11 @@ if (isset($_POST["itemtype"])
       $options = array();
       $values  = array();
       // For ticket template or aditional options of massive actions
-      if (isset($_POST['options']) && strlen($_POST['options'])) {
-         $options = Toolbox::decodeArrayFromInput($_POST['options']);
+      if (isset($_POST['options'])) {
+         $options = $_POST['options'];
       }
-      if (isset($_POST['additionalvalues']) && strlen($_POST['additionalvalues'])) {
-         $values = Toolbox::decodeArrayFromInput($_POST['additionalvalues']);
+      if (isset($_POST['additionalvalues'])) {
+         $values = $_POST['additionalvalues'];
       }
       $values[$search["field"]] = '';
       echo $item->getValueToSelect($search, $fieldname, $values, $options);

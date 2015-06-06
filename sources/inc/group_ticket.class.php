@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: group_ticket.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: group_ticket.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,14 +28,20 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class Group_Ticket
+/**
+ * Group_Ticket Class
+ *
+ * @since version 0.85
+ *
+ * Relation between Groups and Tickets
+**/
 class Group_Ticket extends CommonITILActor {
 
    // From CommonDBRelation

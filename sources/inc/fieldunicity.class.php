@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: fieldunicity.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: fieldunicity.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,20 +28,25 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class FieldUnicity
+/**
+ * FieldUnicity Class
+**/
 class FieldUnicity extends CommonDropdown {
 
    // From CommonDBTM
-   public $dohistory = true;
+   public $dohistory       = true;
 
-   var $second_level_menu = "control";
+   var $second_level_menu  = "control";
+   var $can_be_translated  = false;
+
+   static $rightname       = 'config';
 
 
    static function getTypeName($nb=0) {
@@ -50,12 +55,15 @@ class FieldUnicity extends CommonDropdown {
 
 
    static function canCreate() {
-      return Session::haveRight('config', 'w');
+      return static::canUpdate();
    }
 
 
-   static function canView() {
-      return Session::haveRight('config', 'r');
+   /**
+    * @since version 0.85
+   **/
+   static function canPurge() {
+      return static::canUpdate();
    }
 
 
@@ -87,8 +95,8 @@ class FieldUnicity extends CommonDropdown {
    function defineTabs($options=array()) {
 
       $ong          = array();
-      $ong['empty'] = $this->getTypeName(1);
-      $this->addStandardTab($this->getType(), $ong, $options);
+      $this->addDefaultFormTab($ong);
+      $this->addStandardTab(__CLASS__, $ong, $options);
       $this->addStandardTab('Log', $ong, $options);
 
       return $ong;
@@ -149,9 +157,9 @@ class FieldUnicity extends CommonDropdown {
       //Criteria already added : only display the selected itemtype
       if ($ID > 0) {
          if ($item = getItemForItemtype($this->fields['itemtype'])) {
-            echo $item->getTypeName().'--';
+            echo $item->getTypeName();
          }
-         echo "<input type='hidden' name='itemtype' value='".$this->fields['itemtype']."'";
+         echo "<input type='hidden' name='itemtype' value='".$this->fields['itemtype']."'>";
 
       } else {
          //Add criteria : display dropdown
@@ -230,7 +238,7 @@ class FieldUnicity extends CommonDropdown {
       global $DB;
 
 
-      echo "<span id='span_fields' name='span_fields'>";
+      echo "<span id='span_fields'>";
 
       if (!isset($unicity->fields['itemtype']) || !$unicity->fields['itemtype']) {
          echo  "</span>";
@@ -242,7 +250,7 @@ class FieldUnicity extends CommonDropdown {
       }
 
       $unicity_fields = explode(',', $unicity->fields['fields']);
-      echo "<span id='span_fields' name='span_fields'>";
+
       self::dropdownFields($unicity->fields['itemtype'],
                            array('values' => $unicity_fields,
                                  'name'   => '_fields'));
@@ -290,8 +298,9 @@ class FieldUnicity extends CommonDropdown {
                $values[$field['Field']] = $searchOption['name'];
             }
          }
-         $p['multiple'] = true;
+         $p['multiple'] = 1;
          $p['size']     = 15;
+
          return Dropdown::showFromArray($p['name'], $values, $p);
       }
       return false;

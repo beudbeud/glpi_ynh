@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: calendarsegment.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: calendarsegment.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -39,8 +39,8 @@ $item = new CalendarSegment();
 
 if (isset($_POST["add"])) {
 
-   $item->check(-1, 'w', $_POST);
-   if ($item->add($_POST)) {
+   $item->check(-1, CREATE, $_POST);
+   if ($newID = $item->add($_POST)) {
       Event::log($_POST["calendars_id"], "calendars", 4, "setup",
                  //TRANS: %s is the user login
                  sprintf(__('%s adds a link with an item'), $_SESSION["glpiname"]));

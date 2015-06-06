@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -154,9 +154,30 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
       $criterias['itemtype']['is_global']       = FALSE;
       $criterias['itemtype']['allow_condition'] = array(Rule::PATTERN_IS, Rule::PATTERN_IS_NOT);
 
+      $criterias['domains_id']['table']           = 'glpi_domains';
+      $criterias['domains_id']['field']           = 'name';
+      $criterias['domains_id']['name']            =
+                     __('Assets to import', 'fusioninventory').' : '.
+                     __('Domain');
+      $criterias['domains_id']['linkfield']       = 'domain';
+      $criterias['domains_id']['type']            = 'dropdown';
+      //Means that this criterion can only be used in a global search query
+      $criterias['domains_id']['is_global']       = TRUE;
+//      $criterias['domains_id']['allow_condition'] = array(Rule::PATTERN_IS, Rule::PATTERN_IS_NOT);
+
+
       $criterias['entityrestrict']['name']      = __('Restrict search in defined entity', 'fusioninventory');
       $criterias['entityrestrict']['allow_condition'] = array(PluginFusioninventoryInventoryRuleImport::PATTERN_ENTITY_RESTRICT);
 
+      $criterias['oscomment']['name']      = __('Operating system').'/'.__('Comment');
+      $criterias['oscomment']['allow_condition'] = array(Rule::PATTERN_IS,
+                                                           Rule::PATTERN_IS_NOT,
+                                                           Rule::PATTERN_CONTAIN,
+                                                           Rule::PATTERN_NOT_CONTAIN,
+                                                           Rule::PATTERN_BEGIN,
+                                                           Rule::PATTERN_END,
+                                                           Rule::REGEX_MATCH,
+                                                           Rule::REGEX_NOT_MATCH);
 
       return $criterias;
    }
@@ -167,11 +188,9 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
 
       $actions = array();
       $actions['_fusion']['name']        = __('FusionInventory link', 'fusioninventory');
-
       $actions['_fusion']['type']        = 'fusion_type';
 
-      $actions['_ignore_import']['name'] = __('To be unaware of import');
-
+      $actions['_ignore_import']['name'] = __('To be unaware of import (with log)');
       $actions['_ignore_import']['type'] = 'yesonly';
 
       return $actions;
@@ -180,11 +199,9 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
 
 
    static function getRuleActionValues() {
-      return array(self::RULE_ACTION_LINK =>
-                           __('Link', 'fusioninventory'),
 
-                   self::RULE_ACTION_DENIED            => __('Import denied', 'fusioninventory'));
-
+      return array(self::RULE_ACTION_LINK   => __('Link', 'fusioninventory'),
+                   self::RULE_ACTION_DENIED => __('Import denied (no log)', 'fusioninventory'));
    }
 
 
@@ -290,7 +307,7 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
 
 
 
-   function displayAdditionalRuleAction(array $action) {
+   function displayAdditionalRuleAction(array $action, $value='') {
 
       switch ($action['type']) {
 
@@ -330,8 +347,10 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
       $complex_criterias = array();
       $sql_where         = '';
       $sql_from          = '';
-      $sql_where_computer  = '';
-      $sql_from_computer   = '';
+      $sql_where_computer= '';
+      $sql_where_domain  = '';
+      $sql_from_computer = '';
+      $sql_from_domain   = '';
       $continue          = TRUE;
       $entityRestrict    = FALSE;
       $global_criteria   = array('model',
@@ -344,7 +363,9 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                                  'mskey',
                                  'name',
                                  'itemtype',
-                                 'entityrestrict');
+                                 'domains_id',
+                                 'entityrestrict',
+                                 'oscomment');
       $nb_crit_find = 0;
       foreach ($global_criteria as $criterion) {
          $criteria = $this->getCriteriaByID($criterion);
@@ -422,7 +443,7 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                $itemtypeselected[] = $itemtype;
             }
          }
-         $itemtypeselected[] = "PluginFusioninventoryUnknownDevice";
+         $itemtypeselected[] = "PluginFusioninventoryUnmanaged";
       }
 
       $sql_where = " `[typetable]`.`is_template` = '0' ";
@@ -461,7 +482,7 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                                      "`[typetable]`.`".strtolower("[typename]models_id")."`
                                      AND `glpi_networkports`.`itemtype` = '[typename]') ";
                $sql_where_temp = " AND `[typetable]`.`".strtolower("[typename]")."models_id` = '".
-                                    $input["serial"]."'";
+                                    $input["model"]."'";
 
                $sql_from .= $sql_from_temp;
                $sql_where  .= $sql_where_temp;
@@ -544,6 +565,13 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                $sql_where_computer .= ' AND `uuid`="'.$input['uuid'].'"';
                break;
 
+            case 'domains_id':
+               $sql_from_domain .= " LEFT JOIN `glpi_domains`
+                                 ON `glpi_domains`.`id` = ".
+                                     "`[typetable]`.`domains_id` ";
+               $sql_where_domain .= " AND `glpi_domains`.`name` = '".
+                                    $input["domains_id"]."'";
+               break;
          }
       }
 
@@ -562,6 +590,17 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
          if ($itemtype == "Computer") {
             $sql_from_temp .= $sql_from_computer;
             $sql_where_temp .= $sql_where_computer;
+            $sql_from_temp .= $sql_from_domain;
+            $sql_where_temp .= $sql_where_domain;
+         } else if ($itemtype == 'NetworkEquipment') {
+            $sql_from_temp .= $sql_from_domain;
+            $sql_where_temp .= $sql_where_domain;
+         } else if ($itemtype == 'Printer') {
+            $sql_from_temp .= $sql_from_domain;
+            $sql_where_temp .= $sql_where_domain;
+         } else if ($itemtype == 'PluginFusioninventoryUnmanaged') {
+            $sql_from_temp .= $sql_from_domain;
+            $sql_where_temp .= $sql_where_domain;
          }
 
          if ($entityRestrict) {
@@ -582,7 +621,7 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                       LIMIT 1";
          if (strstr($sql_glpi, "`[typetable]`.`is_template` = '0'  AND")) {
 
-            if ($itemtype == "PluginFusioninventoryUnknownDevice") {
+            if ($itemtype == "PluginFusioninventoryUnmanaged") {
                $sql_glpi = str_replace("`[typetable]`.`is_template` = '0'  AND", "", $sql_glpi);
             }
             $sql_glpi = str_replace("[typetable]", $item->getTable(), $sql_glpi);
@@ -630,14 +669,15 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
       $inputrulelog = array();
       $inputrulelog['date'] = date('Y-m-d H:i:s');
       $inputrulelog['rules_id'] = $this->fields['id'];
-      if (isset($_SESSION['plugin_fusioninventory_classrulepassed'])) {
-         $inputrulelog['method'] = $class->getMethod();
+      if (!isset($params['return'])) {
+         if (isset($_SESSION['plugin_fusioninventory_classrulepassed'])) {
+            $inputrulelog['method'] = $class->getMethod();
+         }
+         if (isset($_SESSION['plugin_fusioninventory_agents_id'])) {
+            $inputrulelog['plugin_fusioninventory_agents_id'] =
+                           $_SESSION['plugin_fusioninventory_agents_id'];
+         }
       }
-      if (isset($_SESSION['plugin_fusioninventory_agents_id'])) {
-         $inputrulelog['plugin_fusioninventory_agents_id'] =
-                        $_SESSION['plugin_fusioninventory_agents_id'];
-      }
-
       PluginFusioninventoryToolbox::logIfExtradebug(
          "pluginFusioninventory-rules",
          "execute action\n"
@@ -657,11 +697,13 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                         $items_id = current($datas);
                         $output['found_equipment'] = array($items_id, $itemtype);
                         if (isset($_SESSION['plugin_fusioninventory_classrulepassed'])) {
-                           $inputrulelog['items_id'] = $items_id;
-                           $inputrulelog['itemtype'] = $itemtype;
-                           $pfRulematchedlog->add($inputrulelog);
-                           $pfRulematchedlog->cleanOlddata($items_id, $itemtype);
-                           $class->rulepassed($items_id, $itemtype);
+                           if (!isset($params['return'])) {
+                              $inputrulelog['items_id'] = $items_id;
+                              $inputrulelog['itemtype'] = $itemtype;
+                              $pfRulematchedlog->add($inputrulelog);
+                              $pfRulematchedlog->cleanOlddata($items_id, $itemtype);
+                              $class->rulepassed($items_id, $itemtype);
+                           }
                            return $output;
                         } else {
                            $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
@@ -677,9 +719,11 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                            if ($criteria->fields['criteria'] == 'itemtype') {
                               $itemtype = $criteria->fields['pattern'];
                               if (isset($_SESSION['plugin_fusioninventory_classrulepassed'])) {
-                                 $_SESSION['plugin_fusioninventory_rules_id'] =
-                                                $this->fields['id'];
-                                 $class->rulepassed("0", $itemtype);
+                                 if (!isset($params['return'])) {
+                                    $_SESSION['plugin_fusioninventory_rules_id'] =
+                                                   $this->fields['id'];
+                                    $class->rulepassed("0", $itemtype);
+                                 }
                                  $output['found_equipment'] = array(0, $itemtype);
                                  return $output;
                               } else {
@@ -694,9 +738,11 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                      }
                      if ($itemtype_found == "0") {
                         if (isset($_SESSION['plugin_fusioninventory_classrulepassed'])) {
-                           $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
-                           $class->rulepassed("0", "PluginFusioninventoryUnknownDevice");
-                           $output['found_equipment'] = array(0, "PluginFusioninventoryUnknownDevice");
+                           if (!isset($params['return'])) {
+                              $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
+                              $class->rulepassed("0", "PluginFusioninventoryUnmanaged");
+                           }
+                           $output['found_equipment'] = array(0, "PluginFusioninventoryUnmanaged");
                            return $output;
                         } else {
                            $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
@@ -726,8 +772,10 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                      if ($criteria->fields['criteria'] == 'itemtype') {
                         $itemtype = $criteria->fields['pattern'];
                         if (isset($_SESSION['plugin_fusioninventory_classrulepassed'])) {
-                           $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
-                           $class->rulepassed("0", $itemtype);
+                           if (!isset($params['return'])) {
+                              $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
+                              $class->rulepassed("0", $itemtype);
+                           }
                            $output['found_equipment'] = array(0, $itemtype);
                            return $output;
                         } else {
@@ -741,9 +789,11 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
                }
                if ($itemtype_found == "0") {
                   if (isset($_SESSION['plugin_fusioninventory_classrulepassed'])) {
-                     $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
-                     $class->rulepassed("0", "PluginFusioninventoryUnknownDevice");
-                     $output['found_equipment'] = array(0, 'PluginFusioninventoryUnknownDevice');
+                     if (!isset($params['return'])) {
+                        $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
+                        $class->rulepassed("0", "PluginFusioninventoryUnmanaged");
+                     }
+                     $output['found_equipment'] = array(0, 'PluginFusioninventoryUnmanaged');
                      return $output;
                   } else {
                      $_SESSION['plugin_fusioninventory_rules_id'] = $this->fields['id'];
@@ -862,8 +912,9 @@ class PluginFusioninventoryInventoryRuleImport extends Rule {
             $types[$itemtype] = $item->getTypeName();
          }
       }
-      $types["PluginFusioninventoryUnknownDevice"] =
-                     PluginFusioninventoryUnknownDevice::getTypeName();
+      $types["PluginFusioninventoryUnmanaged"] =
+                     PluginFusioninventoryUnmanaged::getTypeName();
+      $types[""] = __('No itemtype defined', 'fusioninventory');
       return $types;
    }
 

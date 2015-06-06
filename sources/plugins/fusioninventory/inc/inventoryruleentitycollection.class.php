@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Walid Nouh
    @co-author David Durieux
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -50,6 +50,8 @@ class PluginFusioninventoryInventoryRuleEntityCollection extends RuleCollection 
    public $stop_on_first_match=TRUE;
    //public $right='rule_import';
    public $menu_option='test';
+
+   static $rightname = 'plugin_fusioninventory_ruleentity';
 
    function getTitle() {
       return __('Entity rules', 'fusioninventory');

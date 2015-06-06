@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: solutiontemplate.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: solutiontemplate.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,32 +28,28 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class SolutionTemplate
+/**
+ * SolutionTemplate Class
+**/
 class SolutionTemplate extends CommonDropdown {
 
    // From CommonDBTM
    public $dohistory = true;
 
+   static $rightname = 'solutiontemplate';
+
+   var $can_be_translated = false;
+
 
    static function getTypeName($nb=0) {
       return _n('Solution template', 'Solution templates', $nb);
-   }
-
-
-   static function canCreate() {
-      return Session::haveRight('entity_dropdown', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('entity_dropdown', 'r');
    }
 
 

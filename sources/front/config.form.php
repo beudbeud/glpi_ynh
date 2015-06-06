@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: config.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: config.form.php 23172 2014-10-04 18:08:30Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,10 +33,10 @@
 
 
 include ('../inc/includes.php');
+Session::checkRight("config", READ);
 
-Session::checkRight("config", "w");
 $config = new Config();
-
+$_POST['id'] = 1;
 if (!empty($_POST["update_auth"])) {
    $config->update($_POST);
    Html::back();
@@ -47,6 +47,6 @@ if (!empty($_POST["update"])) {
 }
 
 Html::header(Config::getTypeName(1), $_SERVER['PHP_SELF'], "config", "config");
-$config->showForm(1);
+$config->display(array('id' => 1));
 Html::footer();
 ?>

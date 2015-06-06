@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Walid Nouh
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -48,16 +48,10 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
 
    public $dohistory = TRUE;
 
+   static $rightname = 'plugin_fusioninventory_deploymirror';
+
    static function getTypeName($nb=0) {
       return __('Mirror servers', 'fusioninventory');
-   }
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("task", "w");
-   }
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("task", "r");
    }
 
 
@@ -83,11 +77,18 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
     * Location is retrieved from the computer data.
     */
 
-   static function getList($agent = NULL) {
+   static function getList($agents_id = NULL) {
       global $PF_CONFIG;
 
-      $results = getAllDatasFromTable('glpi_plugin_fusioninventory_deploymirrors');
+      if (is_null($agents_id)) {
+         return array();
+      }
 
+      $pfAgent = new PluginFusioninventoryAgent();
+      $pfAgent->getFromDB($agents_id);
+      $agent = $pfAgent->fields;
+
+      $results = getAllDatasFromTable('glpi_plugin_fusioninventory_deploymirrors');
       if (!isset($agent) || !isset($agent['computers_id'])) {
          return array();
       }

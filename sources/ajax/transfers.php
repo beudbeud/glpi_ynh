@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: transfers.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: transfers.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,7 @@ include ('../inc/includes.php');
 header("Content-Type: text/html; charset=UTF-8");
 Html::header_nocache();
 
-Session::checkRight("transfer", "r");
+Session::checkRight("transfer", READ);
 
 if (isset($_POST["id"]) && ($_POST["id"] > 0)) {
    $transfer = new Transfer();

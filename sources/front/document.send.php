@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: document.send.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: document.send.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -64,7 +64,11 @@ if (isset($_GET['docid'])) { // docid for document
    if (count($splitter) == 2) {
       $send = false;
       if (($splitter[0] == "_dumps")
-          && Session::haveRight("backup","w")) {
+          && Session::haveRight("backup", CREATE)) {
+         $send = true;
+      }
+
+      if ($splitter[0] == "_pictures") {
          $send = true;
       }
 

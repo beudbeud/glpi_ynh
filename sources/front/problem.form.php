@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: problem.form.php 22830 2014-03-26 14:45:22Z moyo $
+ * @version $Id: problem.form.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -41,15 +41,19 @@ Session::checkLoginUser();
 
 $problem = new Problem();
 if (isset($_POST["add"])) {
-   $problem->check(-1, 'w', $_POST);
+   $problem->check(-1, CREATE, $_POST);
 
-   $newID = $problem->add($_POST);
-   Event::log($newID, "problem", 4, "maintain",
-              sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
+   if ($newID = $problem->add($_POST)) {
+      Event::log($newID, "problem", 4, "maintain",
+                 sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
+      if ($_SESSION['glpibackcreated']) {
+         Html::redirect($problem->getFormURL()."?id=".$newID);
+      }
+   }
    Html::back();
 
 } else if (isset($_POST["delete"])) {
-   $problem->check($_POST["id"], 'd');
+   $problem->check($_POST["id"], DELETE);
 
    $problem->delete($_POST);
    Event::log($_POST["id"], "problem", 4, "maintain",
@@ -58,7 +62,7 @@ if (isset($_POST["add"])) {
    $problem->redirectToList();
 
 } else if (isset($_POST["restore"])) {
-   $problem->check($_POST["id"], 'd');
+   $problem->check($_POST["id"], PURGE);
 
    $problem->restore($_POST);
    Event::log($_POST["id"], "problem", 4, "maintain",
@@ -67,7 +71,7 @@ if (isset($_POST["add"])) {
    $problem->redirectToList();
 
 } else if (isset($_POST["purge"])) {
-   $problem->check($_POST["id"], 'd');
+   $problem->check($_POST["id"], PURGE);
 
    $problem->delete($_POST,1);
    Event::log($_POST["id"], "problem", 4, "maintain",
@@ -76,7 +80,7 @@ if (isset($_POST["add"])) {
    $problem->redirectToList();
 
 } else if (isset($_POST["update"])) {
-   $problem->check($_POST["id"], 'w');
+   $problem->check($_POST["id"], UPDATE);
 
    $problem->update($_POST);
    Event::log($_POST["id"], "problem", 4, "maintain",
@@ -91,48 +95,21 @@ if (isset($_POST["add"])) {
       Html::back();
    }
 
-} else if (isset($_POST['delete_user'])) {
+} else if (isset($_POST['addme_assign'])) {
    $problem_user = new Problem_User();
-   $problem_user->check($_POST['id'], 'd');
-   $problem_user->delete($_POST);
-
+   $problem->check($_POST['problems_id'], READ);
+   $input = array('problems_id'       => $_POST['problems_id'],
+                  'users_id'         => Session::getLoginUserID(),
+                  'use_notification' => 1,
+                  'type'             => CommonITILActor::ASSIGN);
+   $problem_user->add($input);
    Event::log($_POST['problems_id'], "problem", 4, "maintain",
-              sprintf(__('%s deletes an actor'), $_SESSION["glpiname"]));
-
-   if ($problem->can($_POST["problems_id"],'r')) {
-      Html::redirect($CFG_GLPI["root_doc"]."/front/problem.form.php?id=".$_POST["problems_id"]);
-   }
-   Session::addMessageAfterRedirect(__('You have been redirected because you no longer have access to this item'),
-                                    true, ERROR);
-   Html::redirect($CFG_GLPI["root_doc"]."/front/problem.php");
-
-} else if (isset($_POST['delete_group'])) {
-   $group_problem = new Group_Problem();
-   $group_problem->check($_POST['id'], 'd');
-   $group_problem->delete($_POST);
-
-   Event::log($_POST['problems_id'], "problem", 4, "maintain",
-              sprintf(__('%s deletes an actor'), $_SESSION["glpiname"]));
-
-   if ($problem->can($_POST["problems_id"],'r')) {
-      Html::redirect($CFG_GLPI["root_doc"]."/front/problem.form.php?id=".$_POST["problems_id"]);
-   }
-   Session::addMessageAfterRedirect(__('You have been redirected because you no longer have access to this item'),
-                                    true, ERROR);
-   Html::redirect($CFG_GLPI["root_doc"]."/front/problem.php");
-
-} else if (isset($_POST['delete_supplier'])) {
-   $problem_supplier = new Problem_Supplier();
-   $problem_supplier->check($_POST['id'], 'd');
-   $problem_supplier->delete($_POST);
-
-   Event::log($_POST['problems_id'], "problem", 4, "maintain",
-              sprintf(__('%s deletes an actor'), $_SESSION["glpiname"]));
+              //TRANS: %s is the user login
+              sprintf(__('%s adds an actor'), $_SESSION["glpiname"]));
    Html::redirect($CFG_GLPI["root_doc"]."/front/problem.form.php?id=".$_POST['problems_id']);
-
 } else {
-   Html::header(Problem::getTypeName(2), $_SERVER['PHP_SELF'], "maintain", "problem");
-   $problem->showForm($_GET["id"],$_GET);
+   Html::header(Problem::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "helpdesk", "problem");
+   $problem->display($_GET);
    Html::footer();
 }
 ?>

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ruledictionnarysoftware.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ruledictionnarysoftware.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -45,8 +45,9 @@ class RuleDictionnarySoftware extends Rule {
    var $additional_fields_for_dictionnary = array('manufacturer');
 
    // From Rule
-   static public $right    = 'rule_dictionnary_software';
-   public $can_sort        = true;
+   static $rightname = 'rule_dictionnary_software';
+
+   public $can_sort  = true;
 
 
    /**
@@ -64,7 +65,6 @@ class RuleDictionnarySoftware extends Rule {
    function maxActionsCount() {
       return 4;
    }
-
 
    /**
     * @see Rule::getCriterias()

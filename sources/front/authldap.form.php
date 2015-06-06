@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: authldap.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: authldap.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,7 +33,7 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("config", "w");
+Session::checkRight("config", UPDATE);
 
 $config      = new Config();
 $config_ldap = new AuthLDAP();
@@ -60,8 +60,8 @@ if (isset($_POST["update"])) {
    }
    Html::back();
 
-} else if (isset($_POST["delete"])) {
-   $config_ldap->delete($_POST);
+} else if (isset($_POST["purge"])) {
+   $config_ldap->delete($_POST, 1);
    $_SESSION['glpi_authconfig'] = 1;
    $config_ldap->redirectToList();
 
@@ -82,7 +82,6 @@ if (isset($_POST["update"])) {
    Html::back();
 
 } else if (isset($_POST["test_ldap_replicate"])) {
-
    $replicate = new AuthLdapReplicate();
    $replicate->getFromDB($_POST["ldap_replicate_id"]);
 
@@ -107,8 +106,8 @@ if (isset($_POST["update"])) {
    Html::back();
 }
 
-Html::header(AuthLDAP::getTypeName(1), $_SERVER['PHP_SELF'], 'config', 'extauth', 'ldap');
-$config_ldap->showForm($_GET["id"], $_GET);
+Html::header(AuthLDAP::getTypeName(1), $_SERVER['PHP_SELF'], 'config', 'auth', 'ldap');
+$config_ldap->display($_GET);
 
 Html::footer();
 ?>

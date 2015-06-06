@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ruleimportentity.class.php 22696 2014-02-26 09:53:21Z moyo $
+ * @version $Id: ruleimportentity.class.php 22695 2014-02-26 09:52:50Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,8 +38,8 @@ if (!defined('GLPI_ROOT')) {
 class RuleImportEntity extends Rule {
 
    // From Rule
-   static public $right    = 'rule_import';
-   public $can_sort        = true;
+   static $rightname = 'rule_import';
+   public $can_sort  = true;
 
 
    function getTitle() {

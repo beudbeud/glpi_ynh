@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: setup.auth.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: setup.auth.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,13 +33,13 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("config", "r");
+Session::checkRight("config", READ);
 
-Html::header(__('External authentication sources'), $_SERVER['PHP_SELF'], "config", "extauth", -1);
+Html::header(__('External authentication sources'), $_SERVER['PHP_SELF'], "config", "auth", -1);
 
 echo "<table class='tab_cadre'>";
 echo "<tr><th>&nbsp;" . __('External authentications') . "</th></tr>";
-if (Session::haveRight("config","w")) {
+if (Session::haveRight("config", UPDATE)) {
    echo "<tr class='tab_bg_1'><td class='center b'>".
         "<a href='auth.settings.php'>" .__('Setup')."</a></td></tr>";
 }

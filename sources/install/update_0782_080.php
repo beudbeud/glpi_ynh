@@ -1,7 +1,7 @@
 <?php
 
 /*
- * @version $Id: update_0782_080.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: update_0782_080.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -1547,12 +1547,11 @@ function update0782to080() {
 
    $DB->queryOrDie($query, "0.80 change autoclose ticket in glpi_entitydatas for inherit");
 
-
    $query = "UPDATE `glpi_entitydatas`
              SET `autoclose_delay` = '-1'
              WHERE `autoclose_delay` = '0'";
 
-   $DB->queryOrDie($query, "0.80 change autoclose ticket in glpi_entitydatas for not active");
+   $DB->queryOrDie($query, "0.80 change autoclose ticket in glpi_entitydatas for inactive");
 
 
    // must always be at the end

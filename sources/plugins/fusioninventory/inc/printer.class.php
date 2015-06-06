@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Vincent Mazzoni
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,6 +46,8 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryPrinter extends CommonDBTM {
 
+   static $rightname = 'plugin_fusioninventory_printer';
+
    static function getTypeName($nb=0) {
 
    }
@@ -56,14 +58,6 @@ class PluginFusioninventoryPrinter extends CommonDBTM {
       return "Printer";
    }
 
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("printer", "w");
-   }
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("printer", "r");
-   }
 
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
@@ -118,7 +112,7 @@ class PluginFusioninventoryPrinter extends CommonDBTM {
    function showForm(Printer $item, $options=array()) {
       global $DB;
 
-      PluginFusioninventoryProfile::checkRight("printer", "r");
+      Session::checkRight('plugin_fusioninventory_printer', READ);
 
       $id = $item->getID();
       if (!$data = $this->find("`printers_id`='".$id."'", '', 1)) {
@@ -168,37 +162,13 @@ class PluginFusioninventoryPrinter extends CommonDBTM {
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td align='center' rowspan='2'>".__('SNMP models', 'fusioninventory')."&nbsp;:</td>";
+      echo "<td align='center'></td>";
       echo "<td align='center'>";
-      $query_models = "SELECT *
-                       FROM `glpi_plugin_fusioninventory_snmpmodels`
-                       WHERE `itemtype`!='Printer'
-                             AND `itemtype`!=''";
-      $result_models=$DB->query($query_models);
-      $exclude_models = array();
-      while ($data_models=$DB->fetch_array($result_models)) {
-         $exclude_models[] = $data_models['id'];
-      }
-      Dropdown::show("PluginFusioninventorySnmpmodel",
-                     array('name'=>"plugin_fusioninventory_snmpmodels_id",
-                           'value'=>
-                    $this->fields['plugin_fusioninventory_snmpmodels_id'],
-                           'comment'=>FALSE,
-                           'used'=>$exclude_models));
       echo "</td>";
       echo "<td align='center'>".__('SNMP authentication', 'fusioninventory')."&nbsp;:</td>";
       echo "<td align='center'>";
       PluginFusioninventoryConfigSecurity::auth_dropdown(
               $this->fields["plugin_fusioninventory_configsecurities_id"]);
-      echo "</td>";
-      echo "</tr>";
-
-      echo "<tr class='tab_bg_1'>";
-      echo "<td align='center'>";
-      echo "<input type='submit' name='GetRightModel'
-              value='".__('Load the correct model', 'fusioninventory')."' class='submit'/>";
-      echo "</td>";
-      echo "<td colspan='2'>";
       echo "</td>";
       echo "</tr>";
 
@@ -257,6 +227,47 @@ class PluginFusioninventoryPrinter extends CommonDBTM {
       echo "</tr>";
 
       PluginFusioninventoryToolbox::displaySerializedValues($data);
+
+      echo "</table>";
+   }
+
+
+
+   static function showInfo($item) {
+
+      // Manage locks pictures
+      PluginFusioninventoryLock::showLockIcon('Printer');
+
+      $pfPrinter = new PluginFusioninventoryPrinter();
+      $a_printerextend = current($pfPrinter->find(
+                                              "`printers_id`='".$item->getID()."'",
+                                              "", 1));
+      if (empty($a_printerextend)) {
+         return;
+      }
+
+      echo '<table class="tab_glpi" width="100%">';
+      echo '<tr>';
+      echo '<th colspan="2">'.__('FusionInventory', 'fusioninventory').'</th>';
+      echo '</tr>';
+
+      echo '<tr class="tab_bg_1">';
+      echo '<td>';
+      echo __('Last inventory', 'fusioninventory');
+      echo '</td>';
+      echo '<td>';
+      echo Html::convDateTime($a_printerextend['last_fusioninventory_update']);
+      echo '</td>';
+      echo '</tr>';
+
+      echo '<tr class="tab_bg_1">';
+      echo '<td>';
+      echo __('Type');
+      echo '</td>';
+      echo '<td>';
+      echo "SNMP";
+      echo '</td>';
+      echo '</tr>';
 
       echo "</table>";
    }

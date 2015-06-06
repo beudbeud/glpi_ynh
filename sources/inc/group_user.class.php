@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: group_user.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: group_user.class.php 23317 2015-01-23 15:12:58Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,11 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Group_User class - Relation between Group and User
+/**
+ * Group_User Class
+ *
+ *  Relation between Group and User
+**/
 class Group_User extends CommonDBRelation{
 
    // From CommonDBRelation
@@ -117,17 +121,17 @@ class Group_User extends CommonDBRelation{
       global $CFG_GLPI;
 
       $ID = $user->fields['id'];
-      if (!Session::haveRight("group","r")
-          || !$user->can($ID,'r')) {
+      if (!Group::canView()
+          || !$user->can($ID, READ)) {
          return false;
       }
 
-      $canedit     = $user->can($ID,'w');
+      $canedit = $user->can($ID, UPDATE);
 
-      $rand        = mt_rand();
+      $rand    = mt_rand();
 
-      $groups = self::getUserGroups($ID);
-      $used   = array();
+      $groups  = self::getUserGroups($ID);
+      $used    = array();
       if (!empty($groups)) {
          foreach ($groups as $data) {
             $used[$data["id"]] = $data["id"];
@@ -178,25 +182,33 @@ class Group_User extends CommonDBRelation{
          Html::closeForm();
          echo "</div>";
       }
+
       echo "<div class='spaced'>";
       if ($canedit && count($used)) {
          $rand = mt_rand();
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
          echo "<input type='hidden' name='users_id' value='".$user->fields['id']."'>";
-         $paramsma = array('num_displayed' => count($used));
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         $massiveactionparams = array('num_displayed' => count($used),
+                           'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
-      echo "<table class='tab_cadre_fixehov'><tr>";
+      echo "<table class='tab_cadre_fixehov'>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
+
       if ($canedit && count($used)) {
-         echo "<th width='10'>";
-         Html::checkAllAsCheckbox('mass'.__CLASS__.$rand);
-         echo "</th>";
+         $header_begin  .= "<th width='10'>";
+         $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_end    .= "</th>";
       }
-      echo "<th>".Group::getTypeName(1)."</th>";
-      echo "<th>".__('Dynamic')."</th>";
-      echo "<th>".__('Manager')."</th>";
-      echo "<th>".__('Delegatee')."</th></tr>";
-      echo "</tr>";
+      $header_end .= "<th>".Group::getTypeName(1)."</th>";
+      $header_end .= "<th>".__('Dynamic')."</th>";
+      $header_end .= "<th>".__('Manager')."</th>";
+      $header_end .= "<th>".__('Delegatee')."</th></tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $group = new Group();
       if (!empty($groups)) {
@@ -230,19 +242,22 @@ class Group_User extends CommonDBRelation{
             echo "<td>".$group->getLink()."</td>";
             echo "<td class='center'>";
             if ($data['is_dynamic']) {
-               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14'/>";
+               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14' alt=\"".
+                      __('Dynamic')."\">";
             }
             echo "<td class='center'>";
             if ($data['is_manager']) {
-               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14'/>";
+               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14' alt=\"".
+                      __('Manager')."\">";
             }
             echo "</td><td class='center'>";
             if ($data['is_userdelegate']) {
-               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14'/>";
+               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14' alt=\"".
+                      __('Delegatee')."\">";
             }
             echo "</td></tr>";
          }
-
+         echo $header_begin.$header_bottom.$header_end;
 
       } else {
          echo "<tr class='tab_bg_1'>";
@@ -251,8 +266,8 @@ class Group_User extends CommonDBRelation{
       echo "</table>";
 
       if ($canedit && count($used)) {
-         $paramsma['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         $massiveactionparams['ontop'] = false;
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -283,7 +298,7 @@ class Group_User extends CommonDBRelation{
 
          echo "<div class='firstbloc'>";
          echo "<table class='tab_cadre_fixe'>";
-         echo "<tr class='tab_bg_1'><th colspan='6'>".__('Add a user')."</tr>";
+         echo "<tr class='tab_bg_1'><th colspan='6'>".__('Add a user')."</th></tr>";
          echo "<tr class='tab_bg_2'><td class='center'>";
 
          User::dropdown(array('right'  => "all",
@@ -390,8 +405,8 @@ class Group_User extends CommonDBRelation{
       global $DB, $CFG_GLPI;
 
       $ID = $group->getID();
-      if (!Session::haveRight("user","r")
-          || !$group->can($ID,'r')) {
+      if (!User::canView()
+          || !$group->can($ID, READ)) {
          return false;
       }
 
@@ -413,7 +428,7 @@ class Group_User extends CommonDBRelation{
 
       // Mini Search engine
       echo "<table class='tab_cadre_fixe'>";
-      echo "<tr class='tab_bg_1'><th colspan='2'>".User::getTypeName(2)."</th></tr>";
+      echo "<tr class='tab_bg_1'><th colspan='2'>".User::getTypeName(Session::getPluralNumber())."</th></tr>";
       echo "<tr class='tab_bg_1'><td class='center'>";
       echo _n('Criterion', 'Criteria', 1)."&nbsp;";
       $crits = array(''                => Dropdown::EMPTY_VALUE,
@@ -431,7 +446,7 @@ class Group_User extends CommonDBRelation{
       }
       echo "</td></tr></table>";
       $number = count($used);
-      $start  = (isset($_POST['start']) ? intval($_POST['start']) : 0);
+      $start  = (isset($_GET['start']) ? intval($_GET['start']) : 0);
       if ($start >= $number) {
          $start = 0;
       }
@@ -440,7 +455,7 @@ class Group_User extends CommonDBRelation{
       if ($number) {
          echo "<div class='spaced'>";
          Html::printAjaxPager(sprintf(__('%1$s (%2$s)'),
-                                      User::getTypeName(2), __('D=Dynamic')),
+                                      User::getTypeName(Session::getPluralNumber()), __('D=Dynamic')),
                               $start, $number);
 
          Session::initNavigateListItems('User',
@@ -451,27 +466,33 @@ class Group_User extends CommonDBRelation{
 
          if ($canedit) {
             Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-            $actions = array('delete'             => _x('button', 'Delete permanently'),
-                             'update'             => _x('button', 'Update'),
-                             'change_groupe_user' => __('Change group'));
-            $paramsma = array('num_displayed'    => min($number-$start, $_SESSION['glpilist_limit']),
-                              'specific_actions' => $actions,);
+            $massiveactionparams = array('num_displayed'    => min($number-$start,
+                                                                   $_SESSION['glpilist_limit']),
+                                         'container'        => 'mass'.__CLASS__.$rand);
+            Html::showMassiveActions($massiveactionparams);
+         }
 
-            Html::showMassiveActions(__CLASS__, $paramsma);
-         }
-         echo "<table class='tab_cadre_fixehov'><tr>";
+         echo "<table class='tab_cadre_fixehov'>";
+
+         $header_begin  = "<tr>";
+         $header_top    = '';
+         $header_bottom = '';
+         $header_end    = '';
+
          if ($canedit) {
-            echo "<th width='10'>";
-            Html::checkAllAsCheckbox('mass'.__CLASS__.$rand);
-            echo "</th>";
+            $header_begin  .= "<th width='10'>";
+            $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_end    .= "</th>";
          }
-         echo "<th>".User::getTypeName(1)."</th>";
+         $header_end .= "<th>".User::getTypeName(1)."</th>";
          if ($tree) {
-           echo "<th>".Group::getTypeName(1)."</th>";
+           $header_end .= "<th>".Group::getTypeName(1)."</th>";
          }
-         echo "<th>".__('Dynamic')."</th>";
-         echo "<th>".__('Manager')."</th>";
-         echo "<th>".__('Delegatee')."</th></tr>";
+         $header_end .= "<th>".__('Dynamic')."</th>";
+         $header_end .= "<th>".__('Manager')."</th>";
+         $header_end .= "<th>".__('Delegatee')."</th></tr>";
+         echo $header_begin.$header_top.$header_end;
 
          $tmpgrp = new Group();
 
@@ -495,26 +516,30 @@ class Group_User extends CommonDBRelation{
             }
             echo "</td><td class='center'>";
             if ($data['is_dynamic']) {
-               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14'/>";
+               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14' alt=\"".
+                      __('Dynamic')."\">";
             }
             echo "</td><td class='center'>";
             if ($data['is_manager']) {
-               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14'/>";
+               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14' alt=\"".
+                      __('Manager')."\">";
             }
             echo "</td><td class='center'>";
             if ($data['is_userdelegate']) {
-               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14'/>";
+               echo "<img src='".$CFG_GLPI["root_doc"]."/pics/ok.png' width='14' height='14' alt=\"".
+                      __('Delegatee')."\">";
             }
             echo "</tr>";
          }
+         echo $header_begin.$header_bottom.$header_end;
          echo "</table>";
          if ($canedit) {
-            $paramsma['ontop'] = false;
-            Html::showMassiveActions(__CLASS__, $paramsma);
+            $massiveactionparams['ontop'] = false;
+            Html::showMassiveActions($massiveactionparams);
             Html::closeForm();
          }
          Html::printAjaxPager(sprintf(__('%1$s (%2$s)'),
-                                      User::getTypeName(2), __('D=Dynamic')),
+                                      User::getTypeName(Session::getPluralNumber()), __('D=Dynamic')),
                               $start, $number);
 
          echo "</div>";
@@ -525,133 +550,51 @@ class Group_User extends CommonDBRelation{
 
 
    /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
+    * @since version 0.85
+    *
+    * @see CommonDBRelation::getRelationMassiveActionsSpecificities()
    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
+   static function getRelationMassiveActionsSpecificities() {
+      global $CFG_GLPI;
 
-      switch ($input['action']) {
-         case 'change_groupe_user' :
-            Group::dropdown(array('right'  => '`is_usergroup`'));
-            echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                  _sx('button', 'Update')."'>";
-            return true;
+      $specificities                           = parent::getRelationMassiveActionsSpecificities();
 
-         case "add_user_group" :
-         case "add_supervisor_group" :
-         case "add_delegatee_group" :
-            if ($input['itemtype'] == 'User') {
-               Group::dropdown(array('condition' => '`is_usergroup`'));
-               echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                              _sx('button', 'Add')."'>";
-               return true;
-            }
-            if ($input['itemtype'] == 'Group') {
-               User::dropdown(array('right'  => "all"));
-               echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                              _sx('button', 'Add')."'>";
-               return true;
-            }
-            break;
+      $specificities['select_items_options_1'] = array('right'     => 'all');
+      $specificities['select_items_options_2'] = array('condition' => '`is_usergroup`');
 
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
+      // Define normalized action for add_item and remove_item
+      $specificities['normalized']['add'][]    = 'add_supervisor';
+      $specificities['normalized']['add'][]    = 'add_delegatee';
 
-      }
-      return false;
+      $specificities['button_labels']['add_supervisor'] = $specificities['button_labels']['add'];
+      $specificities['button_labels']['add_delegatee']  = $specificities['button_labels']['add'];
+
+      $specificities['update_if_different'] = true;
+
+      return $specificities;
    }
 
 
    /**
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @since version 0.85
+    *
+    * @see CommonDBRelation::getRelationInputForProcessingOfMassiveActions()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function getRelationInputForProcessingOfMassiveActions($action, CommonDBTM $item,
+                                                                 array $ids, array $input) {
+      switch ($action) {
+         case 'add_supervisor' :
+            return array('is_manager' => 1);
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case 'change_groupe_user' :
-            $groupuser = new self();
-            foreach ($input["item"] as $key => $val) {
-                  if ($groupuser->getFromDB($key)) {
-                     $user = $groupuser->getField('users_id');
-                     if ($val == 1) {
-                        $inputcg = array('groups_id' => $input['groups_id'],
-                                         'users_id'  => $user,
-                                         'id'        => $key);
-                        $groupuser->update($inputcg);
-                     }
-                  }
-            }
-            break;
-
-         case "add_user_group" :
-         case "add_supervisor_group" :
-         case "add_delegatee_group" :
-            foreach ($input["item"] as $key => $val) {
-               if ($val == 1) {
-                  if (isset($input['users_id'])) {
-                     // Add users to groups
-                     $input2 = array('groups_id' => $key,
-                                     'users_id'  => $input['users_id']);
-                  } else if (isset($input['groups_id'])) { // Add groups to users
-                     $input2 = array('groups_id' => $input["groups_id"],
-                     'users_id'  => $key);
-                  } else {
-                     return false;
-                  }
-                  $updateifnotfound = false;
-                  if ($input["action"] == 'add_supervisor_group') {
-                     $input2['is_manager'] = 1;
-                     $updateifnotfound     = true;
-                  }
-                  if ($input["action"] == 'add_delegatee_group') {
-                     $input2['is_userdelegate'] = 1;
-                     $updateifnotfound          = true;
-                  }
-                  $group = new Group();
-                  $user  = new user();
-                  if ($group->getFromDB($input2['groups_id'])
-                     && $user->getFromDB($input2['users_id'])) {
-                     if ($updateifnotfound
-                        && $this->getFromDBForItems($user, $group)) {
-                        if ($this->can($this->getID(),'w')) {
-                           $input2['id'] = $this->getID();
-                           if ($this->update($input2)) {
-                              $res['ok']++;
-                           } else {
-                              $res['ko']++;
-                           }
-                        } else {
-                           $res['noright']++;
-                        }
-                     } else {
-                        if ($this->can(-1,'w',$input2)) {
-                           if ($this->add($input2)) {
-                              $res['ok']++;
-                           } else {
-                              $res['ko']++;
-                           }
-                        } else {
-                           $res['noright']++;
-                        }
-                     }
-                  } else {
-                     $res['ko']++;
-                  }
-               }
-            }
-            break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
+         case 'add_delegatee' :
+            return array('is_userdelegate' => 1);
       }
-      return $res;
+
+      return array();
    }
 
 
-   /**
+  /**
     * Get search function for the class
     *
     * @return array of search option
@@ -721,26 +664,26 @@ class Group_User extends CommonDBRelation{
       if (!$withtemplate) {
          switch ($item->getType()) {
             case 'User' :
-               if (Session::haveRight("group","r")) {
+               if (Group::canView()) {
                   if ($_SESSION['glpishow_count_on_tabs']) {
-                     return self::createTabEntry(Group::getTypeName(2),
+                     return self::createTabEntry(Group::getTypeName(Session::getPluralNumber()),
                                                  countElementsInTable($this->getTable(),
                                                                       "users_id
                                                                         = '".$item->getID()."'"));
                   }
-                  return Group::getTypeName(2);
+                  return Group::getTypeName(Session::getPluralNumber());
                }
                break;
 
             case 'Group' :
-               if (Session::haveRight("user","r")) {
+               if (User::canView()) {
                   if ($_SESSION['glpishow_count_on_tabs']) {
-                     return self::createTabEntry(User::getTypeName(2),
+                     return self::createTabEntry(User::getTypeName(Session::getPluralNumber()),
                                                  countElementsInTable("glpi_groups_users",
                                                                       "`groups_id`
                                                                         = '".$item->getID()."'" ));
                   }
-                  return User::getTypeName(2);
+                  return User::getTypeName(Session::getPluralNumber());
                }
                break;
          }

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: find_num.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: find_num.php 23346 2015-02-03 15:11:10Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -90,7 +90,7 @@ if (isset($_POST["send"])) {
    echo " <tr class='tab_bg3'>";
    echo " <td class='center b' width='30%'>".__('Alternate username')."</td>";
    echo " <td class='center b' width='20%'>".__('Hardware type')."</td>";
-   echo " <td class='center b' width='30%'>".__('Associated element')."</td>";
+   echo " <td class='center b' width='30%'>"._n('Associated element', 'Associated elements', 2)."</td>";
    echo " <td class='center b' width='5%'>".__('ID')."</td>";
    echo " <td class='center b' width='10%'>".__('Serial number')."</td>";
    echo " <td class='center b' width='10%'>".__('Inventory number')."</td>";
@@ -119,7 +119,7 @@ if (isset($_POST["send"])) {
          $Computer = $ligne['name'];
          $s1       = $ligne['serial'];
          $s2       = $ligne['otherserial'];
-         echo " <tr class='tab_find' onClick=\"fillidfield(".$type.",".$Comp_num.")\">";
+         echo " <tr class='tab_bg_1' onClick=\"fillidfield(".$type.",".$Comp_num.")\">";
          echo "<td class='center'>&nbsp;$Contact&nbsp;</td>";
          echo "<td class='center'>&nbsp;$label&nbsp;</td>";
          echo "<td class='center b'>&nbsp;$Computer&nbsp;</td>";

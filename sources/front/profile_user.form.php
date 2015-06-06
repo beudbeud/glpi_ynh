@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: profile_user.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: profile_user.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -41,7 +41,7 @@ $user    = new User();
 
 if (isset($_POST["add"])) {
 
-   $right->check(-1,'w',$_POST);
+   $right->check(-1, CREATE, $_POST);
    if ($right->add($_POST)) {
       Event::log($_POST["users_id"], "users", 4, "setup",
                  //TRANS: %s is the user login

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: resaperiod.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: resaperiod.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -43,17 +43,17 @@ Session::checkLoginUser();
 
 if (isset($_POST['type']) && isset($_POST['end'])) {
 
-   echo "<table>";
+   echo "<table width='90%'>";
    switch ($_POST['type']) {
       case 'day' :
          echo "<tr><td>".__('End date').'</td><td>';
-         Html::showDateFormItem('periodicity[end]', $_POST['end']);
+         Html::showDateField('periodicity[end]', array('value' => $_POST['end']));
          echo "</td></tr>";
          break;
 
       case 'week' :
          echo "<tr><td>".__('End date').'</td><td>';
-         Html::showDateFormItem('periodicity[end]', $_POST['end']);
+         Html::showDateField('periodicity[end]', array('value' => $_POST['end']));
          echo "</td></tr></table>";
          echo "<table class='tab_glpi'>";
          echo "<tr class='center'><td>&nbsp;</td>";
@@ -71,13 +71,12 @@ if (isset($_POST['type']) && isset($_POST['end'])) {
 
       case 'month' :
          echo "<tr><td colspan='2'>";
-         echo "<select name='periodicity[subtype]'>";
-         echo "<option value='date'>".__('Each month, same date')."</option>\n";
-         echo "<option value='day'>".__('Each month, same day of week')."</option>\n";
-         echo "</select>";
+         $values = array('date' => __('Each month, same date'),
+                         'day'  => __('Each month, same day of week'));
+         Dropdown::showFromArray('periodicity[subtype]', $values);
          echo "</td></tr>";
          echo "<tr><td>".__('End date').'</td><td>';
-         Html::showDateFormItem('periodicity[end]', $_POST['end']);
+         Html::showDateField('periodicity[end]', array('value' => $_POST['end']));
          echo "</td></tr>";
 
    }

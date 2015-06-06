@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -48,9 +48,9 @@ class PluginFusioninventoryInventoryRuleImportCollection extends RuleCollection 
 
    // From RuleCollection
    public $stop_on_first_match = TRUE;
-   static public $right        = 'rule_import';
+   //static public $right        = 'rule_import';
    public $menu_option         = 'fusionlinkcomputer';
-
+   static $rightname           = "plugin_fusioninventory_ruleimport";
 
    function getTitle() {
 
@@ -134,15 +134,15 @@ class PluginFusioninventoryInventoryRuleImportCollection extends RuleCollection 
       }
       return $output;
    }
-   
-   
+
+
    /**
     * Get Collection Datas : retrieve descriptions and rules
     *
     * @param $retrieve_criteria  Retrieve the criterias of the rules ? (default 0)
     * @param $retrieve_action    Retrieve the action of the rules ? (default 0)
    **/
-   function getCollectionDatas($retrieve_criteria=0, $retrieve_action=0) {
+   function getCollectionDatas($retrieve_criteria=0, $retrieve_action=0, $condition = 0) {
       global $DB;
 
       if ($this->RuleList === NULL) {
@@ -176,7 +176,7 @@ class PluginFusioninventoryInventoryRuleImportCollection extends RuleCollection 
 //      }
    }
 
-   
+
 }
 
 ?>

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: calendar.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: calendar.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -34,19 +34,7 @@
 
 include ('../inc/includes.php');
 
- $dropdown = new Calendar();
-
-/* $dropdown->getFromDB(1);
- $begin='2010-12-27 10:00:00';
- $end='2010-12-25 09:33:00';
- $delay=15*MINUTE_TIMESTAMP;*/
-//  $timestamp=   $dropdown->getActiveTimeBetween($begin,$end);
-//  echo 'timestamp='.$timestamp.'<br>';
-//
-//  echo '--'.Html::timestampToString($timestamp);
-//  echo '<br>';
-
-// echo 'END = '.$dropdown->computeEndDate($begin,$delay);
+$dropdown = new Calendar();
 
 include (GLPI_ROOT . "/front/dropdown.common.php");
 ?>

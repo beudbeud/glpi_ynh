@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: holiday.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: holiday.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,28 +28,25 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class Holiday
+/**
+ * Holiday Class
+**/
 class Holiday extends CommonDropdown {
+
+   static $rightname = 'calendar';
+
+   var $can_be_translated = false;
+
 
    static function getTypeName($nb=0) {
       return _n('Close time','Close times',$nb);
-   }
-
-
-   static function canCreate() {
-      return Session::haveRight('calendar', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('calendar', 'r');
    }
 
 

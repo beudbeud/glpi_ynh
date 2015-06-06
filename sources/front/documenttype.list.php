@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: documenttype.list.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: documenttype.list.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,8 +38,10 @@ Session::checkLoginUser();
 
 Html::popHeader(__('Setup'),$_SERVER['PHP_SELF']);
 
-Search::manageGetValues('DocumentType');
-Search::showList('DocumentType',$_GET);
+$params = Search::manageParams('DocumentType', $_GET);
+
+$params['target'] = $_SERVER['PHP_SELF'];
+Search::showList('DocumentType',$params);
 
 Html::popFooter();
 ?>

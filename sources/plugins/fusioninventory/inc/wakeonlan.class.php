@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -70,17 +70,17 @@ class PluginFusioninventoryWakeonlan extends PluginFusioninventoryCommunication 
          $items_id = current($definition);
 
          switch($itemtype) {
-            
+
             case 'Computer':
                $a_computers_to_wake[] = $items_id;
                break;
-      
+
             case 'PluginFusioninventoryDeployGroup':
                $group = new PluginFusioninventoryDeployGroup;
                $group->getFromDB($items_id);
 
                switch ($group->getField('type')) {
-                  
+
                   case 'STATIC':
                      $query = "SELECT items_id
                      FROM glpi_plugin_fusioninventory_deploygroups_staticdatas
@@ -91,7 +91,7 @@ class PluginFusioninventoryWakeonlan extends PluginFusioninventoryCommunication 
                         $a_computers_to_wake[] = $row['items_id'];
                      }
                      break;
-                     
+
                   case 'DYNAMIC':
                      $query = "SELECT fields_array
                      FROM glpi_plugin_fusioninventory_deploygroups_dynamicdatas
@@ -132,7 +132,7 @@ class PluginFusioninventoryWakeonlan extends PluginFusioninventoryCommunication 
                      }
 
                      break;
-                     
+
                }
          }
       }
@@ -156,7 +156,7 @@ class PluginFusioninventoryWakeonlan extends PluginFusioninventoryCommunication 
                         $a_agentList[] = $agent_id;
                      }
                   }
-               }               
+               }
             }
          }
       }
@@ -246,7 +246,7 @@ class PluginFusioninventoryWakeonlan extends PluginFusioninventoryCommunication 
    /**
     *  When agent contact server, this function send datas to agent
     */
-   function run($a_Taskjobstates) {
+   function run($jobstate) {
 
       $pfTaskjobstate = new PluginFusioninventoryTaskjobstate();
       $pfTaskjoblog = new PluginFusioninventoryTaskjoblog();
@@ -256,12 +256,13 @@ class PluginFusioninventoryWakeonlan extends PluginFusioninventoryCommunication 
       $sxml_option->addChild('NAME', 'WAKEONLAN');
 
       $changestate = 0;
-      foreach ($a_Taskjobstates as $data) {
+//      foreach ($taskjobstates as $jobstate) {
+         $data = $jobstate->fields;
          $a_networkPort = $NetworkPort->find("`itemtype`='Computer' AND `items_id`='".
                                                 $data['items_id']."' ");
          $computerip = 0;
          foreach ($a_networkPort as $datanetwork) {
-            if ($datanetwork['ip'] != "127.0.0.1") {
+            //if ($datanetwork['ip'] != "127.0.0.1") {
                if ($datanetwork['mac'] != '') {
                   $computerip++;
                   $sxml_param = $sxml_option->addChild('PARAM');
@@ -292,7 +293,7 @@ class PluginFusioninventoryWakeonlan extends PluginFusioninventoryCommunication 
                                                       'WakeOnLan have not return state',
                                                       1);
                }
-            }
+            //}
          }
          if ($computerip == '0') {
             $pfTaskjobstate->changeStatusFinish($data['id'],
@@ -302,7 +303,7 @@ class PluginFusioninventoryWakeonlan extends PluginFusioninventoryCommunication 
                                                 "No IP found on the computer");
 
          }
-      }
+      //}
       return $this->message;
    }
 

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: devicepci.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: devicepci.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,19 +28,40 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class DevicePci
+/**
+ * DevicePci Class
+**/
 class DevicePci extends CommonDevice {
 
+   static protected $forward_entity_to = array('Item_DevicePci', 'Infocom');
+   
    static function getTypeName($nb=0) {
       return _n('Other component', 'Other components', $nb);
    }
+
+
+   /**
+    * @see CommonDevice::getAdditionalFields()
+    * @since version 0.85
+    */
+   function getAdditionalFields() {
+
+      return array_merge(parent::getAdditionalFields(),
+                         array(array('name'  => 'none',
+                                     'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
+                                        RegisteredID::showAddChildButtonForItemForm($this,
+                                                                                    '_registeredID',
+                                                                                    NULL, false),
+                                     'type'  => 'registeredIDChooser')));
+   }
+
 
 }
 ?>

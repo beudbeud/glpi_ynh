@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: update_0831_0833.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: update_0831_0833.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -69,7 +69,7 @@ function update0831to0833() {
                    INNER JOIN `glpi_documents` as `doc`
                      ON  `doc`.`id` = `doc_i`.`documents_id`
                    SET `doc_i`.`entities_id` = `doc`.`entities_id`,
-                      `doc_i`.`is_recursive` = `doc`.`is_recursive`";
+                       `doc_i`.`is_recursive` = `doc`.`is_recursive`";
    $DB->queryOrDie($query_doc_i, "0.83 update entities_id and is_recursive in glpi_documents_items");
 
    // ************ Keep it at the end **************

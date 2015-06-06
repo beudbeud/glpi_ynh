@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationtargetcartridgeitem.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notificationtargetcartridgeitem.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,12 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Class NotificationTarget
+
+/**
+ * NotificationTargetCartridgeItem Class
+ *
+ * @since version 0.84
+**/
 class NotificationTargetCartridgeItem extends NotificationTarget {
 
 
@@ -50,7 +55,6 @@ class NotificationTargetCartridgeItem extends NotificationTarget {
     * @param $options   array
    **/
    function getDatasForTemplate($event, $options=array()) {
-      global $CFG_GLPI;
 
       $events = $this->getAllEvents();
 
@@ -63,8 +67,8 @@ class NotificationTargetCartridgeItem extends NotificationTarget {
          $tmp['##cartridge.item##']      = $cartridge['name'];
          $tmp['##cartridge.reference##'] = $cartridge['ref'];
          $tmp['##cartridge.remaining##'] = cartridge::getUnusedNumber($id);
-         $tmp['##cartridge.url##']       = urldecode($CFG_GLPI["url_base"].
-                                                     "/index.php?redirect=cartridgeitem_".$id);
+         $tmp['##cartridge.url##']       = $this->formatURL($options['additionnaloption']['usertype'],
+                                                            "CartridgeItem_".$id);
          $this->datas['cartridges'][] = $tmp;
       }
 

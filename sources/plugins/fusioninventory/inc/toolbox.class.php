@@ -296,7 +296,7 @@ class PluginFusioninventoryToolbox {
    /**
    * Write XML in a folder from an inventory by agent
    *
-   * @param $items_id integer id of the unknown device
+   * @param $items_id integer id of the unmanaged device
    * @param $xml value xml informations (with XML structure)
    *
    * @return nothing
@@ -366,25 +366,6 @@ class PluginFusioninventoryToolbox {
                                                   $pfConfigSecurity->fields['community']);
             }
       }
-   }
-
-
-
-   /**
-    * Add SNMO model strings to XML node 'MODEL'
-    *
-    * @param type $p_sxml_node
-    * @param type $p_id
-    */
-   function addModel($p_sxml_node, $p_id) {
-      $pfModel = new PluginFusioninventorySnmpmodel();
-      $pfModelMib = new PluginFusioninventorySnmpmodelMib();
-
-      $pfModel->getFromDB($p_id);
-      $sxml_model = $p_sxml_node->addChild('MODEL');
-         $sxml_model->addAttribute('ID', $p_id);
-         $sxml_model->addAttribute('NAME', $pfModel->fields['name']);
-         $pfModelMib->oidList($sxml_model, $p_id);
    }
 
 
@@ -519,11 +500,12 @@ class PluginFusioninventoryToolbox {
     * Display data from serialized inventory field
     */
    static function displaySerializedValues($array) {
-      
-      if ($_POST['glpi_tab'] == -1) { // tab all
-         return;
-      }
-      
+
+//      TODO: to fix in 0.85
+//      if ($_POST['glpi_tab'] == -1) { // tab all
+//         return;
+//      }
+
       foreach ($array as $key=>$value) {
          echo "<tr class='tab_bg_1'>";
          echo "<th>";
@@ -621,18 +603,144 @@ class PluginFusioninventoryToolbox {
 
 
 
-   static function displayJson($json) {
+   static function formatJson($json) {
       $version = phpversion();
 
       if ( version_compare($version, '5.4', 'lt') ) {
-         echo pretty_json($json);
+         return pretty_json($json);
       } else if ( version_compare($version, '5.4', 'ge') ) {
-         echo json_encode(
+         return json_encode(
             json_decode($json, TRUE),
             JSON_PRETTY_PRINT
          );
       }
    }
+
+
+
+   /**
+    * Dropdown for display hours
+    *
+    * @return type
+    */
+   static function showHours($name, $options=array()) {
+
+      $p['value']          = '';
+      $p['display']        = true;
+      $p['width']          = '80%';
+      $p['step']           = 5;
+      $p['begin']          = 0;
+      $p['end']            = (24 * 3600);
+
+      if (is_array($options) && count($options)) {
+         foreach ($options as $key => $val) {
+            $p[$key] = $val;
+         }
+      }
+
+      if ($p['step'] <= 0) {
+         $p['step'] = 5;
+      }
+
+      $values   = array();
+
+      $p['step'] = $p['step'] * 60; // to have in seconds
+      for ($s=$p['begin'] ; $s<$p['end'] ; $s+=$p['step']) {
+         $values[$s] = PluginFusioninventoryToolbox::getHourMinute($s);
+      }
+      return Dropdown::showFromArray($name, $values, $p);
+   }
+
+   /**
+    * Get hour:minute from number of seconds
+    */
+   static function getHourMinute($seconds) {
+      $hour = floor($seconds / 3600);
+      $minute = (($seconds - ((floor($seconds / 3600)) * 3600)) / 60);
+      return sprintf("%02s", $hour).":".sprintf("%02s", $minute);
+   }
+
+   /**
+    * Get information if allow_url_fopen is activated and display message if not
+    *
+    * @param $wakecomputer boolean (1 if it's for wakeonlan, 0 if it's for task)
+    *
+    * @return boolean
+    */
+   static function isAllowurlfopen($wakecomputer=0) {
+
+      if (!ini_get('allow_url_fopen')) {
+         echo "<center>";
+         echo "<table class='tab_cadre' height='30' width='700'>";
+         echo "<tr class='tab_bg_1'>";
+         echo "<td align='center'><strong>";
+         if ($wakecomputer == '0') {
+            echo __('PHP allow_url_fopen is off, remote can\'t work')." !";
+         } else {
+            echo __('PHP allow_url_fopen is off, can\'t wake agent to do inventory')." !";
+         }
+         echo "</strong></td>";
+         echo "</tr>";
+         echo "</table>";
+         echo "</center>";
+         echo "<br/>";
+         return FALSE;
+      }
+      return TRUE;
+   }
+
+   /**
+    *  Execute a function as Fusioninventory user
+    *  @param $function callable
+    *  @param $args array
+    *
+    *  @return the normally returned value from executed callable
+    */
+
+   function executeAsFusioninventoryUser($function, array $args = array()) {
+
+      $config = new PluginFusioninventoryConfig();
+      $user = new User();
+
+      // Backup _SESSION environment
+      $OLD_SESSION = array();
+
+      foreach(
+         array(
+            'glpiID', 'glpiname','glpiactiveentities_string', 'glpiactiveentities',
+            'glpiparententities'
+         ) as $session_key
+      ) {
+         if (isset($_SESSION[$session_key])) {
+            $OLD_SESSION[$session_key] = $_SESSION[$session_key];
+         }
+
+      }
+
+      // Configure impersonation
+      $users_id  = $config->getValue('users_id');
+      $user->getFromDB($users_id);
+
+      $_SESSION['glpiID']   = $users_id;
+      $_SESSION['glpiname'] = $user->getField('name');
+      $_SESSION['glpiactiveentities'] = getSonsOf('glpi_entities', 0);
+      $_SESSION['glpiactiveentities_string'] =
+         "'". implode( "', '", $_SESSION['glpiactiveentities'] )."'";
+      $_SESSION['glpiparententities'] = array();
+
+      // Execute function with impersonated SESSION
+      $result = call_user_func_array($function, $args);
+
+      // Restore SESSION
+      foreach($OLD_SESSION as $key => $value) {
+         $_SESSION[$key] = $value;
+      }
+
+      // Return function results
+      return $result;
+
+   }
+
 }
 
 ?>

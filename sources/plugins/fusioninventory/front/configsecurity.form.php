@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -42,28 +42,28 @@
 
 include ("../../../inc/includes.php");
 
-PluginFusioninventoryProfile::checkRight("configsecurity", "r");
+Session::checkRight('plugin_fusioninventory_configsecurity', READ);
 
 $pfConfigSecurity = new PluginFusioninventoryConfigSecurity();
 $config = new PluginFusioninventoryConfig();
 
 Html::header(__('FusionInventory', 'fusioninventory'), $_SERVER["PHP_SELF"], "plugins",
-         "fusioninventory", "configsecurity");
+         "pluginfusioninventorymenu", "configsecurity");
 
 PluginFusioninventoryMenu::displayMenu("mini");
 
 
 if (isset ($_POST["add"])) {
-   PluginFusioninventoryProfile::checkRight("configsecurity", "w");
+   Session::checkRight('plugin_fusioninventory_configsecurity', CREATE);
    $new_ID = 0;
    $new_ID = $pfConfigSecurity->add($_POST);
    Html::back();
 } else if (isset ($_POST["update"])) {
-   PluginFusioninventoryProfile::checkRight("configsecurity", "w");
+   Session::checkRight('plugin_fusioninventory_configsecurity', UPDATE);
    $pfConfigSecurity->update($_POST);
    Html::back();
 } else if (isset ($_POST["delete"])) {
-   PluginFusioninventoryProfile::checkRight("configsecurity", "w");
+   Session::checkRight('plugin_fusioninventory_configsecurity', PURGE);
    $pfConfigSecurity->delete($_POST);
    Html::redirect("configsecurity.php");
 }

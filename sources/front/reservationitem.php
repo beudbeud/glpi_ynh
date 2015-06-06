@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: reservationitem.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: reservationitem.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,19 +33,24 @@
 
 include ('../inc/includes.php');
 
-Session::checkSeveralRightsOr(array("reservation_central"  => "r",
-                                    "reservation_helpdesk" => "1"));
+if (!Session::haveRightsOr('reservation', array(READ, ReservationItem::RESERVEANITEM))) {
+   Session::redirectIfNotLoggedIn();
+   Html::displayRightError();
+}
 
 if ($_SESSION["glpiactiveprofile"]["interface"] == "helpdesk") {
    Html::helpHeader(__('Simplified interface'), $_SERVER['PHP_SELF'], $_SESSION["glpiname"]);
 } else {
-   Html::header(Reservation::getTypeName(2), $_SERVER['PHP_SELF'], "utils", "reservation");
+   Html::header(Reservation::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "tools", "reservationitem");
 }
 
-if (!Session::haveRight("reservation_central","r")) {
-   ReservationItem::showListSimple();
+$res = new ReservationItem();
+$res->display($_GET);
+
+if (isset($_POST['submit'])) {
+   $_SESSION['glpi_saved']['ReservationItem'] = $_POST;
 } else {
-   Search::show('ReservationItem');
+   unset($_SESSION['glpi_saved']['ReservationItem']);
 }
 
 if ($_SESSION["glpiactiveprofile"]["interface"] == "helpdesk") {

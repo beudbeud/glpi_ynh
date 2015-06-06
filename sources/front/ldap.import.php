@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ldap.import.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ldap.import.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,17 +35,16 @@ if (!defined('GLPI_ROOT')) {
    include ('../inc/includes.php');
 }
 
-Session::checkRight("import_externalauth_users", 'w');
+Session::checkRight("user", User::IMPORTEXTAUTHUSERS);
 
 // Need REQUEST to manage initial walues and posted ones
 AuthLdap::manageValuesInSession($_REQUEST);
 
-if (isset($_SESSION['ldap_import']['popup']) && $_SESSION['ldap_import']['popup']) {
-   Html::popHeader(__('LDAP directory link'), $_SERVER['PHP_SELF']);
-
-} else {
-   Html::header(__('LDAP directory link'), $_SERVER['PHP_SELF'], "admin", "user", "ldap");
+if (isset($_SESSION['ldap_import']['_in_modal']) && $_SESSION['ldap_import']['_in_modal']) {
+   $_REQUEST['_in_modal'] = 1;
 }
+
+Html::header(__('LDAP directory link'), $_SERVER['PHP_SELF'], "admin", "user", "ldap");
 
 if (isset($_GET['start'])) {
    $_SESSION['ldap_import']['start'] = $_GET['start'];
@@ -53,7 +52,6 @@ if (isset($_GET['start'])) {
 if (isset($_GET['order'])) {
    $_SESSION['ldap_import']['order'] = $_GET['order'];
 }
-
 if ($_SESSION['ldap_import']['action'] == 'show') {
 
    $authldap = new AuthLDAP();
@@ -71,9 +69,5 @@ if ($_SESSION['ldap_import']['action'] == 'show') {
    }
 }
 
-if (isset($_SESSION['ldap_import']['popup']) && $_SESSION['ldap_import']['popup']) {
-   Html::ajaxFooter();
-} else {
-   Html::footer();
-}
+Html::footer();
 ?>

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -45,14 +45,14 @@ include ("../../../inc/includes.php");
 $iprange = new PluginFusioninventoryIPRange();
 
 Html::header(__('FusionInventory', 'fusioninventory'), $_SERVER["PHP_SELF"], "plugins",
-             "fusioninventory", "iprange");
+             "pluginfusioninventorymenu", "iprange");
 
-PluginFusioninventoryProfile::checkRight("iprange", "r");
+Session::checkRight('plugin_fusioninventory_iprange', READ);
 
 PluginFusioninventoryMenu::displayMenu("mini");
 
 if (isset ($_POST["add"])) {
-   PluginFusioninventoryProfile::checkRight("iprange", "w");
+   Session::checkRight('plugin_fusioninventory_iprange', CREATE);
    if ($iprange->checkip($_POST)) {
       $_POST['ip_start']  = (int)$_POST['ip_start0'].".".(int)$_POST['ip_start1'].".";
       $_POST['ip_start'] .= (int)$_POST['ip_start2'].".".(int)$_POST['ip_start3'];
@@ -92,7 +92,7 @@ if (isset ($_POST["add"])) {
       $task->update($input_task);
       $taskjob->update($input_taskjob);
    } else {
-      PluginFusioninventoryProfile::checkRight("iprange", "w");
+      Session::checkRight('plugin_fusioninventory_iprange', UPDATE);
       if ($iprange->checkip($_POST)) {
          $_POST['ip_start']  = (int)$_POST['ip_start0'].".".(int)$_POST['ip_start1'].".";
          $_POST['ip_start'] .= (int)$_POST['ip_start2'].".".(int)$_POST['ip_start3'];
@@ -109,7 +109,7 @@ if (isset ($_POST["add"])) {
       $_SERVER['HTTP_REFERER'] = str_replace("&allowcreate=1", "", $_SERVER['HTTP_REFERER']);
       Html::back();
    } else {
-      PluginFusioninventoryProfile::checkRight("iprange", "w");
+      Session::checkRight('plugin_fusioninventory_"iprange', PURGE);
 
       $iprange->delete($_POST);
       Html::redirect(Toolbox::getItemTypeSearchURL('PluginFusioninventoryIPRange'));
@@ -125,12 +125,7 @@ if (isset($_GET['allowcreate'])) {
    $allowcreate = $_GET['allowcreate'];
 }
 
-if (isset($_SERVER['HTTP_REFERER'])
-        AND (strstr($_SERVER['HTTP_REFERER'], "wizard.php"))) {
-   Html::redirect($_SERVER['HTTP_REFERER']."&id=".$id);
-}
-
-$iprange->showForm($id, array( "allowcreate" => $allowcreate));
+$iprange->display(array('id' => $id));
 
 Html::footer();
 

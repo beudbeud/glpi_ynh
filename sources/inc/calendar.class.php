@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: calendar.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: calendar.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,20 +28,25 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class Calendar
+/**
+ * Calendar Class
+**/
 class Calendar extends CommonDropdown {
 
    // From CommonDBTM
    var $dohistory                      = true;
+   var $can_be_translated              = false;
 
    static protected $forward_entity_to = array('CalendarSegment');
+
+   static $rightname = 'calendar';
 
 
    /**
@@ -50,23 +55,13 @@ class Calendar extends CommonDropdown {
    function getForbiddenStandardMassiveAction() {
 
       $forbidden   = parent::getForbiddenStandardMassiveAction();
-      $forbidden[] = 'merge';
+      $forbidden[] = 'CommonDropdown'.MassiveAction::CLASS_ACTION_SEPARATOR.'merge';
       return $forbidden;
    }
 
 
    static function getTypeName($nb=0) {
       return _n('Calendar','Calendars',$nb);
-   }
-
-
-   static function canCreate() {
-      return Session::haveRight('calendar', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('calendar', 'r');
    }
 
 
@@ -89,76 +84,77 @@ class Calendar extends CommonDropdown {
       $actions = parent::getSpecificMassiveActions($checkitem);
 
       if ($isadmin) {
-         $actions['duplicate'] = _x('button', 'Duplicate');
+         $actions[__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'duplicate'] = _x('button', 'Duplicate');
       }
       return $actions;
    }
 
 
    /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
+    * @since version 0.85
+    *
+    * @see CommonDBTM::showMassiveActionsSubForm()
    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
 
-      switch ($input['action']) {
-         case "duplicate" :
+      switch ($ma->getAction()) {
+         case 'duplicate' :
             Entity::dropdown();
-            echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                           _sx('button', 'Duplicate')."'>";
+            echo "<br><br>";
+            echo Html::submit(_x('button', 'Duplicate'), array('name' => 'massiveaction'))."</span>";
             return true;
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
       }
-      return false;
+
+      return parent::showMassiveActionsSubForm($ma);
    }
 
 
    /**
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @since version 0.85
+    *
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "duplicate" : // For calendar duplicate in another entity
-            if (method_exists($this,'duplicate')) {
+      switch ($ma->getAction()) {
+         case 'duplicate' : // For calendar duplicate in another entity
+            if (method_exists($item,'duplicate')) {
+               $input = $ma->getInput();
                $options = array();
-               if ($this->isEntityAssign()) {
+               if ($item->isEntityAssign()) {
                   $options = array('entities_id' => $input['entities_id']);
                }
-               foreach ($input["item"] as $key => $val) {
-                  if ($val == 1) {
-                     if ($this->getFromDB($key)) {
-                        if (!$this->isEntityAssign()
-                            || ($input['entities_id'] != $this->getEntityID())) {
-                           if ($this->can(-1,'w',$options)) {
-                              if ($this->duplicate($options)) {
-                                 $res['ok']++;
-                              } else {
-                                 $res['ko']++;
-                              }
+               foreach ($ids as $id) {
+                  if ($item->getFromDB($id)) {
+                     if (!$item->isEntityAssign()
+                         || ($input['entities_id'] != $item->getEntityID())) {
+                        if ($item->can(-1, CREATE, $options)) {
+                           if ($item->duplicate($options)) {
+                              $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                            } else {
-                              $res['noright']++;
+                              $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                              $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
                            }
                         } else {
-                           $res['ko']++;
+                           $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                           $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
                         }
                      } else {
-                        $res['ko']++;
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                        $ma->addMessage($item->getErrorMessage(ERROR_COMPAT));
                      }
+                  } else {
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                     $ma->addMessage($item->getErrorMessage(ERROR_NOT_FOUND));
                   }
                }
+            } else {
+               $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
             }
-            break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
+            return;
       }
-      return $res;
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
 
 
@@ -166,7 +162,7 @@ class Calendar extends CommonDropdown {
     *
     * @param $options array of new values to set
    **/
-   function duplicate ($options=array()) {
+   function duplicate($options=array()) {
 
       if (is_array($options) && count($options)) {
          foreach ($options as $key => $val) {
@@ -329,18 +325,40 @@ class Calendar extends CommonDropdown {
 
 
    /**
+    * Is the time passed is in a working hour
+    *
+    * @since version 0.85
+    *
+    * @param $time    time  time to check
+    *
+    * @return boolean
+   **/
+   function isAWorkingHour($time) {
+
+      if ($this->isAWorkingDay($time)) {
+         $dayofweek = self::getDayNumberInWeek($time);
+         return CalendarSegment::isAWorkingHour($this->fields['id'], $dayofweek,
+                                                date('H:i:s', $time));
+      }
+      return false;
+   }
+
+
+   /**
     * Add a delay to a date using the active calendar
     *
     * if delay >= DAY_TIMESTAMP : work in days
     * else work in minutes
     *
-    * @param $start           datetime    begin
-    * @param $delay           timestamp   delay to add
-    * @param $work_in_days    boolean     force working in days (false by default)
+    * @param $start              datetime    begin
+    * @param $delay              timestamp   delay to add
+    * @param $additional_delay   timestamp   delay to add (default 0)
+    * @param $work_in_days       boolean     force working in days (false by default)
+    * @param $end_of_working_day boolean     end of working day (false by default)
     *
     * @return end date
    **/
-   function computeEndDate($start, $delay, $work_in_days=false) {
+   function computeEndDate($start, $delay, $additional_delay=0, $work_in_days=false, $end_of_working_day=false) {
 
       if (!isset($this->fields['id'])) {
          return false;
@@ -348,7 +366,59 @@ class Calendar extends CommonDropdown {
 
       $actualtime = strtotime($start);
       $timestart  = strtotime($start);
-      $datestart  = date('Y-m-d',$timestart);
+      $datestart  = date('Y-m-d', $timestart);
+
+      // End of working day
+      if ($end_of_working_day) {
+         $numberofdays = $delay / DAY_TIMESTAMP;
+         // Add $additional_delay to start time.
+         // If start + delay is next day : +1 day
+         $actualtime += $additional_delay;
+         $cache_duration = $this->getDurationsCache();
+         $dayofweek      = self::getDayNumberInWeek($actualtime);
+         $actualdate     = date('Y-m-d',$actualtime);
+
+         // Begin next day working
+         if ($this->isHoliday($actualdate)
+             || ($cache_duration[$dayofweek] == 0)) {
+
+            while ($this->isHoliday($actualdate)
+                   || ($cache_duration[$dayofweek] == 0)) {
+               $actualtime += DAY_TIMESTAMP;
+               $actualdate  = date('Y-m-d',$actualtime);
+               $dayofweek   = self::getDayNumberInWeek($actualtime);
+            }
+         }
+
+         while ($numberofdays > 0) {
+            if (!$this->isHoliday($actualdate)
+                && ($cache_duration[$dayofweek] > 0)) {
+               $numberofdays --;
+            }
+            $actualtime += DAY_TIMESTAMP;
+            $actualdate  = date('Y-m-d',$actualtime);
+            $dayofweek   = self::getDayNumberInWeek($actualtime);
+         }
+
+         // Get next working day
+         if ($this->isHoliday($actualdate)
+             || ($cache_duration[$dayofweek] == 0)) {
+
+            while ($this->isHoliday($actualdate)
+                   || ($cache_duration[$dayofweek] == 0)) {
+               $actualtime += DAY_TIMESTAMP;
+               $actualdate  = date('Y-m-d',$actualtime);
+               $dayofweek   = self::getDayNumberInWeek($actualtime);
+            }
+         }
+
+         $lastworkinghour = CalendarSegment::getLastWorkingHour($this->fields['id'], $dayofweek);
+         $actualtime      = strtotime(date('Y-m-d',$actualtime).' '.$lastworkinghour);
+         return date('Y-m-d H:i:s', $actualtime);
+      }
+
+      // Add additional delay to initial delay
+      $delay += $additional_delay;
 
       if ($work_in_days) { // only based on days
          $cache_duration = $this->getDurationsCache();
@@ -389,7 +459,7 @@ class Calendar extends CommonDropdown {
          // If > last working hour set last working hour
          $dayofweek       = self::getDayNumberInWeek($actualtime);
          $lastworkinghour = CalendarSegment::getLastWorkingHour($this->fields['id'], $dayofweek);
-         if ($lastworkinghour< date('H:i:s', $actualtime)) {
+         if ($lastworkinghour < date('H:i:s', $actualtime)) {
             $actualtime   = strtotime(date('Y-m-d',$actualtime).' '.$lastworkinghour);
          }
 

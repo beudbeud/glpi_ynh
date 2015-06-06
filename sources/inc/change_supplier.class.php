@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: change_supplier.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: change_supplier.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -36,10 +36,11 @@ if (!defined('GLPI_ROOT')) {
 }
 
 /**
- * Class Change_Supplier
+ * Change_Supplier Class
+ *
+ * Relation between Changes and Suppliers
  *
  * @since version 0.84
- *
 **/
 class Change_Supplier extends CommonITILActor {
 

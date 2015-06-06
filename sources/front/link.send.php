@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: link.send.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: link.send.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,7 +33,7 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("link", "r");
+Session::checkRight("link", READ);
 
 if (isset($_GET["lID"])) {
    $query = "SELECT `glpi_links`.`id`, `glpi_links`.`link`, `glpi_links`.`data`

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: stat.class.php 22785 2014-03-14 10:50:11Z yllen $
+ * @version $Id: stat.class.php 23449 2015-04-17 10:29:02Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,7 +38,29 @@ if (!defined('GLPI_ROOT')) {
 /**
  *  Stat class
 **/
-class Stat {
+class Stat extends CommonGLPI {
+
+   static $rightname = 'statistic';
+
+
+   static function canView() {
+      return Session::haveRight(self::$rightname, READ);
+   }
+
+
+   static function getTypeName($nb=0) {
+      return __('Statistics');
+   }
+
+
+   /**
+    * @see CommonGLPI::getMenuShorcut()
+    *
+    * @since version 0.85
+   **/
+   static function getMenuShorcut() {
+      return 'a';
+   }
 
 
    /**
@@ -323,8 +345,10 @@ class Stat {
     * @param $start
     * @param $value     array
     * @param $value2          (default '')
+    *
+    * @since version 0.85 (before show with same parameters)
    **/
-   static function show($itemtype, $type, $date1, $date2, $start, array $value, $value2="") {
+   static function showTable($itemtype, $type, $date1, $date2, $start, array $value, $value2="") {
       global $CFG_GLPI;
 
       // Set display type for export if define
@@ -412,9 +436,8 @@ class Stat {
             echo Search::showHeaderItem($output_type, __('Number of late tickets'), $header_num);
             echo Search::showHeaderItem($output_type, __('Number of closed tickets'), $header_num);
          } else {
-            echo Search::showHeaderItem($output_type,  _nx('ticket','Opened','Opened',2),
-                                        $header_num);
-            echo Search::showHeaderItem($output_type,  _nx('ticket','Solved', 'Solved', 2),
+            echo Search::showHeaderItem($output_type, _nx('ticket','Opened','Opened', Session::getPluralNumber()), $header_num);
+            echo Search::showHeaderItem($output_type, _nx('ticket','Solved', 'Solved', Session::getPluralNumber()),
                                         $header_num);
             echo Search::showHeaderItem($output_type, __('Late'), $header_num);
             echo Search::showHeaderItem($output_type, __('Closed'), $header_num);
@@ -432,9 +455,9 @@ class Stat {
                                            $header_num);
 
             } else {
-               echo Search::showHeaderItem($output_type,_nx('survey','Opened','Opened',2),
+               echo Search::showHeaderItem($output_type, _nx('survey','Opened','Opened', Session::getPluralNumber()),
                                            $header_num);
-               echo Search::showHeaderItem($output_type, _nx('survey','Answered','Answered',2),
+               echo Search::showHeaderItem($output_type, _nx('survey','Answered','Answered', Session::getPluralNumber()),
                                            $header_num);
                echo Search::showHeaderItem($output_type, __('Average'), $header_num);
             }
@@ -465,7 +488,7 @@ class Stat {
                                         $header_num);
          } else {
             echo Search::showHeaderItem($output_type, __('Average'), $header_num);
-            echo Search::showHeaderItem($output_type, __('Total'), $header_num);
+            echo Search::showHeaderItem($output_type, __('Total duration'), $header_num);
          }
          // End Line for column headers
          echo Search::showEndLine($output_type);
@@ -842,9 +865,16 @@ class Stat {
             $devtable = getTableForItemType('Computer_'.$value2);
             $fkname   = getForeignKeyFieldForTable(getTableForItemType($value2));
             //select computers IDs that are using this device;
-            $LEFTJOIN = " INNER JOIN `glpi_computers`
-                              ON (`glpi_computers`.`id` = `$table`.`items_id`
-                                  AND `$table`.`itemtype` = 'Computer')
+            $LEFTJOIN = '';
+            $linkdetable = $table;
+            if ($itemtype == 'Ticket') {
+               $linkedtable = 'glpi_items_tickets';
+               $LEFTJOIN .= " LEFT JOIN `glpi_items_tickets`
+                                 ON (`glpi_tickets`.`id` = `glpi_items_tickets`.`tickets_id`)";
+            }
+            $LEFTJOIN .= " INNER JOIN `glpi_computers`
+                              ON (`glpi_computers`.`id` = `$linkedtable`.`items_id`
+                                  AND `$linkedtable`.`itemtype` = 'Computer')
                           INNER JOIN `$devtable`
                               ON (`glpi_computers`.`id` = `$devtable`.`computers_id`
                                   AND `$devtable`.`$fkname` = '$value')";
@@ -854,9 +884,16 @@ class Stat {
          case "comp_champ" :
             $ftable   = getTableForItemType($value2);
             $champ    = getForeignKeyFieldForTable($ftable);
-            $LEFTJOIN = " INNER JOIN `glpi_computers`
-                              ON (`glpi_computers`.`id` = `$table`.`items_id`
-                                  AND `$table`.`itemtype` = 'Computer')";
+                  $LEFTJOIN = '';
+            $linkdetable = $table;
+            if ($itemtype == 'Ticket') {
+               $linkedtable = 'glpi_items_tickets';
+               $LEFTJOIN .= " LEFT JOIN `glpi_items_tickets`
+                                 ON (`glpi_tickets`.`id` = `glpi_items_tickets`.`tickets_id`)";
+            }
+            $LEFTJOIN .= " INNER JOIN `glpi_computers`
+                              ON (`glpi_computers`.`id` = `$linkedtable`.`items_id`
+                                  AND `$linkedtable`.`itemtype` = 'Computer')";
             $WHERE   .= " AND `glpi_computers`.`$champ` = '$value'
                           AND `glpi_computers`.`is_template` <> '1'";
             break;
@@ -1402,16 +1439,18 @@ class Stat {
       }
       $date1 .= " 00:00:00";
 
-      $query = "SELECT `itemtype`,
-                       `items_id`,
+      $query = "SELECT `glpi_items_tickets`.`itemtype`,
+                       `glpi_items_tickets`.`items_id`,
                        COUNT(*) AS NB
                 FROM `glpi_tickets`
+                LEFT JOIN `glpi_items_tickets`
+                   ON (`glpi_tickets`.`id` = `glpi_items_tickets`.`tickets_id`)
                 WHERE `date` <= '$date2'
-                      AND `date` >= '$date1' ".
+                      AND `glpi_tickets`.`date` >= '$date1' ".
                       getEntitiesRestrictRequest("AND","glpi_tickets")."
-                      AND `itemtype` <> ''
-                      AND `items_id` > 0
-                GROUP BY `itemtype`, `items_id`
+                      AND `glpi_items_tickets`.`itemtype` <> ''
+                      AND `glpi_items_tickets`.`items_id` > 0
+                GROUP BY `glpi_items_tickets`.`itemtype`, `glpi_items_tickets`.`items_id`
                 ORDER BY NB DESC";
 
       $result  = $DB->query($query);
@@ -1433,7 +1472,7 @@ class Stat {
          echo Search::showHeader($output_type, $end_display-$start+1, 2, 1);
          $header_num = 1;
          echo Search::showNewLine($output_type);
-         echo Search::showHeaderItem($output_type, __('Associated element'), $header_num);
+         echo Search::showHeaderItem($output_type, _n('Associated element', 'Associated elements', 2), $header_num);
          if ($view_entities) {
             echo Search::showHeaderItem($output_type, __('Entity'), $header_num);
          }
@@ -1488,9 +1527,6 @@ class Stat {
    static function title() {
       global $PLUGIN_HOOKS, $CFG_GLPI;
 
-      $show_problem = Session::haveRight("edit_all_problem", "1")
-                      || Session::haveRight("show_all_problem", "1");
-
       $opt_list["Ticket"]                             = __('Tickets');
 
       $stat_list["Ticket"]["Ticket_Global"]["name"]   = __('Global');
@@ -1502,8 +1538,8 @@ class Stat {
       $stat_list["Ticket"]["Ticket_Item"]["name"]     = __('By hardware');
       $stat_list["Ticket"]["Ticket_Item"]["file"]     = "stat.item.php";
 
-      if ($show_problem) {
-         $opt_list["Problem"]                               = _n('Problem', 'Problems', 2);
+      if (Problem::canView()) {
+         $opt_list["Problem"]                               = _n('Problem', 'Problems', Session::getPluralNumber());
 
          $stat_list["Problem"]["Problem_Global"]["name"]    = __('Global');
          $stat_list["Problem"]["Problem_Global"]["file"]    = "stat.global.php?itemtype=Problem";
@@ -1511,19 +1547,26 @@ class Stat {
          $stat_list["Problem"]["Problem_Problem"]["file"]   = "stat.tracking.php?itemtype=Problem";
       }
 
+      if (Change::canView()) {
+         $opt_list["Change"]                             = _n('Change', 'Changes', Session::getPluralNumber());
+
+         $stat_list["Change"]["Change_Global"]["name"]   = __('Global');
+         $stat_list["Change"]["Change_Global"]["file"]   = "stat.global.php?itemtype=Change";
+         $stat_list["Change"]["Change_Change"]["name"]   = __('By change');
+         $stat_list["Change"]["Change_Change"]["file"]   = "stat.tracking.php?itemtype=Change";
+      }
+
       //Affichage du tableau de presentation des stats
       echo "<table class='tab_cadre_fixe'>";
       echo "<tr><th colspan='2'>".__('Select statistics to be displayed')."</th></tr>";
       echo "<tr class='tab_bg_1'><td class='center'>";
-      echo "<select name='statmenu' onchange='window.location.href=this.options
-               [this.selectedIndex].value'>";
-      echo "<option value='-1' selected>".Dropdown::EMPTY_VALUE."</option>";
 
-      $i     = 0;
-      $count = count($stat_list);
+      $values   = array($CFG_GLPI["root_doc"].'/front/stat.php' => Dropdown::EMPTY_VALUE);
 
+      $i        = 0;
+      $selected = -1;
+      $count    = count($stat_list);
       foreach ($opt_list as $opt => $group) {
-         echo "<optgroup label=\"". $group ."\">";
          while ($data = each($stat_list[$opt])) {
             $name    = $data[1]["name"];
             $file    = $data[1]["file"];
@@ -1531,13 +1574,15 @@ class Stat {
             if (isset($data[1]["comment"])) {
                $comment = $data[1]["comment"];
             }
-
-            echo "<option value='".$CFG_GLPI["root_doc"]."/front/".$file."'
-                   title=\"".Html::cleanInputText($comment)."\">".$name."</option>";
-            $i++;
+            $key                  = $CFG_GLPI["root_doc"]."/front/".$file;
+            $values[$group][$key] = $name;
+            if (stripos($_SERVER['REQUEST_URI'],$key) !== false) {
+               $selected = $key;
+            }
          }
-         echo "</optgroup>";
       }
+
+      // Manage plugins
       $names    = array();
       $optgroup = array();
       if (isset($PLUGIN_HOOKS["stats"]) && is_array($PLUGIN_HOOKS["stats"])) {
@@ -1554,21 +1599,34 @@ class Stat {
       }
 
       foreach ($optgroup as $opt => $title) {
-         echo "<optgroup label=\"". $title ."\">";
-
+         $group = $title;
          foreach ($names as $key => $val) {
              if ($opt == $val["plug"]) {
-               echo "<option value='".$CFG_GLPI["root_doc"]."/plugins/".$key."'>".$val["name"].
-                    "</option>";
+               $file                  = $CFG_GLPI["root_doc"]."/plugins/".$key;
+               $values[$group][$file] = $val["name"];
+               if (stripos($_SERVER['REQUEST_URI'],$file) !== false) {
+                  $selected = $file;
+               }
              }
          }
-          echo "</optgroup>";
       }
 
-      echo "</select>";
+      Dropdown::showFromArray('statmenu', $values,
+                              array('on_change' => "window.location.href=this.options[this.selectedIndex].value",
+                                    'value'     => $selected));
       echo "</td>";
       echo "</tr>";
       echo "</table>";
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   function getRights($interface='central') {
+
+      $values[READ] = __('Read');
+      return $values;
    }
 
 }

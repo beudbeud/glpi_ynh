@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: mailcollector.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: mailcollector.form.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,7 +33,7 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("config", "r");
+Session::checkRight("config", READ);
 
 if (!isset($_GET["id"])) {
    $_GET["id"] = "";
@@ -42,16 +42,20 @@ if (!isset($_GET["id"])) {
 $mailgate = new MailCollector();
 
 if (isset($_POST["add"])) {
-   $mailgate->check(-1,'w',$_POST);
-   $newID = $mailgate->add($_POST);
+   $mailgate->check(-1, CREATE, $_POST);
 
-   Event::log($newID, "mailcollector", 4, "setup",
-              sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
+   if ($newID = $mailgate->add($_POST)) {
+      Event::log($newID, "mailcollector", 4, "setup",
+                 sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
+      if ($_SESSION['glpibackcreated']) {
+         Html::redirect($mailgate->getFormURL()."?id=".$newID);
+      }
+   }
    Html::back();
 
-} else if (isset($_POST["delete"])) {
-   $mailgate->check($_POST['id'],'d');
-   $mailgate->delete($_POST);
+} else if (isset($_POST["purge"])) {
+   $mailgate->check($_POST['id'], PURGE);
+   $mailgate->delete($_POST, 1);
 
    Event::log($_POST["id"], "mailcollector", 4, "setup",
               //TRANS: %s is the user login
@@ -59,7 +63,7 @@ if (isset($_POST["add"])) {
    $mailgate->redirectToList();
 
 } else if (isset($_POST["update"])) {
-   $mailgate->check($_POST['id'],'w');
+   $mailgate->check($_POST['id'], UPDATE);
    $mailgate->update($_POST);
 
    Event::log($_POST["id"], "mailcollector", 4, "setup",
@@ -68,14 +72,14 @@ if (isset($_POST["add"])) {
    Html::back();
 
 } else if (isset($_POST["get_mails"])) {
-   $mailgate->check($_POST['id'],'w');
+   $mailgate->check($_POST['id'], UPDATE);
    $mailgate->collect($_POST["id"],1);
 
    Html::back();
 
 } else {
-   Html::header(MailCollector::getTypeName(2), $_SERVER['PHP_SELF'], "config", "mailcollector");
-   $mailgate->showForm($_GET["id"]);
+   Html::header(MailCollector::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "mailcollector");
+   $mailgate->display(array('id' =>$_GET["id"]));
    Html::footer();
 }
 ?>

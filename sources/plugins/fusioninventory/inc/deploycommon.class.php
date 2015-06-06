@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Alexandre Delaunay
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -192,7 +192,7 @@ class PluginFusioninventoryDeployCommon extends PluginFusioninventoryCommunicati
                      }
 
                      $pfSearch = new PluginFusioninventorySearch();
-                     Search::manageGetValues('Computer');
+                     Search::manageParams('Computer');
                      $glpilist_limit = $_SESSION['glpilist_limit'];
                      $_SESSION['glpilist_limit'] = 999999999;
                      $result = $pfSearch->constructSQL('Computer',
@@ -227,6 +227,8 @@ class PluginFusioninventoryDeployCommon extends PluginFusioninventoryCommunicati
       $c_input['plugin_fusioninventory_taskjobs_id'] = $job->fields['id'];
       $c_input['state']                              = 0;
       $c_input['plugin_fusioninventory_agents_id']   = 0;
+      $c_input['execution_id']                       = $task->fields['execution_id'];
+
       $package = new PluginFusioninventoryDeployPackage();
 
       foreach($computers as $computer_id) {
@@ -300,21 +302,21 @@ class PluginFusioninventoryDeployCommon extends PluginFusioninventoryCommunicati
 
 
 
-   // When agent contact server, this function send datas to agent
+   // When agent contact server, this function prepare data to be sent
    /*
     * $itemtype = type of device in definition
     * $array = array with different ID
     *
     */
-   function run($taskjob, $agent) {
+   function run($taskjobstate) {
       //get order type label
-      $order_type_label = str_replace("PluginFusioninventoryDeploy", "", get_class($this));
+      $order_type_label = str_replace("deploy", "", $taskjobstate->method);
       //get numeric order type from label
       $order_type = PluginFusioninventoryDeployOrder::getRender($order_type_label);
       //get order by type and package id
-      $order = new PluginFusioninventoryDeployOrder($order_type, $taskjob['items_id']);
+      $order = new PluginFusioninventoryDeployOrder($order_type, $taskjobstate->fields['items_id']);
       //decode order data
-      $order_data = Html::entity_decode_deep(json_decode($order->fields['json'], TRUE));
+      $order_data = json_decode($order->fields['json'], TRUE);
 
       /* TODO:
        * This has to be done properly in each corresponding classes.
@@ -322,7 +324,7 @@ class PluginFusioninventoryDeployCommon extends PluginFusioninventoryCommunicati
        */
       $order_job = $order_data['jobs'];
       //add uniqid to response data
-      $order_job['uuid'] = $taskjob['uniqid'];
+      $order_job['uuid'] = $taskjobstate->fields['uniqid'];
 
       /* TODO:
        * Orders should only contain job data and associatedFiles should be retrieved from the
@@ -340,7 +342,9 @@ class PluginFusioninventoryDeployCommon extends PluginFusioninventoryCommunicati
 
 
       //Add mirrors to associatedFiles
-      $mirrors = PluginFusioninventoryDeployMirror::getList($agent);
+      $mirrors = PluginFusioninventoryDeployMirror::getList(
+         $taskjobstate->fields['plugin_fusioninventory_agents_id']
+      );
       foreach($order_files as $hash => $params) {
          $order_files[$hash]['mirrors'] = $mirrors;
          $manifest = GLPI_PLUGIN_DOC_DIR."/fusioninventory/files/manifests/".$hash;

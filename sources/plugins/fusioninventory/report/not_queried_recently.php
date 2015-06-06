@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -50,7 +50,7 @@ include ("../../../inc/includes.php");
 
 Html::header(__('FusionInventory', 'fusioninventory'), $_SERVER['PHP_SELF'], "utils", "report");
 
-PluginFusioninventoryProfile::checkRight("reportnetworkequipment", "r");
+Session::checkRight('plugin_fusioninventory_reportnetworkequipment', READ);
 
 $nbdays = 1;
 if (isset($_GET["nbdays"])) {
@@ -113,7 +113,7 @@ if (($state != "") AND ($state != "0")) {
 $query = "SELECT * FROM (
 SELECT `glpi_networkequipments`.`name`, `last_fusioninventory_update`, `serial`, `otherserial`,
    `networkequipmentmodels_id`, `glpi_networkequipments`.`id` as `network_id`, 0 as `printer_id`,
-   `plugin_fusioninventory_snmpmodels_id`, `plugin_fusioninventory_configsecurities_id`,
+   `plugin_fusioninventory_configsecurities_id`,
    `glpi_ipaddresses`.`name` as ip, `states_id`
    FROM `glpi_plugin_fusioninventory_networkequipments`
 JOIN `glpi_networkequipments` on `networkequipments_id` = `glpi_networkequipments`.`id`
@@ -131,7 +131,7 @@ WHERE ((NOW() > ADDDATE(last_fusioninventory_update, INTERVAL ".$nbdays." DAY) O
 UNION
 SELECT `glpi_printers`.`name`, `last_fusioninventory_update`, `serial`, `otherserial`,
    `printermodels_id`, 0 as `network_id`, `glpi_printers`.`id` as `printer_id`,
-   `plugin_fusioninventory_snmpmodels_id`, `plugin_fusioninventory_configsecurities_id`,
+   `plugin_fusioninventory_configsecurities_id`,
    `glpi_ipaddresses`.`name` as ip, `states_id`
    FROM `glpi_plugin_fusioninventory_printers`
 JOIN `glpi_printers` on `printers_id` = `glpi_printers`.`id`
@@ -158,7 +158,6 @@ echo "<th>".__('IP')."</th>";
 echo "<th>".__('Serial Number')."</th>";
 echo "<th>".__('Inventory number')."</th>";
 echo "<th>".__('Model')."</th>";
-echo "<th>".__('SNMP models')."</th>";
 echo "<th>".__('SNMP authentication')."</th>";
 echo "<th>".__('Status')."</th>";
 echo "</tr>";
@@ -194,9 +193,6 @@ if ($result=$DB->query($query)) {
       } else if ($data['printer_id'] > 0) {
          echo "<td>".Dropdown::getDropdownName("glpi_printermodels", $data['printermodels_id'])."</td>";
       }
-      echo "<td>";
-      echo Dropdown::getDropdownName("glpi_plugin_fusioninventory_snmpmodels", $data['plugin_fusioninventory_snmpmodels_id']);
-      echo "</td>";
       echo "<td>";
       echo Dropdown::getDropdownName('glpi_plugin_fusioninventory_configsecurities', $data['plugin_fusioninventory_configsecurities_id']);
       echo "</td>";

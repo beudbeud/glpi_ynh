@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: budget.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: budget.class.php 23441 2015-04-10 09:08:51Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -41,7 +41,12 @@ if (!defined('GLPI_ROOT')) {
 class Budget extends CommonDropdown{
 
    // From CommonDBTM
-   public $dohistory = true;
+   public $dohistory           = true;
+
+   static $rightname           = 'budget';
+   protected $usenotepadrights = true;
+
+   var $can_be_translated = false;
 
 
    static function getTypeName($nb=0) {
@@ -49,23 +54,14 @@ class Budget extends CommonDropdown{
    }
 
 
-   static function canCreate() {
-      return Session::haveRight('budget', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('budget', 'r');
-   }
-
-
    function defineTabs($options=array()) {
 
       $ong = array();
+      $this->addDefaultFormTab($ong);
       $this->addStandardTab(__CLASS__,$ong, $options);
       $this->addStandardTab('Document_Item',$ong, $options);
       $this->addStandardTab('Link',$ong, $options);
-      $this->addStandardTab('Note',$ong, $options);
+      $this->addStandardTab('Notepad',$ong, $options);
       $this->addStandardTab('Log',$ong, $options);
 
       return $ong;
@@ -77,8 +73,8 @@ class Budget extends CommonDropdown{
       if (!$withtemplate) {
          switch ($item->getType()) {
             case __CLASS__ :
-               return array (1 => __('Main'),
-                             2 => _n('Item', 'Items', 2));
+               return array(1 => __('Main'),
+                            2 => _n('Item', 'Items', Session::getPluralNumber()));
          }
       }
       return '';
@@ -120,7 +116,6 @@ class Budget extends CommonDropdown{
       }
 
       $this->initForm($ID, $options);
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
@@ -135,20 +130,20 @@ class Budget extends CommonDropdown{
            "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td>".__('Value')."</td>";
+      echo "<td>"._x('price', 'Value')."</td>";
       echo "<td><input type='text' name='value' size='14'
                  value='".Html::formatNumber($this->fields["value"], true)."'></td></tr>";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Start date')."</td>";
       echo "<td>";
-      Html::showDateFormItem("begin_date", $this->fields["begin_date"]);
+      Html::showDateField("begin_date", array('value' => $this->fields["begin_date"]));
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('End date')."</td>";
       echo "<td>";
-      Html::showDateFormItem("end_date", $this->fields["end_date"]);
+      Html::showDateField("end_date", array('value' => $this->fields["end_date"]));
       echo "</td></tr>";
 
       if ($ID > 0) {
@@ -161,7 +156,6 @@ class Budget extends CommonDropdown{
       }
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
       return true;
    }
 
@@ -222,7 +216,7 @@ class Budget extends CommonDropdown{
 
       $tab[4]['table']           = $this->getTable();
       $tab[4]['field']           = 'value';
-      $tab[4]['name']            = __('Value');
+      $tab[4]['name']            = _x('price', 'Value');
       $tab[4]['datatype']        = 'decimal';
 
       $tab[16]['table']          = $this->getTable();
@@ -241,11 +235,7 @@ class Budget extends CommonDropdown{
       $tab[86]['name']           = __('Child entities');
       $tab[86]['datatype']       = 'bool';
 
-      $tab[90]['table']          = $this->getTable();
-      $tab[90]['field']          = 'notepad';
-      $tab[90]['name']           = __('Notes');
-      $tab[90]['massiveaction']  = false;
-      $tab[90]['datatype']       = 'text';
+      $tab += Notepad::getSearchOptionsToAdd();
 
       return $tab;
    }
@@ -261,7 +251,7 @@ class Budget extends CommonDropdown{
 
       $budgets_id = $this->fields['id'];
 
-      if (!$this->can($budgets_id,'r')) {
+      if (!$this->can($budgets_id, READ)) {
          return false;
       }
 
@@ -274,7 +264,7 @@ class Budget extends CommonDropdown{
       $result = $DB->query($query);
       $number = $DB->numrows($result);
 
-      echo "<div class='spaced'><table class='tab_cadre_fixehov'>";
+      echo "<div class='spaced'><table class='tab_cadre_fixe'>";
       echo "<tr><th colspan='2'>";
       Html::printPagerForm();
       echo "</th><th colspan='4'>";
@@ -290,7 +280,7 @@ class Budget extends CommonDropdown{
       echo "<th>".__('Name')."</th>";
       echo "<th>".__('Serial number')."</th>";
       echo "<th>".__('Inventory number')."</th>";
-      echo "<th>".__('Value')."</th>";
+      echo "<th>"._x('price', 'Value')."</th>";
       echo "</tr>";
 
       $num       = 0;
@@ -300,6 +290,9 @@ class Budget extends CommonDropdown{
       }
       $itemtypes[] = 'Contract';
       $itemtypes[] = 'Ticket';
+      $itemtypes[] = 'Problem';
+      $itemtypes[] = 'Change';
+      $itemtypes[] = 'Project';
 
       foreach ($itemtypes as $itemtype) {
          if (!($item = getItemForItemtype($itemtype))) {
@@ -308,7 +301,6 @@ class Budget extends CommonDropdown{
 
          if ($item->canView()) {
             switch ($itemtype) {
-
 
                case 'Contract' :
                   $query = "SELECT `".$item->getTable()."`.`id`,
@@ -326,20 +318,37 @@ class Budget extends CommonDropdown{
                break;
 
                case 'Ticket' :
+               case 'Problem' :
+               case 'Change' :
+                  $costtable = getTableForItemType($item->getType().'Cost');
                   $query = "SELECT `".$item->getTable()."`.`id`,
                                    `".$item->getTable()."`.`entities_id`,
-                                    SUM(`glpi_ticketcosts`.`actiontime`*`glpi_ticketcosts`.`cost_time`/".HOUR_TIMESTAMP."
-                                          + `glpi_ticketcosts`.`cost_fixed`
-                                          + `glpi_ticketcosts`.`cost_material`) as value
-                            FROM `glpi_ticketcosts`
+                                    SUM(`$costtable`.`actiontime`*`$costtable`.`cost_time`/".HOUR_TIMESTAMP."
+                                          + `$costtable`.`cost_fixed`
+                                          + `$costtable`.`cost_material`) as value
+                            FROM `$costtable`
                             INNER JOIN `".$item->getTable()."`
-                                 ON (`".$item->getTable()."`.`id` = `glpi_ticketcosts`.`tickets_id`)
-                            WHERE `glpi_ticketcosts`.`budgets_id` = '$budgets_id' ".
+                                 ON (`".$item->getTable()."`.`id` = `$costtable`.`".$item->getForeignKeyField()."`)
+                            WHERE `$costtable`.`budgets_id` = '$budgets_id' ".
                                   getEntitiesRestrictRequest(" AND", $item->getTable())."
                             GROUP BY `".$item->getTable()."`.`id`, `".$item->getTable()."`.`entities_id`
                             ORDER BY `".$item->getTable()."`.`entities_id`,
                                      `".$item->getTable()."`.`name`";
                break;
+
+               case 'Project' :
+                  $query = "SELECT `".$item->getTable()."`.`id`,
+                                   `".$item->getTable()."`.`entities_id`,
+                                    SUM(`glpi_projectcosts`.`cost`) as value
+                            FROM `glpi_projectcosts`
+                            INNER JOIN `".$item->getTable()."`
+                                 ON (`".$item->getTable()."`.`id` = `glpi_projectcosts`.`projects_id`)
+                            WHERE `glpi_projectcosts`.`budgets_id` = '$budgets_id' ".
+                                  getEntitiesRestrictRequest(" AND", $item->getTable())."
+                            GROUP BY `".$item->getTable()."`.`id`, `".$item->getTable()."`.`entities_id`
+                            ORDER BY `".$item->getTable()."`.`entities_id`,
+                                     `".$item->getTable()."`.`name`";
+                                                break;
 
                case 'Cartridge' :
                   $query = "SELECT `".$item->getTable()."`.*,
@@ -374,6 +383,7 @@ class Budget extends CommonDropdown{
                             ORDER BY `entities_id`,
                                      `glpi_consumableitems`.`name`";
                break;
+
                default :
                   $query = "SELECT `".$item->getTable()."`.*,
                                    `glpi_infocoms`.`value`
@@ -384,8 +394,14 @@ class Budget extends CommonDropdown{
                                   AND `glpi_infocoms`.`budgets_id` = '$budgets_id' ".
                                   getEntitiesRestrictRequest(" AND", $item->getTable())."
                                   ".($item->maybeTemplate()?" AND NOT `".$item->getTable()."`.`is_template`":'')."
-                            ORDER BY `".$item->getTable()."`.`entities_id`,
-                                     `".$item->getTable()."`.`name`";
+                            ORDER BY `".$item->getTable()."`.`entities_id`,";
+                if ($item instanceof Item_Devices) {
+                   $query .= " `".$item->getTable()."`.`itemtype`";
+                } else {
+                   $query .= " `".$item->getTable()."`.`name`";
+                }
+
+
                break;
             }
 
@@ -397,9 +413,17 @@ class Budget extends CommonDropdown{
                   //TRANS: %1$s is a name, %2$s is a number
                   echo "<td class='center'>".sprintf(__('%1$s: %2$s'), $name, $nb)."</td>";
                   echo "<td class='center' colspan='2'>";
-                  echo "<a href='". $item->getSearchURL() . "?" .
-                        rawurlencode("contains[0]") . "=" . rawurlencode('$$$$'.$budgets_id) . "&" .
-                        rawurlencode("field[0]")."=50&sort=80&order=ASC&is_deleted=0&start=0". "'>".
+
+                  $opt = array('order'      => 'ASC',
+                               'is_deleted' => 0,
+                               'reset'      => 'reset',
+                               'start'      => 0,
+                               'sort'       => 80,
+                               'criteria'   => array(0 => array('value'      => '$$$$'.$budgets_id,
+                                                                'searchtype' => 'contains',
+                                                                'field'      => 50)));
+
+                  echo "<a href='". $item->getSearchURL() . "?" .Toolbox::append_params($opt). "'>".
                         __('Device list')."</a></td>";
                   echo "<td class='center'>-</td><td class='center'>-</td><td class='center'>-".
                        "</td></tr>";
@@ -408,7 +432,14 @@ class Budget extends CommonDropdown{
                   for ($prem=true ; $data=$DB->fetch_assoc($result_linked) ; $prem=false) {
                      $name = NOT_AVAILABLE;
                      if ($item->getFromDB($data["id"])) {
-                        $name = $item->getLink(array('additional' => true));
+                        if ($item instanceof Item_Devices) {
+                           $tmpitem = new $item::$itemtype_2();
+                           if ($tmpitem->getFromDB($data[$item::$items_id_2])) {
+                              $name = $tmpitem->getLink(array('additional' => true));
+                           }
+                        } else {
+                           $name = $item->getLink(array('additional' => true));
+                        }
                      }
                      echo "<tr class='tab_bg_1'>";
                      if ($prem) {
@@ -456,7 +487,7 @@ class Budget extends CommonDropdown{
 
       $budgets_id = $this->fields['id'];
 
-      if (!$this->can($budgets_id, 'r')) {
+      if (!$this->can($budgets_id, READ)) {
          return false;
       }
 
@@ -489,6 +520,8 @@ class Budget extends CommonDropdown{
 
       $itemtypes[] = 'Contract';
       $itemtypes[] = 'Ticket';
+      $itemtypes[] = 'Problem';
+      $itemtypes[] = 'Change';
 
       foreach ($itemtypes as $itemtype) {
          if (!($item = getItemForItemtype($itemtype))) {
@@ -510,14 +543,17 @@ class Budget extends CommonDropdown{
                break;
 
             case 'Ticket' :
-               $query_infos = "SELECT SUM(`glpi_ticketcosts`.`actiontime`*`glpi_ticketcosts`.`cost_time`/".HOUR_TIMESTAMP."
-                                          + `glpi_ticketcosts`.`cost_fixed`
-                                          + `glpi_ticketcosts`.`cost_material`) AS `sumvalue`,
+            case 'Problem' :
+            case 'Change' :
+               $costtable = getTableForItemType($item->getType().'Cost');
+               $query_infos = "SELECT SUM(`$costtable`.`actiontime`*`$costtable`.`cost_time`/".HOUR_TIMESTAMP."
+                                          + `$costtable`.`cost_fixed`
+                                          + `$costtable`.`cost_material`) AS `sumvalue`,
                                        `$table`.`entities_id`
-                                FROM `glpi_ticketcosts`
+                                FROM `$costtable`
                                 INNER JOIN `$table`
-                                    ON (`glpi_ticketcosts`.`tickets_id` = `$table`.`id`)
-                                WHERE `glpi_ticketcosts`.`budgets_id` = '$budgets_id' ".
+                                    ON (`$costtable`.`".$item->getForeignKeyField()."` = `$table`.`id`)
+                                WHERE `$costtable`.`budgets_id` = '$budgets_id' ".
                                       getEntitiesRestrictRequest(" AND", $table, "entities_id")."
                                 GROUP BY `$table`.`entities_id`";
                break;
@@ -566,8 +602,8 @@ class Budget extends CommonDropdown{
       $budget->getFromDB($budgets_id);
 
       $colspan = count($found_types)+2;
-      echo "<div class='spaced'><table class='tab_cadre'>";
-      echo "<tr><th colspan='$colspan'>".__('Total spent on the budget')."</th></tr>";
+      echo "<div class='spaced'><table class='tab_cadre_fixehov'>";
+      echo "<tr class='noHover'><th colspan='$colspan'>".__('Total spent on the budget')."</th></tr>";
       echo "<tr><th>".__('Entity')."</th>";
       if (count($found_types)) {
          foreach ($found_types as $type => $typename) {
@@ -611,12 +647,12 @@ class Budget extends CommonDropdown{
          echo "<td class='numeric b'>".Html::formatNumber($total)."</td>";
          echo "</tr>";
       }
-      echo "<tr class='tab_bg_1'><th colspan='$colspan'><br></th></tr>";
-      echo "<tr class='tab_bg_1'>";
+      echo "<tr class='tab_bg_1 noHover'><th colspan='$colspan'><br></th></tr>";
+      echo "<tr class='tab_bg_1 noHover'>";
       echo "<td class='right' colspan='".($colspan-1)."'>".__('Total spent on the budget')."</td>";
       echo "<td class='numeric b'>".Html::formatNumber($total)."</td></tr>";
       if ($_SESSION['glpiactive_entity'] == $budget->fields['entities_id']) {
-         echo "<tr class='tab_bg_1'>";
+         echo "<tr class='tab_bg_1 noHover'>";
          echo "<td class='right' colspan='".($colspan-1)."'>".__('Total remaining on the budget').
                "</td>";
          echo "<td class='numeric b'>".Html::formatNumber($budget->fields['value'] - $total).

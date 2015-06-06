@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: problem.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: problem.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,10 +33,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkSeveralRightsOr(array('show_all_problem' => '1',
-                                    'show_my_problem'  => '1'));
+Session::haveRightsOr('problem', array(Problem::READALL, Problem::READMY));
 
-Html::header(Problem::getTypeName(2), '', "maintain", "problem");
+Html::header(Problem::getTypeName(Session::getPluralNumber()), '', "helpdesk", "problem");
 
 Search::show('Problem');
 

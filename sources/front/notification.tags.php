@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notification.tags.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notification.tags.php 23072 2014-07-10 17:12:01Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,12 +35,15 @@ if (!defined('GLPI_ROOT')) {
    include ('../inc/includes.php');
 }
 
+Html::popHeader(__('List of available tags'), $_SERVER['PHP_SELF']);
+
 if (isset($_GET["sub_type"])) {
-   Session::checkRight("config", "r");
+   Session::checkCentralAccess();
    NotificationTemplateTranslation::showAvailableTags($_GET["sub_type"]);
    Html::ajaxFooter();
 } else {
    Html::displayErrorAndDie("lost");
 }
 
+Html::popFooter();
 ?>

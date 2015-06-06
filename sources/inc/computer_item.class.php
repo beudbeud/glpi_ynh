@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: computer_item.class.php 22962 2014-04-28 20:00:02Z moyo $
+ * @version $Id: computer_item.class.php 23304 2015-01-21 14:46:37Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,11 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Relation between Computer and Items (monitor, printer, phone, peripheral only)
+/**
+ * Computer_Item Class
+ *
+ * Relation between Computer and Items (monitor, printer, phone, peripheral only)
+**/
 class Computer_Item extends CommonDBRelation{
 
    // From CommonDBRelation
@@ -194,7 +198,11 @@ class Computer_Item extends CommonDBRelation{
 
          if (count($updates)) {
             $updates['id'] = $input['items_id'];
-            $item->update($updates);
+            $history = true;
+            if (isset($input['_no_history']) && $input['_no_history']) {
+               $history = false;
+            }
+            $item->update($updates, $history);
          }
       }
       return parent::prepareInputForAdd($input);
@@ -260,98 +268,46 @@ class Computer_Item extends CommonDBRelation{
 
 
    /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
+    * @since version 0.85
+    *
+    * @see CommonDBTM::getMassiveActionsForItemtype()
    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
+   static function getMassiveActionsForItemtype(array &$actions, $itemtype, $is_deleted=0,
+                                                CommonDBTM $checkitem=NULL) {
 
-      switch ($input['action']) {
-         case "connect" :
-            if ($input['itemtype'] == 'Computer') {
-               Dropdown::showAllItems("items_id", 0, 0, $_SESSION["glpiactive_entity"],
-                                      array('Monitor', 'Peripheral', 'Phone',  'Printer'),
-                                      true, true, 'item_itemtype');
-               echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                              __s('Connect')."'>";
-            } else {
-               Computer_Item::dropdownConnect('Computer', $input["itemtype"], "computers_id");
-               echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                              __s('Connect')."'>";
-            }
-            return true;
+      $action_prefix = __CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR;
+      $specificities = self::getRelationMassiveActionsSpecificities();
 
-         case "disconnect" :
-            echo "<input type='submit' name='massiveaction' class='submit' value='".
-                   __s('Disconnect')."'>";
-            return true;
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
-
+      if (in_array($itemtype, $specificities['itemtypes'])) {
+         $actions[$action_prefix.'add']    = _x('button', 'Connect');
+         $actions[$action_prefix.'remove'] = _x('button', 'Disconnect');
       }
-      return false;
+      parent::getMassiveActionsForItemtype($actions, $itemtype, $is_deleted, $checkitem);
    }
 
 
    /**
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @since version 0.85
+    *
+    * @see CommonDBRelation::getRelationMassiveActionsSpecificities()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function getRelationMassiveActionsSpecificities() {
+      global $CFG_GLPI;
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
+      $specificities              = parent::getRelationMassiveActionsSpecificities();
 
-      switch ($input['action']) {
-         case "connect" :
-            foreach ($input["item"] as $key => $val) {
-               if ($val == 1) {
-                  if (isset($input["computers_id"])) {
-                     $input2 = array('computers_id' => $input["computers_id"],
-                                    'itemtype'      => $input["itemtype"],
-                                    'items_id'      => $key);
-                  } else if (isset($input["items_id"])) {
-                     $input2 = array('computers_id' => $key,
-                                    'itemtype'      => $input["item_itemtype"],
-                                    'items_id'      => $input["items_id"]);
-                  } else {
-                     return false;
-                  }
-                  if ($this->can(-1, 'w', $input2)) {
-                     if ($this->add($input2)) {
-                        $res['ok']++;
-                     } else {
-                        $res['ko']++;
-                     }
-                  } else {
-                     $res['noright']++;
-                  }
-               }
-            }
-           break;
+      $specificities['itemtypes'] = array('Monitor', 'Peripheral', 'Phone', 'Printer');
 
-         case "disconnect" :
-            if (!($item = getItemForItemtype($input["itemtype"]))) {
-               return false;
-            }
-            foreach ($input["item"] as $key => $val) {
-               if ($val == 1) {
-                  if ($item->can($key, 'd')) {
-                     if ($this->disconnectForItem($item)) {
-                        $res['ok']++;
-                     } else {
-                        $res['ko']++;
-                     }
-                  } else {
-                     $res['noright']++;
-                  }
-               }
-            }
-            break;
+      $specificities['select_items_options_2']['entity_restrict'] = $_SESSION['glpiactive_entity'];
+      $specificities['select_items_options_2']['onlyglobal']      = true;
 
-         default :
-            return parent::doSpecificMassiveActions($input);
-      }
-      return $res;
+      $specificities['only_remove_all_at_once']                   = true;
+
+      // Set the labels for add_item and remove_item
+      $specificities['button_labels']['add']                      = _sx('button', 'Connect');
+      $specificities['button_labels']['remove']                   = _sx('button', 'Disconnect');
+
+      return $specificities;
    }
 
 
@@ -375,7 +331,7 @@ class Computer_Item extends CommonDBRelation{
          if ($DB->numrows($result) > 0) {
             $ok = true;
             while ($data = $DB->fetch_assoc($result)) {
-               if ($this->can($data["id"],'w')) {
+               if ($this->can($data["id"],UPDATE)) {
                   $ok &= $this->delete($data);
                }
             }
@@ -399,7 +355,7 @@ class Computer_Item extends CommonDBRelation{
       global $DB, $CFG_GLPI;
 
       $ID      = $comp->fields['id'];
-      $canedit = $comp->can($ID,'w');
+      $canedit = $comp->canEdit($ID);
       $rand    = mt_rand();
 
       $datas = array();
@@ -407,11 +363,11 @@ class Computer_Item extends CommonDBRelation{
       foreach ($CFG_GLPI["directconnect_types"] as $itemtype) {
          $item = new $itemtype();
          if ($item->canView()) {
-            $query = "SELECT `glpi_computers_items`.`id` as assoc_id,
-                      `glpi_computers_items`.`computers_id` as assoc_computers_id,
-                      `glpi_computers_items`.`itemtype` as assoc_itemtype,
-                      `glpi_computers_items`.`items_id` as assoc_items_id,
-                      `glpi_computers_items`.`is_dynamic` as assoc_is_dynamic,
+            $query = "SELECT `glpi_computers_items`.`id` AS assoc_id,
+                      `glpi_computers_items`.`computers_id` AS assoc_computers_id,
+                      `glpi_computers_items`.`itemtype` AS assoc_itemtype,
+                      `glpi_computers_items`.`items_id` AS assoc_items_id,
+                      `glpi_computers_items`.`is_dynamic` AS assoc_is_dynamic,
                       ".getTableForItemType($itemtype).".*
                       FROM `glpi_computers_items`
                       LEFT JOIN `".getTableForItemType($itemtype)."`
@@ -442,15 +398,13 @@ class Computer_Item extends CommonDBRelation{
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr class='tab_bg_2'><th colspan='2'>".__('Connect an item')."</th></tr>";
 
-         echo "<tr class='tab_bg_1'><td class='right'>";
-//          Dropdown::showAllItems("items_id", 0, 0, $comp->fields['entities_id'],
-//                                 $CFG_GLPI["directconnect_types"], false, true);
+         echo "<tr class='tab_bg_1'><td>";
          if (!empty($withtemplate)) {
             echo "<input type='hidden' name='_no_history' value='1'>";
          }
          self::dropdownAllConnect('Computer', "items_id", $comp->fields["entities_id"],
                                   $withtemplate, $used);
-         echo "</td><td class='center'>";
+         echo "</td><td class='center' width='20%'>";
          echo "<input type='submit' name='add' value=\""._sx('button', 'Connect')."\" class='submit'>";
          echo "<input type='hidden' name='computers_id' value='".$comp->fields['id']."'>";
          echo "</td></tr>";
@@ -463,27 +417,38 @@ class Computer_Item extends CommonDBRelation{
          echo "<div class='spaced'>";
          if ($canedit) {
             Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-            $massiveactionparams = array('num_displayed'    => $number,
-                                         'specific_actions' => array('purge' => _x('button', 'Disconnect')));
-            Html::showMassiveActions(__CLASS__, $massiveactionparams);
+            $massiveactionparams
+               = array('num_displayed'
+                           => $number,
+                       'specific_actions'
+                           => array('purge' => _x('button', 'Disconnect')),
+                       'container'
+                           => 'mass'.__CLASS__.$rand);
+            Html::showMassiveActions($massiveactionparams);
          }
-         echo "<table class='tab_cadre_fixe'>";
-         echo "<tr>";
+         echo "<table class='tab_cadre_fixehov'>";
+         $header_begin  = "<tr>";
+         $header_top    = '';
+         $header_bottom = '';
+         $header_end    = '';
 
          if ($canedit) {
-            echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+            $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_top    .= "</th>";
+            $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_bottom .=  "</th>";
          }
 
-         echo "<th>".__('Type')."</th>";
-         echo "<th>".__('Name')."</th>";
+         $header_end .= "<th>".__('Type')."</th>";
+         $header_end .= "<th>".__('Name')."</th>";
          if (Plugin::haveImport()) {
-            echo "<th>".__('Automatic inventory')."</th>";
+            $header_end .= "<th>".__('Automatic inventory')."</th>";
          }
-         echo "<th>".__('Entity')."</th>";
-         echo "<th>".__('Serial number')."</th>";
-         echo "<th>".__('Inventory number')."</th>";
-         echo "</tr>";
-
+         $header_end .= "<th>".__('Entity')."</th>";
+         $header_end .= "<th>".__('Serial number')."</th>";
+         $header_end .= "<th>".__('Inventory number')."</th>";
+         $header_end .= "</tr>";
+         echo $header_begin.$header_top.$header_end;
 
          foreach ($datas as $data) {
             $linkname = $data["name"];
@@ -506,9 +471,7 @@ class Computer_Item extends CommonDBRelation{
                   ((isset($data['is_deleted']) && $data['is_deleted'])?"class='tab_bg_2_2'":"").
                  ">".$name."</td>";
             if (Plugin::haveImport()) {
-               echo "<td>";
-               echo Dropdown::getYesNo($data['assoc_is_dynamic']);
-               echo "</td>";
+               echo "<td>".Dropdown::getYesNo($data['assoc_is_dynamic'])."</td>";
             }
             echo "<td class='center'>".Dropdown::getDropdownName("glpi_entities",
                                                                $data['entities_id']);
@@ -519,11 +482,12 @@ class Computer_Item extends CommonDBRelation{
                    (isset($data["otherserial"])? "".$data["otherserial"]."" :"-")."</td>";
             echo "</tr>";
          }
+         echo $header_begin.$header_bottom.$header_end;
 
          echo "</table>";
          if ($canedit && $number) {
             $massiveactionparams['ontop'] = false;
-            Html::showMassiveActions(__CLASS__, $massiveactionparams);
+            Html::showMassiveActions($massiveactionparams);
             Html::closeForm();
          }
          echo "</div>";
@@ -546,10 +510,10 @@ class Computer_Item extends CommonDBRelation{
       $comp   = new Computer();
       $ID     = $item->getField('id');
 
-      if (!$item->can($ID,"r")) {
+      if (!$item->can($ID, READ)) {
          return false;
       }
-      $canedit = $item->can($ID,"w");
+      $canedit = $item->canEdit($ID);
       $rand    = mt_rand();
 
       // Is global connection ?
@@ -567,7 +531,6 @@ class Computer_Item extends CommonDBRelation{
          $used['Computer'][]   = $data['computers_id'];
       }
       $number = count($compids);
-
       if ($canedit
           && ($global || !$number)) {
          echo "<div class='firstbloc'>";
@@ -598,27 +561,40 @@ class Computer_Item extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'    => $number,
-                                      'specific_actions' => array('purge' => _x('button', 'Disconnect')));
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams
+            = array('num_displayed'
+                        => $number,
+                    'specific_actions'
+                        => array('purge' => _x('button', 'Disconnect')),
+                    'container'
+                        => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
-      echo "<table class='tab_cadre_fixe'>";
+      echo "<table class='tab_cadre_fixehov'>";
 
       if ($number > 0) {
-         echo "<tr>";
+         $header_begin  = "<tr>";
+         $header_top    = '';
+         $header_bottom = '';
+         $header_end    = '';
 
          if ($canedit) {
-            echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+            $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_top    .= "</th>";
+            $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_bottom .= "</th>";
          }
 
-         echo "<th>".__('Name')."</th>";
+         $header_end .= "<th>".__('Name')."</th>";
          if (Plugin::haveImport()) {
-            echo "<th>".__('Automatic inventory')."</th>";
+            $header_end .= "<th>".__('Automatic inventory')."</th>";
          }
-         echo "<th>".__('Entity')."</th>";
-         echo "<th>".__('Serial number')."</th>";
-         echo "<th>".__('Inventory number')."</th>";
-         echo "</tr>";
+         $header_end .= "<th>".__('Entity')."</th>";
+         $header_end .= "<th>".__('Serial number')."</th>";
+         $header_end .= "<th>".__('Inventory number')."</th>";
+         $header_end .= "</tr>";
+         echo $header_begin.$header_top.$header_end;
+
          foreach ($compids as $key => $compid) {
             $comp->getFromDB($compid);
 
@@ -633,9 +609,7 @@ class Computer_Item extends CommonDBRelation{
                   ($comp->getField('is_deleted')?"class='tab_bg_2_2'":"").
                  ">".$comp->getLink()."</td>";
             if (Plugin::haveImport()) {
-               echo "<td>";
-               echo Dropdown::getYesNo($dynamic[$key]);
-               echo "</td>";
+               echo "<td>".Dropdown::getYesNo($dynamic[$key])."</td>";
             }
             echo "<td class='center'>".Dropdown::getDropdownName("glpi_entities",
                                                                $comp->getField('entities_id'));
@@ -644,6 +618,7 @@ class Computer_Item extends CommonDBRelation{
             echo "<td class='center'>".$comp->getField('otherserial')."</td>";
             echo "</tr>";
          }
+         echo $header_begin.$header_bottom.$header_end;
       } else {
          echo "<tr><td class='tab_bg_1 b'><i>".__('Not connected')."</i>";
          echo "</td></tr>";
@@ -652,7 +627,7 @@ class Computer_Item extends CommonDBRelation{
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -717,18 +692,7 @@ class Computer_Item extends CommonDBRelation{
       global $CFG_GLPI;
 
       $rand = mt_rand();
-//       $use_ajax = false;
-//       if ($CFG_GLPI["use_ajax"]) {
-//          $nb = 0;
-//          if ($entity_restrict >= 0) {
-//             $nb = countElementsInTableForEntity(getTableForItemType($itemtype), $entity_restrict);
-//          } else {
-//             $nb = countElementsInTableForMyEntities(getTableForItemType($itemtype));
-//          }
-//          if ($nb > $CFG_GLPI["ajax_limit_count"]) {
-//             $use_ajax = true;
-//          }
-//       }
+
       $options               = array();
       $options['checkright'] = true;
       $options['name']       = 'itemtype';
@@ -746,10 +710,10 @@ class Computer_Item extends CommonDBRelation{
          if ($onlyglobal) {
             $params['condition'] = "`is_global` = '1'";
          }
-         Ajax::updateItemOnSelectEvent("itemtype$rand", "show_$myname$rand",
+         Ajax::updateItemOnSelectEvent("dropdown_itemtype$rand", "show_$myname$rand",
                                        $CFG_GLPI["root_doc"]."/ajax/dropdownConnect.php", $params);
 
-         echo "<br><span id='show_$myname$rand'>&nbsp;</span>\n";
+         echo "<br><div id='show_$myname$rand'>&nbsp;</div>\n";
       }
       return $rand;
 
@@ -772,31 +736,18 @@ class Computer_Item extends CommonDBRelation{
                                    $onlyglobal=0, $used=array()) {
       global $CFG_GLPI;
 
-      $rand = mt_rand();
+      $rand     = mt_rand();
 
-      $use_ajax = false;
-      if ($CFG_GLPI["use_ajax"]) {
-         $nb = 0;
-         if ($entity_restrict >= 0) {
-            $nb = countElementsInTableForEntity(getTableForItemType($itemtype), $entity_restrict);
-         } else {
-            $nb = countElementsInTableForMyEntities(getTableForItemType($itemtype));
-         }
-         if ($nb > $CFG_GLPI["ajax_limit_count"]) {
-            $use_ajax = true;
-         }
-      }
+      $field_id = Html::cleanId("dropdown_".$myname.$rand);
+      $param    = array('entity_restrict' => $entity_restrict,
+                        'fromtype'        => $fromtype,
+                        'itemtype'        => $itemtype,
+                        'onlyglobal'      => $onlyglobal,
+                        'used'            => $used);
 
-      $params = array('searchText'      => '__VALUE__',
-                      'fromtype'        => $fromtype,
-                      'itemtype'        => $itemtype,
-                      'myname'          => $myname,
-                      'onlyglobal'      => $onlyglobal,
-                      'entity_restrict' => $entity_restrict,
-                      'used'            => $used);
-      $default = "<select name='$myname'><option value='0'>".Dropdown::EMPTY_VALUE."</option>
-                  </select>\n";
-      Ajax::dropdown($use_ajax, "/ajax/dropdownConnect.php", $params, $default, $rand);
+      echo Html::jsAjaxDropdown($myname, $field_id,
+                                $CFG_GLPI['root_doc']."/ajax/getDropdownConnect.php",
+                                $param);
 
       return $rand;
    }
@@ -808,31 +759,31 @@ class Computer_Item extends CommonDBRelation{
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
       // can exists for Template
-      if ($item->can($item->getField('id'),'r')) {
+      if ($item->can($item->getField('id'), READ)) {
          switch ($item->getType()) {
             case 'Phone' :
             case 'Printer' :
             case 'Peripheral' :
             case 'Monitor' :
-               if (Session::haveRight('computer', 'r')) {
+               if (Computer::canView()) {
                   if ($_SESSION['glpishow_count_on_tabs']) {
-                     return self::createTabEntry(_n('Connection','Connections',2),
+                     return self::createTabEntry(_n('Connection','Connections', Session::getPluralNumber()),
                                                  self::countForItem($item));
                   }
-                  return _n('Connection','Connections',2);
+                  return _n('Connection','Connections', Session::getPluralNumber());
                }
                break;
 
             case 'Computer' :
-               if (Session::haveRight('phone', 'r')
-                   || Session::haveRight('printer', 'r')
-                   || Session::haveRight('peripheral', 'r')
-                   || Session::haveRight('monitor', 'r')) {
+               if (Phone::canView()
+                   || Printer::canView()
+                   || Peripheral::canView()
+                   || Monitor::canView()) {
                   if ($_SESSION['glpishow_count_on_tabs']) {
-                     return self::createTabEntry(_n('Connection','Connections',2),
+                     return self::createTabEntry(_n('Connection','Connections', Session::getPluralNumber()),
                                                  self::countForComputer($item));
                   }
-                  return _n('Connection','Connections',2);
+                  return _n('Connection','Connections', Session::getPluralNumber());
                }
                break;
          }

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: knowbaseitem.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: knowbaseitem.php 23080 2014-07-17 08:40:03Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,14 +33,20 @@
 
 include ('../inc/includes.php');
 
-Session::checkSeveralRightsOr(array('knowbase' => 'r',
-                                    'faq'      => 'r'));
+if (!Session::haveRightsOr('knowbase', array(READ, KnowbaseItem::READFAQ))) {
+   Session::redirectIfNotLoggedIn();
+   Html::displayRightError();
+}
 
 if (isset($_GET["id"])) {
    Html::redirect($CFG_GLPI["root_doc"]."/front/knowbaseitem.form.php?id=".$_GET["id"]);
 }
 
-Html::header(KnowbaseItem::getTypeName(1), $_SERVER['PHP_SELF'], "utils", "knowbase");
+Html::header(KnowbaseItem::getTypeName(1), $_SERVER['PHP_SELF'], "tools", "knowbaseitem");
+
+
+// Clean for search
+$_GET = Toolbox::stripslashes_deep($_GET);
 
 // Search a solution
 if (!isset($_GET["contains"])
@@ -49,7 +55,7 @@ if (!isset($_GET["contains"])
 
    if ($item = getItemForItemtype($_GET["item_itemtype"])) {
       if ($item->getFromDB($_GET["item_items_id"])) {
-         $_GET["contains"] = addslashes($item->getField('name'));
+         $_GET["contains"] = $item->getField('name');
       }
    }
 }
@@ -61,7 +67,7 @@ if (isset($_GET['forcetab'])) {
 }
 
 $kb = new Knowbase();
-$kb->show($_GET);
+$kb->display($_GET);
 
 
 Html::footer();

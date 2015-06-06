@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationtargetsoftwarelicense.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notificationtargetsoftwarelicense.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,10 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Class NotificationTarget
+
+/**
+ * NotificationTargetSoftwareLicense Class
+**/
 class NotificationTargetSoftwareLicense extends NotificationTarget {
 
 
@@ -51,7 +54,6 @@ class NotificationTargetSoftwareLicense extends NotificationTarget {
     * @param $options   array
    **/
    function getDatasForTemplate($event, $options=array()) {
-     global $CFG_GLPI;
 
       $events                            = $this->getAllEvents();
 
@@ -61,13 +63,14 @@ class NotificationTargetSoftwareLicense extends NotificationTarget {
                                                                      $options['entities_id']);
 
       foreach ($options['licenses'] as $id => $license) {
-         $tmp                               = array();
-         $tmp['##license.item##']           = $license['softname'];
-         $tmp['##license.name##']           = $license['name'];
-         $tmp['##license.serial##']         = $license['serial'];
-         $tmp['##license.expirationdate##'] = Html::convDate($license["expire"]);
-         $tmp['##license.url##']            = urldecode($CFG_GLPI["url_base"].
-                                                        "/index.php?redirect=softwarelicense_".$id);
+         $tmp                       = array();
+         $tmp['##license.item##']   = $license['softname'];
+         $tmp['##license.name##']   = $license['name'];
+         $tmp['##license.serial##'] = $license['serial'];
+         $tmp['##license.expirationdate##']
+                                    = Html::convDate($license["expire"]);
+         $tmp['##license.url##']    = $this->formatURL($options['additionnaloption']['usertype'],
+                                                       "SoftwareLicense_".$id);
          $this->datas['licenses'][] = $tmp;
       }
 

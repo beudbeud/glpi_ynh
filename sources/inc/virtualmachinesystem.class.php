@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: virtualmachinesystem.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: virtualmachinesystem.class.php 23286 2015-01-08 10:48:51Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,15 +28,18 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class Filesystem
+/// Class VirtualMachineSystem
 class VirtualMachineSystem extends CommonDropdown {
+
+   var $can_be_translated = false;
+
 
    static function getTypeName($nb=0) {
       return _n('Virtualization model', 'Virtualization models', $nb);

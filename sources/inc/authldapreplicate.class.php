@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: authldapreplicate.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: authldapreplicate.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 /**
@@ -36,12 +36,19 @@
 **/
 class AuthLdapReplicate extends CommonDBTM {
 
+   static $rightname = 'config';
+
+
+   static function canCreate() {
+      return static::canUpdate();
+   }
+
 
    /**
-    * @since version 0.84
+    * @since version 0.85
    **/
-   static function canCreate() {
-      return Session::haveRight('config', 'w');
+   static function canPurge() {
+      return static::canUpdate();
    }
 
 

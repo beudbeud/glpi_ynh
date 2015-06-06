@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ruledictionnaryprintercollection.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ruledictionnaryprintercollection.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -39,11 +39,10 @@ class RuleDictionnaryPrinterCollection extends RuleCollection {
 
    public $stop_on_first_match = true;
    public $can_replay_rules    = true;
-   static public $right        = 'rule_dictionnary_printer';
    public $menu_type           = 'dictionnary';
    public $menu_option         = 'printer';
 
-
+   static $rightname           = 'rule_dictionnary_printer';
 
    /**
     * @see RuleCollection::getTitle()
@@ -330,8 +329,8 @@ class RuleDictionnaryPrinterCollection extends RuleCollection {
                                        AND `items_id` = '$new_printers_id'
                                        AND `computers_id`='".$connection["computers_id"]."'")) {
             //Direct connection doesn't exists in the target printer : move it
-            $computeritem->update(array ('id'       => $connection['id'],
-                                         'items_id' => $new_printers_id));
+            $computeritem->update(array('id'       => $connection['id'],
+                                        'items_id' => $new_printers_id));
          } else {
             //Direct connection already exists in the target printer : delete it
             $computeritem->delete($connection);

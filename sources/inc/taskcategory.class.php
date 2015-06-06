@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: taskcategory.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: taskcategory.class.php 23173 2014-10-04 18:21:49Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,32 +28,28 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// TaskCategory class
+/**
+ * TaskCategory class
+**/
 class TaskCategory extends CommonTreeDropdown {
 
    // From CommonDBTM
-   public $dohistory = true;
+   public $dohistory       = true;
+   var $can_be_translated  = true;
+
+   static $rightname       = 'taskcategory';
+
 
 
    static function getTypeName($nb=0) {
-      return _n('Tasks category','Tasks categories', $nb);
-   }
-
-
-   static function canCreate() {
-      return Session::haveRight('entity_dropdown','w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('entity_dropdown','r');
+      return _n('Task category','Task categories', $nb);
    }
 
 }

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: allassets.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: allassets.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,7 +37,7 @@ include ('../inc/includes.php');
 
 Session::checkCentralAccess();
 
-Html::header(__('Global'), $_SERVER['PHP_SELF'], "inventory", "allassets");
+Html::header(__('Global'), $_SERVER['PHP_SELF'], "assets", "allassets");
 
 Search::show('AllAssets');
 

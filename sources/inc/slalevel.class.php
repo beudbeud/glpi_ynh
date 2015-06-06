@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: slalevel.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: slalevel.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,9 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class SLA
+/**
+ * SlaLevel class
+**/
 class SlaLevel extends RuleTicket {
 
    protected $rules_id_field    = 'slalevels_id';
@@ -43,7 +45,7 @@ class SlaLevel extends RuleTicket {
    // No criteria
    protected $rulecriteriaclass = 'SlaLevelCriteria';
 
-   static public $right         = 'sla';
+   static $rightname            = 'sla';
 
 
    /**
@@ -52,9 +54,19 @@ class SlaLevel extends RuleTicket {
    function __construct() {
       // Override in order not to use glpi_rules table.
    }
+
    // Temporary hack for this class in 0.84
    static function getTable() {
       return 'glpi_slalevels';
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   static function getConditionsArray() {
+      // Override ruleticket one
+      return array();
    }
 
 
@@ -93,11 +105,11 @@ class SlaLevel extends RuleTicket {
       global $DB;
 
       $ID = $sla->getField('id');
-      if (!$sla->can($ID, 'r')) {
+      if (!$sla->can($ID, READ)) {
          return false;
       }
 
-      $canedit = $sla->can($ID,'w');
+      $canedit = $sla->can($ID, UPDATE);
 
       $rand    = mt_rand();
 
@@ -113,12 +125,14 @@ class SlaLevel extends RuleTicket {
          echo "<input type='hidden' name='slas_id' value='$ID'>";
          echo "<input type='hidden' name='entities_id' value='".$sla->getEntityID()."'>";
          echo "<input type='hidden' name='is_recursive' value='".$sla->isRecursive()."'>";
+         echo "<input type='hidden' name='match' value='AND'>";
          echo "</td><td><input  name='name' value=''>";
          echo "</td><td class='center'>".__('Execution')."</td><td>";
 
+         $resolution_time = $sla->getResolutionTime();
          self::dropdownExecutionTime('execution_time',
                                      array('max_time'
-                                             => $sla->fields['resolution_time'],
+                                             => $resolution_time,
                                            'used'
                                              => self::getAlreadyUsedExecutionTime($sla->fields['id'])));
 
@@ -143,8 +157,9 @@ class SlaLevel extends RuleTicket {
       echo "<div class='spaced'>";
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'  => $numrows);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed'  => $numrows,
+                                      'container'      => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
 
       echo "<table class='tab_cadre_fixehov'>";
@@ -198,7 +213,7 @@ class SlaLevel extends RuleTicket {
       echo "</table>";
       if ($canedit && $numrows) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -243,7 +258,7 @@ class SlaLevel extends RuleTicket {
       unset($actions['affectobject']);
       unset($actions['groups_id_validate']);
       unset($actions['users_id_validate']);
-      
+      unset($actions['validation_percent']);
       $actions['status']['name']    = __('Status');
       $actions['status']['type']    = 'dropdown_status';
       return $actions;
@@ -260,10 +275,9 @@ class SlaLevel extends RuleTicket {
    **/
    function showForm($ID, $options=array()) {
 
-      $canedit = $this->can(static::$right,"w");
+      $canedit = $this->can('sla',UPDATE);
 
       $this->initForm($ID, $options);
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
@@ -284,9 +298,12 @@ class SlaLevel extends RuleTicket {
       echo "<td>".$sla->getLink()."</td>";
       echo "<td>".__('Execution')."</td>";
       echo "<td>";
+
+      $resolution_time = $sla->getResolutionTime();
+
       self::dropdownExecutionTime('execution_time',
                                   array('max_time'
-                                             => $sla->fields['resolution_time'],
+                                             => $resolution_time,
                                         'used'
                                              => self::getAlreadyUsedExecutionTime($sla->fields['id']),
                                         'value'
@@ -301,7 +318,6 @@ class SlaLevel extends RuleTicket {
       echo "<td colspan='2'>&nbsp;</td></tr>";
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
    }
 
 
@@ -369,8 +385,8 @@ class SlaLevel extends RuleTicket {
       if (!in_array(0,$p['used'])) {
          $possible_values[0] = __('Due date');
       }
-
       ksort($possible_values);
+
       Dropdown::showFromArray($name, $possible_values, array('value' => $p['value']));
    }
 
@@ -466,11 +482,11 @@ class SlaLevel extends RuleTicket {
          switch ($item->getType()) {
             case 'SLA' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  return self::createTabEntry(self::getTypeName(2),
+                  return self::createTabEntry(self::getTypeName(Session::getPluralNumber()),
                                               countElementsInTable($this->getTable(),
                                                                    "`slas_id` = '".$item->getID()."'"));
                }
-               return self::getTypeName(2);
+               return self::getTypeName(Session::getPluralNumber());
          }
       }
       return '';

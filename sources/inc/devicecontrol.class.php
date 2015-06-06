@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: devicecontrol.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: devicecontrol.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,16 +28,20 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class DeviceControl
+/**
+ * DeviceControl Class
+**/
 class DeviceControl extends CommonDevice {
 
+   static protected $forward_entity_to = array('Item_DeviceControl', 'Infocom');
+   
    static function getTypeName($nb=0) {
       return _n('Controller', 'Controllers', $nb);
    }
@@ -51,7 +55,13 @@ class DeviceControl extends CommonDevice {
                                      'type'  => 'bool'),
                                array('name'  => 'interfacetypes_id',
                                      'label' => __('Interface'),
-                                     'type'  => 'dropdownValue')));
+                                     'type'  => 'dropdownValue'),
+                               array('name'  => 'none',
+                                     'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
+                                        RegisteredID::showAddChildButtonForItemForm($this,
+                                                                                    '_registeredID',
+                                                                                    NULL, false),
+                                     'type'  => 'registeredIDChooser')));
    }
 
 

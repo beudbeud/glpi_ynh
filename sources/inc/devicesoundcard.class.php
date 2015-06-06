@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: devicesoundcard.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: devicesoundcard.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,16 +28,20 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class DeviceSoundCard
+/**
+ * DeviceSoundCard Class
+**/
 class DeviceSoundCard extends CommonDevice {
 
+   static protected $forward_entity_to = array('Item_DeviceSoundCard', 'Infocom');
+   
    static function getTypeName($nb=0) {
       return _n('Soundcard', 'Soundcards', $nb);
    }
@@ -48,7 +52,13 @@ class DeviceSoundCard extends CommonDevice {
       return array_merge(parent::getAdditionalFields(),
                          array(array('name'  => 'type',
                                      'label' => __('Type'),
-                                     'type'  => 'text')));
+                                     'type'  => 'text'),
+                               array('name'  => 'none',
+                                     'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
+                                        RegisteredID::showAddChildButtonForItemForm($this,
+                                                                                    '_registeredID',
+                                                                                    NULL, false),
+                                     'type'  => 'registeredIDChooser')));
    }
 
 

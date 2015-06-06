@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: link_itemtype.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: link_itemtype.class.php 23304 2015-01-21 14:46:37Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -64,11 +64,11 @@ class Link_Itemtype extends CommonDBChild {
 
       $links_id = $link->getField('id');
 
-      $canedit  = $link->can($links_id, 'w');
+      $canedit  = $link->canEdit($links_id);
       $rand     = mt_rand();
 
-      if (!Session::haveRight("link","r")
-          || !$link->can($links_id, 'r')) {
+      if (!Link::canView()
+          || !$link->can($links_id, READ)) {
          return false;
       }
 
@@ -109,16 +109,24 @@ class Link_Itemtype extends CommonDBChild {
       echo "<div class='spaced'>";
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'  => $numrows);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed'  => $numrows,
+                                      'container'      => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixe'>";
-      echo "<tr>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $numrows) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_top    .= "</th>";
+         $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= "</th>";
       }
-      echo "<th>".__('Type')."</th>";
-      echo "</tr>";
+      $header_end .= "<th>".__('Type')."</th>";
+      $header_end .= "</tr>";
+      echo $header_begin.$header_top.$header_end;
 
       foreach ($types as $data) {
          $typename = NOT_AVAILABLE;
@@ -134,10 +142,11 @@ class Link_Itemtype extends CommonDBChild {
             echo "</tr>";
          }
       }
+      echo $header_begin.$header_bottom.$header_end;
       echo "</table>";
       if ($canedit && $numrows) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -150,11 +159,11 @@ class Link_Itemtype extends CommonDBChild {
          switch ($item->getType()) {
             case 'Link' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  return self::createTabEntry(__('Associated hardware types'),
+                  return self::createTabEntry(_n('Associated item type', 'Associated item types', Session::getPluralNumber()),
                                               countElementsInTable($this->getTable(),
                                                                    "links_id = '".$item->getID()."'"));
                }
-               return __('Associated hardware types');
+               return _n('Associated item type', 'Associated item types', Session::getPluralNumber());
          }
       }
       return '';
@@ -167,6 +176,24 @@ class Link_Itemtype extends CommonDBChild {
          self::showForLink($item);
       }
       return true;
+   }
+
+
+   /**
+    *
+    * Remove all associations for an itemtype
+    *
+    * @since version 0.85
+    *
+    * @param $itemtype itemtype for which all link associations must be removed
+    */
+   static function deleteForItemtype($itemtype) {
+      global $DB;
+
+      $query = "DELETE
+                FROM `".self::getTable()."`
+                WHERE `itemtype` LIKE '%Plugin$itemtype%'";
+      $DB->query($query);
    }
 
 }

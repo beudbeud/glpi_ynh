@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Vincent Mazzoni
    @co-author David Durieux
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -247,21 +247,35 @@ class PluginFusioninventoryCommunication {
     **/
    function getTaskAgent($agent_id) {
 
-      $pfTaskjobstate = new PluginFusioninventoryTaskjobstate();
-      $moduleRun = $pfTaskjobstate->getTaskjobsAgent($agent_id);
-      foreach ($moduleRun as $className => $array) {
+      $pfTask = new PluginFusioninventoryTask();
+
+      /**
+       * TODO: the following must be definitely done differently !
+       * (... but i'm kind in a hurry right now ;-) )
+       */
+      $methods = array();
+      $classnames = array();
+      foreach( PluginFusioninventoryStaticmisc::getmethods() as $method) {
+         if (isset($method['classname'])) {
+            $methods[] = $method['method'];
+            $classnames[$method['method']] = $method['classname'];
+         }
+      }
+
+      $jobstates = $pfTask->getTaskjobstatesForAgent($agent_id,$methods);
+      foreach ($jobstates as $jobstate) {
+         $className = $classnames[$jobstate->method];
          if (class_exists($className)) {
             /*
              * TODO: check if use_rest is enabled in Staticmisc::get_methods.
              * Also, this get_methods function need to be reviewed
              */
             if (  $className != "PluginFusioninventoryInventoryComputerESX"
-               && $className != "PluginFusioninventoryDeployinstall"
-               && $className != "PluginFusioninventoryDeployuninstall"
+               && $className != "PluginFusioninventoryDeployCommon"
                && $className != "PluginFusioninventoryCollect"
             ) {
                $class = new $className();
-               $sxml_temp = $class->run($array);
+               $sxml_temp = $class->run($jobstate);
                PluginFusioninventoryToolbox::append_simplexml(
                   $this->message, $sxml_temp
                );
@@ -302,10 +316,10 @@ class PluginFusioninventoryCommunication {
     * Manage communication with old protocol (XML over POST)
     *
     **/
-   function handleOCSCommunication($xml='', $output='ext') {
+   function handleOCSCommunication($rawdata, $xml='', $output='ext') {
 
       // ***** For debug only ***** //
-      //$GLOBALS["HTTP_RAW_POST_DATA"] = gzcompress('');
+      //$rawdata = gzcompress('');
       // ********** End ********** //
 
       $config = new PluginFusioninventoryConfig();
@@ -327,35 +341,35 @@ class PluginFusioninventoryCommunication {
          $_SESSION['glpiactiveprofile']['peripheral'] = 'w';
          $_SESSION['glpiactiveprofile']['networking'] = 'w';
 
-         $_SESSION["glpi_plugin_fusioninventory_profile"]['unknowndevice'] = 'w';
+         $_SESSION["glpi_plugin_fusioninventory_profile"]['unmanaged'] = 'w';
       }
 
       $communication  = new PluginFusioninventoryCommunication();
       $pfToolbox = new PluginFusioninventoryToolbox();
 
       // identify message compression algorithm
-      $taskjob = new PluginFusioninventoryTaskjob();
-      $taskjob->disableDebug();
+      $agent = new PluginFusioninventoryAgent();
+      $agent->disableDebug();
       $compressmode = '';
       if (!empty($xml)) {
             $compressmode = 'none';
       } else if ($_SERVER['CONTENT_TYPE'] == "application/x-compress-zlib") {
-            $xml = gzuncompress($GLOBALS["HTTP_RAW_POST_DATA"]);
+            $xml = gzuncompress($rawdata);
             $compressmode = "zlib";
       } else if ($_SERVER['CONTENT_TYPE'] == "application/x-compress-gzip") {
-            $xml = $pfToolbox->gzdecode($GLOBALS["HTTP_RAW_POST_DATA"]);
+            $xml = $pfToolbox->gzdecode($rawdata);
             $compressmode = "gzip";
       } else if ($_SERVER['CONTENT_TYPE'] == "application/xml") {
-            $xml = $GLOBALS["HTTP_RAW_POST_DATA"];
+            $xml = $rawdata;
             $compressmode = 'none';
       } else {
 
          # try each algorithm successively
-         if (($xml = gzuncompress($GLOBALS["HTTP_RAW_POST_DATA"]))) {
+         if (($xml = gzuncompress($rawdata))) {
             $compressmode = "zlib";
-         } else if (($xml = $pfToolbox->gzdecode($GLOBALS["HTTP_RAW_POST_DATA"]))) {
+         } else if (($xml = $pfToolbox->gzdecode($rawdata))) {
             $compressmode = "gzip";
-         } else if (($xml = gzinflate (substr($GLOBALS["HTTP_RAW_POST_DATA"], 2)))) {
+         } else if (($xml = gzinflate (substr($rawdata, 2)))) {
             // accept deflate for OCS agent 2.0 compatibility,
             // but use zlib for answer
             if (strstr($xml, "<QUERY>PROLOG</QUERY>")
@@ -365,11 +379,11 @@ class PluginFusioninventoryCommunication {
                $compressmode = "deflate";
             }
          } else {
-            $xml = $GLOBALS["HTTP_RAW_POST_DATA"];
+            $xml = $rawdata;
             $compressmode = 'none';
          }
       }
-      $taskjob->reenableusemode();
+      $agent->restoreDebug();
 
       // check if we are in ssl only mode
       $ssl = $config->getValue('ssl_only');

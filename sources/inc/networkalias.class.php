@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: networkalias.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: networkalias.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,11 +35,13 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class NetworkAlias
-/// since version 0.84
+/**
+ *  NetworkAlias Class
+ *
+ * @since version 0.84
+**
+ */
 class NetworkAlias extends FQDNLabel {
-
-   var $refresh_page                 = true;
 
    // From CommonDBChild
    static public $itemtype           = 'NetworkName';
@@ -54,6 +56,15 @@ class NetworkAlias extends FQDNLabel {
    }
 
 
+   function defineTabs($options=array()) {
+
+      $ong  = array();
+      $this->addDefaultFormTab($ong);
+
+      return $ong;
+   }
+
+
    /**
     * Get the full name (internet name) of a NetworkName
     *
@@ -64,7 +75,7 @@ class NetworkAlias extends FQDNLabel {
    static function getInternetNameFromID($ID) {
 
       $networkAlias = new self();
-      if ($networkalias->can($ID, 'r'))
+      if ($networkalias->can($ID, READ))
          return FQDNLabel::getInternetNameFromLabelAndDomainID($this->fields["name"],
                                                                $this->fields["fqdns_id"]);
       return "";
@@ -98,9 +109,6 @@ class NetworkAlias extends FQDNLabel {
       }
 
       $lastItem = $recursiveItems[count($recursiveItems) - 1];
-      if (!$showsimple) {
-         $this->showTabs();
-      }
 
       $options['entities_id'] = $lastItem->getField('entities_id');
       $this->showFormHeader($options);
@@ -113,7 +121,7 @@ class NetworkAlias extends FQDNLabel {
          echo "<input type='hidden' name='networknames_id' value='".
                $this->fields["networknames_id"]."'>\n";
       }
-      $this->displayRecursiveItems($recursiveItems, (isset($options['popup']) ? "Name" : "Link"));
+      $this->displayRecursiveItems($recursiveItems, "Link");
       echo "</td><td>" . __('Name') . "</td><td>\n";
       Html::autocompletionTextField($this, "name");
       echo "</td></tr>\n";
@@ -132,9 +140,6 @@ class NetworkAlias extends FQDNLabel {
       echo "</tr>\n";
 
       $this->showFormButtons($options);
-      if (!$showsimple) {
-         $this->addDivForTabs();
-      }
       return true;
    }
 
@@ -241,11 +246,11 @@ class NetworkAlias extends FQDNLabel {
       global $DB, $CFG_GLPI;
 
       $ID = $item->getID();
-      if (!$item->can($ID, 'r')) {
+      if (!$item->can($ID, READ)) {
          return false;
       }
 
-      $canedit = $item->can($ID, 'w');
+      $canedit = $item->canEdit($ID);
       $rand    = mt_rand();
 
       $query = "SELECT *
@@ -281,19 +286,27 @@ class NetworkAlias extends FQDNLabel {
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $number);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed' => $number,
+                                      'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
 
-      echo "<tr>";
       if ($canedit && $number) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_top    .= "</th>";
+         $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= "</th>";
       }
-      echo "<th>".__('Name')."</th>";
-      echo "<th>"._n('Internet domain', 'Internet domains', 1)."</th>";
-      echo "<th>".__('Entity')."</th>";
-      echo "</tr>";
+      $header_end .= "<th>".__('Name')."</th>";
+      $header_end .= "<th>"._n('Internet domain', 'Internet domains', 1)."</th>";
+      $header_end .= "<th>".__('Entity')."</th>";
+      $header_end .= "</tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $used = array();
       foreach ($aliases as $data) {
@@ -331,11 +344,13 @@ class NetworkAlias extends FQDNLabel {
                                                                           $data["entities_id"]);
          echo "</tr>";
       }
-
+      if ($number) {
+         echo $header_begin.$header_bottom.$header_end;
+      }
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -353,16 +368,16 @@ class NetworkAlias extends FQDNLabel {
 
       $alias   = new self();
       $address = new NetworkName();
-      $item->check($item->getID(), 'r');
-      $canedit = $item->can($item->getID(), 'w');
+      $item->check($item->getID(), READ);
+      $canedit = $item->canEdit($item->getID());
 
-      if (isset($_POST["start"])) {
-         $start = $_POST["start"];
+      if (isset($_GET["start"])) {
+         $start = $_GET["start"];
       } else {
          $start = 0;
       }
-      if (!empty($_POST["order"])) {
-         $order = $_POST["order"];
+      if (!empty($_GET["order"])) {
+         $order = $_GET["order"];
       } else {
          $order = "alias";
       }
@@ -441,7 +456,7 @@ class NetworkAlias extends FQDNLabel {
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
       if ($item->getID()
-          && $item->can($item->getField('id'),'r')) {
+          && $item->can($item->getField('id'), READ)) {
          if ($_SESSION['glpishow_count_on_tabs']) {
             switch ($item->getType()) {
                case 'NetworkName' :
@@ -453,9 +468,9 @@ class NetworkAlias extends FQDNLabel {
                   $numberElements = countElementsInTable($this->getTable(),
                                                          "fqdns_id='".$item->getID()."'");
             }
-            return self::createTabEntry(self::getTypeName(2), $numberElements);
+            return self::createTabEntry(self::getTypeName(Session::getPluralNumber()), $numberElements);
          }
-         return self::getTypeName(2);
+         return self::getTypeName(Session::getPluralNumber());
       }
       return '';
    }

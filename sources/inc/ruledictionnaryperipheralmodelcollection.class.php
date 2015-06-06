@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ruledictionnaryperipheralmodelcollection.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ruledictionnaryperipheralmodelcollection.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,17 +28,13 @@
  */
 
 /** @file
-* @brief
+* @brief 
 */
 
 class RuleDictionnaryPeripheralModelCollection extends RuleDictionnaryDropdownCollection {
-
-
    public $item_table  = "glpi_peripheralmodels";
    public $menu_option = "model.peripheral";
-
-
-
+   
    /**
     * @see RuleCollection::getTitle()
    **/

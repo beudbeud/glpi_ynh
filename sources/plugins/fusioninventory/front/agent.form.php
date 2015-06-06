@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -44,17 +44,12 @@ include ("../../../inc/includes.php");
 
 $agent = new PluginFusioninventoryAgent();
 
-Html::header(__('FusionInventory', 'fusioninventory'), $_SERVER["PHP_SELF"], "plugins",
-             "fusioninventory", "agents");
-
-PluginFusioninventoryProfile::checkRight("agent", "r");
-
-PluginFusioninventoryMenu::displayMenu("mini");
+Session::checkRight('plugin_fusioninventory_agent', READ);
 
 if (isset($_POST['startagent'])) {
-   $taskjob = new PluginFusioninventoryTaskjob();
-
-   if ($taskjob->startAgentRemotly($_POST['agent_id'])) {
+   $agent = new PluginFusioninventoryAgent();
+   $agent->getFromDB($_POST['agent_id']);
+   if ($agent->wakeUp()) {
        Session::addMessageAfterRedirect(__('The agent is running', 'fusioninventory'));
 
    } else {
@@ -63,7 +58,7 @@ if (isset($_POST['startagent'])) {
    }
    Html::back();
 } else if (isset ($_POST["update"])) {
-   PluginFusioninventoryProfile::checkRight("agent", "w");
+   Session::checkRight('plugin_fusioninventory_agent', UPDATE);
    if (isset($_POST['items_id'])) {
       if (($_POST['items_id'] != "0") AND ($_POST['items_id'] != "")) {
          $_POST['itemtype'] = '1';
@@ -71,9 +66,9 @@ if (isset($_POST['startagent'])) {
    }
    $agent->update($_POST);
    Html::back();
-} else if (isset ($_POST["delete"])) {
-   PluginFusioninventoryProfile::checkRight("agent", "w");
-   $agent->delete($_POST);
+} else if (isset ($_POST["purge"])) {
+   Session::checkRight('plugin_fusioninventory_agent', PURGE);
+   $agent->delete($_POST, true);
    $agent->redirectToList();
 } else if (isset ($_POST["startagent"])) {
 
@@ -81,11 +76,23 @@ if (isset($_POST['startagent'])) {
 }
 
 
+Html::header(__('FusionInventory', 'fusioninventory'), $_SERVER["PHP_SELF"], "plugins",
+             "pluginfusioninventorymenu", "agent");
+
+PluginFusioninventoryMenu::displayMenu("mini");
 
 if (isset($_GET["id"])) {
-   $agent->showForm($_GET["id"]);
+   $agent->display(
+      array(
+         "id" => $_GET["id"]
+      )
+   );
 } else {
-   $agent->showForm("");
+   $agent->display(
+      array(
+         "id" => 0
+      )
+   );
 }
 
 Html::footer();

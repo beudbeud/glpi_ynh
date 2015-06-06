@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: change_problem.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: change_problem.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,6 +37,10 @@ if (!defined('GLPI_ROOT')) {
 
 /**
  * @since version 0.84
+ *
+ * Change_Problem Class
+ *
+ * Relation between Changes and Problems
 **/
 class Change_Problem extends CommonDBRelation{
 
@@ -63,6 +67,48 @@ class Change_Problem extends CommonDBRelation{
 
 
    /**
+    * @see CommonGLPI::getTabNameForItem()
+   **/
+   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+
+      if (static::canView()) {
+         $nb = 0;
+         switch ($item->getType()) {
+            case 'Change' :
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countElementsInTable('glpi_changes_problems',
+                                             "`changes_id` = '".$item->getID()."'");
+               }
+               return self::createTabEntry(Problem::getTypeName(Session::getPluralNumber()), $nb);
+
+            case 'Problem' :
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countElementsInTable('glpi_changes_problems',
+                                             "`problems_id` = '".$item->getID()."'");
+               }
+               return self::createTabEntry(Change::getTypeName(Session::getPluralNumber()), $nb);
+         }
+      }
+      return '';
+   }
+
+
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+
+      switch ($item->getType()) {
+         case 'Change' :
+            self::showForChange($item);
+            break;
+
+         case 'Problem' :
+            self::showForProblem($item);
+            break;
+      }
+      return true;
+   }
+
+
+   /**
     * Get search function for the class
     *
     * @return array of search option
@@ -81,11 +127,11 @@ class Change_Problem extends CommonDBRelation{
       global $DB, $CFG_GLPI;
 
       $ID = $problem->getField('id');
-      if (!$problem->can($ID,'r')) {
+      if (!$problem->can($ID, READ)) {
          return false;
       }
 
-      $canedit       = $problem->can($ID,'w');
+      $canedit       = $problem->canEdit($ID);
       $rand          = mt_rand();
       $showentities  = Session::isMultiEntitiesMode();
 
@@ -123,9 +169,11 @@ class Change_Problem extends CommonDBRelation{
          echo "</td><td class='center'>";
          echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
          echo "</td><td>";
-         echo "<a href='".Toolbox::getItemTypeFormURL('Change')."?problems_id=$ID'>";
-         _e('Create a change from this problem');
-         echo "</a>";
+         if (Session::haveRight('change', CREATE)) {
+            echo "<a href='".Toolbox::getItemTypeFormURL('Change')."?problems_id=$ID'>";
+            _e('Create a change from this problem');
+            echo "</a>";
+         }
          echo "</td></tr></table>";
          Html::closeForm();
          echo "</div>";
@@ -134,52 +182,37 @@ class Change_Problem extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'  => $numrows);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed' => $numrows,
+                                      'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
 
       echo "<table class='tab_cadre_fixehov'>";
-      echo "<tr>";
-      if ($canedit && $numrows) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
-      }
-      echo "<th>"._n('Change', 'Changes', 2);
-      echo "</th>";
-      if ($showentities) {
-         echo "<th>".__('Entity')."</th>";
-      }
+      echo "<tr class='noHover'><th colspan='12'>".Change::getTypeName($numrows)."</th>";
       echo "</tr>";
-
-
-      $used = array();
       if ($numrows) {
+         Change::commonListHeader(Search::HTML_OUTPUT,'mass'.__CLASS__.$rand);
          Session::initNavigateListItems('Change',
-                              //TRANS : %1$s is the itemtype name,
-                              //        %2$s is the name of the item (used for headings of a list)
-                                        sprintf(__('%1$s = %2$s'), Problem::getTypeName(1),
-                                                $problem->fields["name"]));
+                                 //TRANS : %1$s is the itemtype name,
+                                 //        %2$s is the name of the item (used for headings of a list)
+                                         sprintf(__('%1$s = %2$s'), Problem::getTypeName(1),
+                                                 $problem->fields["name"]));
+
+         $i = 0;
          foreach ($changes as $data) {
             Session::addToNavigateListItems('Change', $data["id"]);
-            echo "<tr class='tab_bg_1'>";
-            if ($canedit) {
-               echo "<td width='10'>";
-               Html::showMassiveActionCheckBox(__CLASS__, $data["linkID"]);
-               echo "</td>";
-            }
-            echo "<td><a href='".Toolbox::getItemTypeFormURL('Change')."?id=".$data['id']."'>".
-                      $data["name"]."</a></td>";
-            if ($showentities) {
-               echo "<td>".Dropdown::getDropdownName('glpi_entities', $data["entities_id"])."</td>";
-            }
-            echo "</tr>";
+            Change::showShort($data['id'], array('row_num'                => $i,
+                                                 'type_for_massiveaction' => __CLASS__,
+                                                 'id_for_massiveaction'   => $data['linkID']));
+            $i++;
          }
+         Change::commonListHeader(Search::HTML_OUTPUT,'mass'.__CLASS__.$rand);
       }
-
-
       echo "</table>";
+
       if ($canedit && $numrows) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -196,11 +229,11 @@ class Change_Problem extends CommonDBRelation{
       global $DB, $CFG_GLPI;
 
       $ID = $change->getField('id');
-      if (!$change->can($ID,'r')) {
+      if (!$change->can($ID, READ)) {
          return false;
       }
 
-      $canedit      = $change->can($ID,'w');
+      $canedit      = $change->canEdit($ID);
       $rand         = mt_rand();
       $showentities = Session::isMultiEntitiesMode();
 
@@ -245,82 +278,43 @@ class Change_Problem extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'  => $numrows);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed' => $numrows,
+                                      'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
+
       echo "<table class='tab_cadre_fixehov'>";
-      echo "<tr>";
-      if ($canedit && $numrows) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
-      }
-      echo "<th>"._n('Problem', 'Problems', 2)."</th>";
-      if ($showentities) {
-         echo "<th>".__('Entity')."</th>";
-      }
+      echo "<tr class='noHover'><th colspan='12'>".Problem::getTypeName($numrows)."</th>";
       echo "</tr>";
-
-
-      $used = array();
       if ($numrows) {
+         Problem::commonListHeader(Search::HTML_OUTPUT,'mass'.__CLASS__.$rand);
          Session::initNavigateListItems('Problem',
-         //TRANS : %1$s is the itemtype name,
-         //        %2$s is the name of the item (used for headings of a list)
-                                        sprintf(__('%1$s = %2$s'),
-                                                Change::getTypeName(1), $change->fields["name"]));
+                                 //TRANS : %1$s is the itemtype name,
+                                 //        %2$s is the name of the item (used for headings of a list)
+                                         sprintf(__('%1$s = %2$s'), Change::getTypeName(1),
+                                                 $change->fields["name"]));
 
+         $i = 0;
          foreach ($problems as $data) {
             Session::addToNavigateListItems('Problem', $data["id"]);
-            echo "<tr class='tab_bg_1'>";
-            if ($canedit) {
-               echo "<td width='10'>";
-               Html::showMassiveActionCheckBox(__CLASS__, $data["linkID"]);
-               echo "</td>";
-            }
-            echo "<td><a href='".Toolbox::getItemTypeFormURL('Problem')."?id=".$data['id']."'>".
-                      $data["name"]."</a></td>";
-            if ($showentities) {
-               echo "<td>".Dropdown::getDropdownName('glpi_entities', $data["entities_id"])."</td>";
-            }
-            echo "</tr>";
+            Problem::showShort($data['id'], array('row_num'               => $i,
+                                                 'type_for_massiveaction' => __CLASS__,
+                                                 'id_for_massiveaction'   => $data['linkID']));
+            $i++;
          }
+         Problem::commonListHeader(Search::HTML_OUTPUT,'mass'.__CLASS__.$rand);
       }
       echo "</table>";
+
       if ($canedit && $numrows) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
 
    }
 
-
-   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
-
-      if (Session::haveRight("show_all_problem","1")) {
-         $nb = 0;
-         switch ($item->getType()) {
-            case 'Change' :
-               if ($_SESSION['glpishow_count_on_tabs']) {
-                  $nb = countElementsInTable('glpi_changes_problems',
-                                             "`changes_id` = '".$item->getID()."'");
-               }
-               return self::createTabEntry(self::getTypeName(2), $nb);
-         }
-      }
-      return '';
-   }
-
-
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
-
-      switch ($item->getType()) {
-         case 'Change' :
-            self::showForChange($item);
-            break;
-      }
-      return true;
-   }
 
 }
 ?>

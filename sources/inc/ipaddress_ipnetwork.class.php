@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ipaddress_ipnetwork.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ipaddress_ipnetwork.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,8 +35,11 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class IPAddress_IPNetwork : Connection between IPAddress and IPNetwork
-/// @since 0.84
+/**
+ * Class IPAddress_IPNetwork : Connection between IPAddress and IPNetwork
+ *
+ * @since 0.84
+**/
 class IPAddress_IPNetwork extends CommonDBRelation {
 
    // From CommonDBRelation
@@ -92,6 +95,7 @@ class IPAddress_IPNetwork extends CommonDBRelation {
       $ipnetworks_ids = IPNetwork::searchNetworksContainingIP($ipaddress, $entity);
       if ($ipnetworks_ids !== false) {
          // Beware that invalid IPaddresses don't have any valid address !
+         $entity = $ipaddress->getEntityID();
          foreach (IPNetwork::searchNetworksContainingIP($ipaddress, $entity) as $ipnetworks_id) {
             $input['ipnetworks_id'] = $ipnetworks_id;
             $linkObject->add($input);

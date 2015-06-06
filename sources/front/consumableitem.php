@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: consumableitem.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: consumableitem.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -34,9 +34,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("consumable", "r");
+Session::checkRight("consumable", READ);
 
-Html::header(Consumable::getTypeName(2), $_SERVER['PHP_SELF'], "inventory", "consumable");
+Html::header(Consumable::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "assets", "consumableitem");
 
 if (isset($_GET["synthese"])) {
    Consumable::showSummary();

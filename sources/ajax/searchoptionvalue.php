@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: searchoptionvalue.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: searchoptionvalue.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -45,24 +45,20 @@ if (!defined('GLPI_ROOT')) {
 Session::checkLoginUser();
 
 if (isset($_POST['searchtype'])) {
-
-   if (!is_array($_POST['searchopt'])) {
-      $searchopt = Toolbox::decodeArrayFromInput($_POST['searchopt']);
-   } else {
-      $searchopt      = $_POST['searchopt'];
-   }
+   $searchopt      = $_POST['searchopt'];
    $_POST['value'] = rawurldecode($_POST['value']);
 
-   $addmeta        = "";
+   $fieldname = 'criteria';
    if (isset($_POST['meta']) && $_POST['meta']) {
-      $addmeta = '2';
+      $fieldname = 'metacriteria';
    }
 
-   $inputname        = 'contains'.$addmeta.'['.$_POST['num'].']';
-   $display          = false;
-   $item             = getItemForItemtype($_POST['itemtype']);
-   $options2 = array();
+   $inputname         = $fieldname.'['.$_POST['num'].'][value]';
+   $display           = false;
+   $item              = getItemForItemtype($_POST['itemtype']);
+   $options2          = array();
    $options2['value'] = $_POST['value'];
+   $options2['width'] = '100%';
    // For tree dropdpowns
    $options2['permit_select_parent'] = true;
 
@@ -80,7 +76,7 @@ if (isset($_POST['searchtype'])) {
                case "glpi_groups.completename" :
                   $searchopt['toadd'] = array('mygroups' => __('My groups'));
                   break;
-                  
+
                case "glpi_changes.status" :
                case "glpi_changes.impact" :
                case "glpi_changes.urgency" :

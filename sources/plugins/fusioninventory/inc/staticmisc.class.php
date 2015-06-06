@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -56,10 +56,11 @@ class PluginFusioninventoryStaticmisc {
    static function task_methods() {
 
       $a_tasks = array(
-            array(   'module'          => 'fusioninventory',
-                     'method'          => 'wakeonlan',
-                     'name'            => __('Wake On LAN', 'fusioninventory'),
-                     'use_rest'        => FALSE
+            array(   'module'         => 'fusioninventory',
+                     'classname'      => 'PluginFusioninventoryWakeonlan',
+                     'method'         => 'wakeonlan',
+                     'name'           => __('Wake On LAN', 'fusioninventory'),
+                     'use_rest'       => FALSE
             ),
 
             array(   'module'         => 'fusioninventory',
@@ -71,6 +72,7 @@ class PluginFusioninventoryStaticmisc {
             ),
 
             array(   'module'         => 'fusioninventory',
+                     'classname'      => 'PluginFusioninventoryInventoryComputerESX',
                      'method'         => 'InventoryComputerESX',
                      'selection_type' => 'devices',
                      'name'           => __('VMware host remote inventory', 'fusioninventory'),
@@ -79,16 +81,19 @@ class PluginFusioninventoryStaticmisc {
             ),
 
             array(   'module'         => 'fusioninventory',
+                     'classname'      => 'PluginFusioninventoryNetworkDiscovery',
                      'method'         => 'networkdiscovery',
                      'name'           => __('Network discovery', 'fusioninventory')
             ),
 
             array(   'module'         => 'fusioninventory',
+                     'classname'      => 'PluginFusioninventoryNetworkInventory',
                      'method'         => 'networkinventory',
                      'name'           => __('Network inventory (SNMP)', 'fusioninventory')
             ),
 
             array(   'module'         => 'fusioninventory',
+                     'classname'      => 'PluginFusioninventoryDeployCommon',
                      'method'         => 'deployinstall',
                      'name'           => __('Package install', 'fusioninventory'),
                      'task'           => "DEPLOY",
@@ -96,6 +101,7 @@ class PluginFusioninventoryStaticmisc {
             ),
 
             array(   'module'         => 'fusioninventory',
+                     'classname'      => 'PluginFusioninventoryDeployCommon',
                      'method'         => 'deployuninstall',
                      'name'           => __('Package uninstall', 'fusioninventory'),
                      'task'           => "DEPLOY",
@@ -103,6 +109,7 @@ class PluginFusioninventoryStaticmisc {
             ),
 
             array(   'module'         => 'fusioninventory',
+                     'classname'      => 'PluginFusioninventoryCollect',
                      'method'         => 'collect',
                      'name'           => __('Collect data', 'fusioninventory'),
                      'task'           => "Collect",
@@ -112,6 +119,33 @@ class PluginFusioninventoryStaticmisc {
       return $a_tasks;
    }
 
+   /**
+   * Display methods availables
+   *
+   * @param $myname value name of dropdown
+   * @param $value value name of the method (used for edit taskjob)
+   * @param $entity_restrict restriction of entity if required
+   *
+   * @return value rand of the dropdown
+   *
+   **/
+   static function getModulesMethods() {
+
+      $methods = PluginFusioninventoryStaticmisc::getmethods();
+
+      $modules_methods = array();
+      $modules_methods[''] = "------";
+      foreach ($methods as $method) {
+         if (!((isset($method['hidetask']) AND $method['hidetask'] == '1'))) {
+            if (isset($method['name'])) {
+               $modules_methods[$method['method']] = $method['name'];
+            } else {
+               $modules_methods[$method['method']] = $method['method'];
+            }
+         }
+      }
+      return $modules_methods;
+   }
 
 
    /**
@@ -181,89 +215,6 @@ class PluginFusioninventoryStaticmisc {
          }
       }
       return $a_methods;
-   }
-
-
-
-   /**
-   * Get all profiles defined for this plugin
-   *
-   * @return array [integer] array('profile'=>'value', 'name'=>'value')
-   *   profile value profile name
-   *   name value description name (LANG) of the profile
-   *
-   **/
-   static function profiles() {
-
-      return array(
-         array('profil'  => 'agent',
-               'name'    => __('Agents', 'fusioninventory')),
-
-         array('profil'  => 'remotecontrol',
-               'name'    => __('Agent remote control', 'fusioninventory')),
-
-         array('profil'  => 'configuration',
-               'name'    => __('Configuration', 'fusioninventory')),
-
-         array('profil'  => 'wol',
-               'name'    => __('Wake On LAN', 'fusioninventory')),
-
-         array('profil'  => 'unknowndevice',
-               'name'    => __('Unknown devices', 'fusioninventory')),
-
-         array('profil'  => 'task',
-               'name'    => _n('Task', 'Tasks', 2)),
-
-         array('profil'  => 'iprange',
-               'name'    => __('IP range configuration', 'fusioninventory')),
-
-         array('profil'  => 'credential',
-               'name'    => __('Authentication for remote devices (VMware)', 'fusioninventory')),
-
-         array('profil'  => 'credentialip',
-               'name'    => __('Remote devices to inventory (VMware)', 'fusioninventory')),
-
-         array('profil'  => 'existantrule',
-               'name'    => __('Existance criteria', 'fusioninventory')),
-
-         array('profil'  => 'importxml',
-               'name'    => __('computer XML manual import', 'fusioninventory')),
-
-         array('profil'  => 'blacklist',
-               'name'    => __('Fields blacklist', 'fusioninventory')),
-
-         array('profil'  => 'ESX',
-               'name'    => __('VMware host', 'fusioninventory')),
-
-         array('profil'  => 'configsecurity',
-                'name'    => __('SNMP authentication', 'fusioninventory')),
-
-         array('profil'  => 'networkequipment',
-                'name'    => __('Network equipment SNMP', 'fusioninventory')),
-
-         array('profil'  => 'printer',
-                'name'    => __('Printer SNMP', 'fusioninventory')),
-
-         array('profil'  => 'model',
-                'name'    => __('SNMP model', 'fusioninventory')),
-
-         array('profil'  => 'reportprinter',
-                'name'    => __('Printers report', 'fusioninventory')),
-
-         array('profil'  => 'reportnetworkequipment',
-                'name'    => __('Network report')),
-
-         array('profil'  => 'packages',
-                'name'    => __('Manage packages')),
-
-         array('profil'  => 'status',
-                'name'    => __('Deployment status')),
-
-         array('profil'  => 'collect',
-                'name'    => __('Additional computer information finder', 'fusioninventory'))
-
-      );
-
    }
 
 

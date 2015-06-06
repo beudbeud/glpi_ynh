@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: item_devicepci.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: item_devicepci.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -45,6 +45,16 @@ class Item_DevicePci extends Item_Devices {
    static public $items_id_2 = 'devicepcis_id';
 
    static protected $notable = false;
+
+
+   /**
+    * @since version 0.85
+   **/
+   static function getSpecificities($specif='') {
+
+      return array('serial' => parent::getSpecificities('serial'),
+                   'busID'  => parent::getSpecificities('busID'));
+   }
 
 }
 ?>

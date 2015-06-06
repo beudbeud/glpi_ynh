@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -180,14 +180,14 @@ class PluginFusioninventoryNetworkPortLog extends CommonDBTM {
       echo "</td><td class='center'>";
 
       if (count($listName)) {
-         if (PluginFusioninventoryProfile::haveRight("configuration", "w")) {
+         if (Session::haveRight('plugin_fusioninventory_configuration', UPDATE)) {
             echo "<input type='submit'  class=\"submit\" ".
                     "name='plugin_fusioninventory_extraction_add' value='" . __('Add') . " >>'>";
          }
       }
       echo "<br /><br />";
       if (!empty($options)) {
-         if (PluginFusioninventoryProfile::haveRight("configuration", "w")) {
+         if (Session::haveRight('plugin_fusioninventory_configuration', UPDATE)) {
             echo "<input type='submit'  class=\"submit\" ".
                     "name='plugin_fusioninventory_extraction_delete' value='<< ".
                     __('Delete', 'fusioninventory') . "'>";
@@ -215,7 +215,7 @@ class PluginFusioninventoryNetworkPortLog extends CommonDBTM {
 
       echo "<tr class='tab_bg_1'>";
       echo "<td colspan='3' class='center'>";
-      if (PluginFusioninventoryProfile::haveRight("configuration", "w")) {
+      if (Session::haveRight('plugin_fusioninventory_configuration', UPDATE)) {
          echo "<input type='submit' class=\"submit\" name='Clean_history' ".
                  "value='".__('Clean')."' >";
       }

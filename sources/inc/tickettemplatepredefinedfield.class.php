@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: tickettemplatepredefinedfield.class.php 22739 2014-02-28 14:56:01Z moyo $
+ * @version $Id: tickettemplatepredefinedfield.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,8 +35,14 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Predefined fields for ticket template class
-/// since version 0.83
+
+/**
+ * TicketTemplatePredefinedField Class
+ *
+ * Predefined fields for ticket template class
+ *
+ * @since version 0.83
+**/
 class TicketTemplatePredefinedField extends CommonDBChild {
 
    // From CommonDBChild
@@ -62,11 +68,11 @@ class TicketTemplatePredefinedField extends CommonDBChild {
 
 
    /**
-    * @see CommonDBTM::getName()
+    * @see CommonDBTM::getRawName()
     *
-    * @since version 0.84
+    * @since version 0.85
    **/
-   function getName($options=array()) {
+   function getRawName() {
 
       $tt     = new TicketTemplate();
       $fields = $tt->getAllowedFieldsNames(true);
@@ -74,7 +80,7 @@ class TicketTemplatePredefinedField extends CommonDBChild {
       if (isset($fields[$this->fields["num"]])) {
          return $fields[$this->fields["num"]];
       }
-      return NOT_AVAILABLE;
+      return '';
    }
 
 
@@ -123,14 +129,14 @@ class TicketTemplatePredefinedField extends CommonDBChild {
 
       // can exists for template
       if (($item->getType() == 'TicketTemplate')
-          && Session::haveRight("tickettemplate","r")) {
+          && Session::haveRight("tickettemplate", READ)) {
          if ($_SESSION['glpishow_count_on_tabs']) {
-            return self::createTabEntry(self::getTypeName(2),
+            return self::createTabEntry(self::getTypeName(Session::getPluralNumber()),
                                         countElementsInTable($this->getTable(),
                                                              "`tickettemplates_id`
                                                                = '".$item->getID()."'"));
          }
-         return self::getTypeName(2);
+         return self::getTypeName(Session::getPluralNumber());
       }
       return '';
    }
@@ -165,12 +171,28 @@ class TicketTemplatePredefinedField extends CommonDBChild {
       $tt             = new TicketTemplate();
       $allowed_fields = $tt->getAllowedFields($withtypeandcategory, true);
       $fields         = array();
-
+      $multiple       = self::getMultiplePredefinedValues();
       while ($rule = $DB->fetch_assoc($result)) {
          if (isset($allowed_fields[$rule['num']])) {
-            $fields[$allowed_fields[$rule['num']]] = $rule['value'];
+            if (in_array($rule['num'], $multiple)) {
+               $fields[$allowed_fields[$rule['num']]][] = $rule['value'];
+            } else {
+               $fields[$allowed_fields[$rule['num']]] = $rule['value'];
+            }
          }
       }
+      return $fields;
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   static function getMultiplePredefinedValues() {
+
+      $ticket = new Ticket();
+      $fields = array($ticket->getSearchOptionIDByField('field', 'name', 'glpi_documents'));
+
       return $fields;
    }
 
@@ -190,11 +212,11 @@ class TicketTemplatePredefinedField extends CommonDBChild {
 
       $ID = $tt->fields['id'];
 
-      if (!$tt->getFromDB($ID) || !$tt->can($ID, "r")) {
+      if (!$tt->getFromDB($ID) || !$tt->can($ID, READ)) {
          return false;
       }
 
-      $canedit       = $tt->can($ID, "w");
+      $canedit       = $tt->canEdit($ID);
 
       $ttp           = new self();
       $used_fields   = $ttp->getPredefinedFields($ID, true);
@@ -242,6 +264,14 @@ class TicketTemplatePredefinedField extends CommonDBChild {
 
             // Force validation request as used
             $used[-2] = -2;
+            // Unset multiple items
+            $multiple = self::getMultiplePredefinedValues();
+            foreach ($multiple as $val) {
+               if (isset($used[$val])) {
+                  unset($used[$val]);
+               }
+            }
+
             $rand_dp  = Dropdown::showFromArray('num', $display_fields, array('used' => $used,
                                                                               'toadd'));
             echo "</td><td class='top'>";
@@ -271,21 +301,29 @@ class TicketTemplatePredefinedField extends CommonDBChild {
          echo "<div class='spaced'>";
          if ($canedit && $numrows) {
             Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-            $massiveactionparams = array('num_displayed'  => $numrows);
-            Html::showMassiveActions(__CLASS__, $massiveactionparams);
+            $massiveactionparams = array('num_displayed' => $numrows,
+                                         'container'     => 'mass'.__CLASS__.$rand);
+            Html::showMassiveActions($massiveactionparams);
          }
-         echo "<table class='tab_cadre_fixe'>";
-         echo "<tr><th colspan='3'>";
+         echo "<table class='tab_cadre_fixehov'>";
+         echo "<tr class='noHover'><th colspan='3'>";
          echo self::getTypeName($DB->numrows($result));
          echo "</th></tr>";
          if ($numrows) {
-            echo "<tr>";
+            $header_begin  = "<tr>";
+            $header_top    = '';
+            $header_bottom = '';
+            $header_end    = '';
             if ($canedit) {
-               echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+               $header_top    .= "<th width='10'>";
+               $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+               $header_bottom .= "<th width='10'>";
+               $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
             }
-            echo "<th>".__('Name')."</th>";
-            echo "<th>".__('Value')."</th>";
-            echo "</tr>";
+            $header_end .= "<th>".__('Name')."</th>";
+            $header_end .= "<th>".__('Value')."</th>";
+            $header_end .= "</tr>";
+            echo $header_begin.$header_top.$header_end;
 
             foreach ($predeffields as $data) {
                if (!isset($fields[$data['num']])) {
@@ -305,7 +343,7 @@ class TicketTemplatePredefinedField extends CommonDBChild {
                echo "</td>";
                echo "</tr>";
             }
-
+            echo $header_begin.$header_bottom.$header_end;
          } else {
             echo "<tr><th colspan='3'>".__('No item found')."</th></tr>";
          }
@@ -314,7 +352,7 @@ class TicketTemplatePredefinedField extends CommonDBChild {
          echo "</table>";
          if ($canedit && $numrows) {
             $massiveactionparams['ontop'] = false;
-            Html::showMassiveActions(__CLASS__, $massiveactionparams);
+            Html::showMassiveActions($massiveactionparams);
             Html::closeForm();
          }
          echo "</div>";

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: helpdesk.faq.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: helpdesk.faq.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -50,14 +50,15 @@ if (Session::getLoginUserID()) {
 } else {
    $_SESSION["glpilanguage"] = $CFG_GLPI['language'];
    // Anonymous FAQ
-   Html::simpleHeader(__('FAQ'), array(__('Authentication') => $CFG_GLPI['root_doc'].'/',
-                                       __('FAQ')            => $CFG_GLPI['root_doc'].'/front/helpdesk.faq.php'));
+   Html::simpleHeader(__('FAQ'),
+                      array(__('Authentication') => $CFG_GLPI['root_doc'].'/',
+                            __('FAQ')            => $CFG_GLPI['root_doc'].'/front/helpdesk.faq.php'));
 }
 
 if (isset($_GET["id"])) {
    $kb = new KnowbaseItem();
    if ($kb->getFromDB($_GET["id"])) {
-      $kb->showFull(false);
+      $kb->showFull();
    }
 
 } else {
@@ -68,7 +69,7 @@ if (isset($_GET["id"])) {
    }
 
    $kb = new Knowbase();
-   $kb->show($_GET);
+   $kb->display($_GET);
 }
 
 Html::helpFooter();

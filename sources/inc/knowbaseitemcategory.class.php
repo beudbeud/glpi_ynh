@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: knowbaseitemcategory.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: knowbaseitemcategory.class.php 23467 2015-04-30 12:14:43Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -39,17 +39,11 @@ if (!defined('GLPI_ROOT')) {
 class KnowbaseItemCategory extends CommonTreeDropdown {
 
    // From CommonDBTM
-   public $dohistory = true;
+   public $dohistory       = true;
+   var $can_be_translated  = true;
 
+   static $rightname       = 'knowbasecategory';
 
-   static function canCreate() {
-      return Session::haveRight('entity_dropdown', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('entity_dropdown', 'r');
-   }
 
 
    static function getTypeName($nb=0) {
@@ -67,11 +61,11 @@ class KnowbaseItemCategory extends CommonTreeDropdown {
    static function showFirstLevel($options) {
       global $DB, $CFG_GLPI;
 
-      $faq = !Session::haveRight("knowbase","r");
+      $faq = !Session::haveRight("knowbase", READ);
 
       // Default values of parameters
       $params["knowbaseitemcategories_id"] = "0";
-      $params["target"]                    = $_SERVER['PHP_SELF'];
+      $params["target"]                    = KnowbaseItem::getSearchURL();
 
       if (is_array($options) && count($options)) {
          foreach ($options as $key => $val) {
@@ -91,7 +85,7 @@ class KnowbaseItemCategory extends CommonTreeDropdown {
 
       if ($faq) {
          if (!$CFG_GLPI["use_public_faq"]
-             && !Session::haveRight("faq","r")) {
+             && !Session::haveRight('knowbase', KnowbaseItem::READFAQ)) {
             return false;
          }
 
@@ -146,7 +140,7 @@ class KnowbaseItemCategory extends CommonTreeDropdown {
                    ORDER BY `name` ASC";
 
       } else {
-         if (!Session::haveRight("knowbase", "r")) {
+         if (!Session::haveRight("knowbase", READ)) {
             return false;
          }
          $faq_limit = getEntitiesRestrictRequest("AND", "glpi_knowbaseitemcategories", "entities_id",

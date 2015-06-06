@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: reservationitem.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: reservationitem.form.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -34,7 +34,10 @@
 include ('../inc/includes.php');
 
 Session::checkCentralAccess();
-Session::checkRight("reservation_central", "w");
+if (!Session::haveRightsOr('reservation', array(CREATE, UPDATE, DELETE, PURGE))) {
+   Session::redirectIfNotLoggedIn();
+   Html::displayRightError();
+}
 
 if (!isset($_GET["id"])) {
    $_GET["id"] = '';
@@ -42,7 +45,7 @@ if (!isset($_GET["id"])) {
 
 $ri = new ReservationItem();
 if (isset($_POST["add"])) {
-   $ri->check(-1, 'w', $_POST);
+   $ri->check(-1, CREATE, $_POST);
    if ($newID = $ri->add($_POST)) {
       Event::log($newID, "reservationitem", 4, "inventory",
                  sprintf(__('%1$s adds the item %2$s (%3$d)'), $_SESSION["glpiname"],
@@ -51,7 +54,7 @@ if (isset($_POST["add"])) {
    Html::back();
 
 } else if (isset($_POST["delete"])) {
-   $ri->check($_POST["id"], 'd');
+   $ri->check($_POST["id"], DELETE);
    $ri->delete($_POST);
 
    Event::log($_POST['id'], "reservationitem", 4, "inventory",
@@ -60,7 +63,7 @@ if (isset($_POST["add"])) {
    Html::back();
 
 } else if (isset($_POST["purge"])) {
-   $ri->check($_POST["id"], 'd');
+   $ri->check($_POST["id"], PURGE);
    $ri->delete($_POST, 1);
 
    Event::log($_POST['id'], "reservationitem", 4, "inventory",
@@ -68,9 +71,9 @@ if (isset($_POST["add"])) {
               sprintf(__('%s purges an item'), $_SESSION["glpiname"]));
    Html::back();
 
-} else if (isset($_POST["restore"])) {
-   $ri->check($_POST["id"], 'd');
-   $ri->restore($_POST);
+} else if (isset($_POST["backToStock"])) {
+   $ri->check($_POST["id"], PURGE);
+   $ri->backToStock($_POST);
 
    Event::log($_POST['id'], "reservationitem", 4, "inventory",
               //TRANS: %s is the user login
@@ -78,7 +81,7 @@ if (isset($_POST["add"])) {
    Html::back();
 
 } else if (isset($_POST["update"])) {
-   $ri->check($_POST["id"], 'w');
+   $ri->check($_POST["id"], UPDATE);
    $ri->update($_POST);
    Event::log($_POST['id'], "reservationitem", 4, "inventory",
               //TRANS: %s is the user login
@@ -86,8 +89,8 @@ if (isset($_POST["add"])) {
    Html::back();
 
 } else {
-   $ri->check($_GET["id"], 'r');
-   Html::header(Reservation::getTypeName(2), $_SERVER['PHP_SELF'], "utils", "reservation");
+   $ri->check($_GET["id"], READ);
+   Html::header(Reservation::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "tools", "reservationitem");
    $ri->showForm($_GET["id"]);
 }
 

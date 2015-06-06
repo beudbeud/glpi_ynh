@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: item_devices.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: item_devices.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,17 +37,10 @@ include ('../inc/includes.php');
 Session::checkCentralAccess();
 
 if (isset($_POST["add"])) {
-   if (isset($_POST['devicetype'])) {
-      if ($link = getItemForItemtype('Item_'.$_POST['devicetype'])) {
-         $link->addDevices(1, $_POST['itemtype'], $_POST['items_id'], $_POST['devices_id']);
-      }
-   }
+   Item_Devices::addDevicesFromPOST($_POST);
    Html::back();
 } else if (isset($_POST["updateall"])) {
-   Item_Devices::updateAll($_POST, false);
-   Html::back();
-} else if (isset($_POST["delete"])) {
-   Item_Devices::updateAll($_POST, true);
+   Item_Devices::updateAll($_POST);
    Html::back();
 }
 Html::displayErrorAndDie('Lost');

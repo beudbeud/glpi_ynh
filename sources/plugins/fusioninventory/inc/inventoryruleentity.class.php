@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Walid Nouh
    @co-author David Durieux
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -51,6 +51,8 @@ class PluginFusioninventoryInventoryRuleEntity extends Rule {
    public $can_sort=TRUE;
    public $specific_parameters = FALSE;
 
+   static $rightname = 'plugin_fusioninventory_ruleentity';
+
    const PATTERN_CIDR     = 333;
    const PATTERN_NOT_CIDR = 334;
 
@@ -58,8 +60,6 @@ class PluginFusioninventoryInventoryRuleEntity extends Rule {
    function getTitle() {
       return __('Entity rules', 'fusioninventory');
    }
-
-
 
    function preProcessPreviewResults($output) {
       return $output;
@@ -133,13 +133,16 @@ class PluginFusioninventoryInventoryRuleEntity extends Rule {
       $criterias['subnet']['name']      = __('Subnet');
 
       $criterias['ip']['field']     = 'name';
-      $criterias['ip']['name']      = __('Address')." ".__('IP');
+      $criterias['ip']['name']      = __('IP Address', 'fusioninventory');
 
       $criterias['name']['field']     = 'name';
-      $criterias['name']['name']      = __('Computer\'s name');
+      $criterias['name']['name']      = __("Computer's name", 'fusioninventory');
 
       $criterias['serial']['field']     = 'name';
       $criterias['serial']['name']      = __('Serial Number');
+
+      $criterias['oscomment']['field']     = 'name';
+      $criterias['oscomment']['name']      = __('Operating system').'/'.__('Comment');
 
       return $criterias;
    }

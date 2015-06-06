@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: bookmark_user.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: bookmark_user.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,9 +35,15 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-class Bookmark_User extends CommonDBTM {
+class Bookmark_User extends CommonDBRelation {
 
     var $auto_message_on_action = false;
+
+   static public $itemtype_1          = 'Bookmark';
+   static public $items_id_1          = 'bookmarks_id';
+
+   static public $itemtype_2          = 'User';
+   static public $items_id_2          = 'users_id';
 
 }
 ?>

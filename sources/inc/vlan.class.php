@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: vlan.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: vlan.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,11 +35,14 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class Vlan
+/**
+ * Vlan Class
+**/
 class Vlan extends CommonDropdown {
 
    public $dohistory = true;
 
+   var $can_be_translated = false;
 
 
    static function getTypeName($nb=0) {
@@ -60,7 +63,9 @@ class Vlan extends CommonDropdown {
    function displaySpecificTypeField($ID, $field=array()) {
 
       if ($field['name'] == 'tag') {
-         Dropdown::showInteger('tag', $this->fields['tag'], 1, (pow(2,12) - 2));
+         Dropdown::showNumber('tag', array('value' => $this->fields['tag'],
+                                           'min'   => 1,
+                                           'max'   => (pow(2,12) - 2)));
       }
    }
 
@@ -78,6 +83,8 @@ class Vlan extends CommonDropdown {
       $tab[11]['field']    = 'tag';
       $tab[11]['name']     = __('ID TAG');
       $tab[11]['datatype'] = 'number';
+      $tab[11]['min']      = 1;
+      $tab[11]['max']      = 4094;
 
       return $tab;
    }

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: plugin.class.php 22808 2014-03-20 16:40:12Z yllen $
+ * @version $Id: plugin.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -46,6 +46,29 @@ class Plugin extends CommonDBTM {
    const NOTACTIVATED   = 4;
    const TOBECLEANED    = 5;
    const NOTUPDATED     = 6;
+
+   static $rightname = 'config';
+
+
+
+   /**
+    * @since version 0.85
+    *
+    * @param $nb
+   **/
+   static function getTypeName($nb=0) {
+      return _n('Plugin', 'Plugins', $nb);
+   }
+
+
+   /**
+    * @see CommonGLPI::getMenuName()
+    *
+    * @since version 0.85
+   **/
+   static function getMenuName() {
+      return static::getTypeName(Session::getPluralNumber());
+   }
 
 
    /**
@@ -328,7 +351,7 @@ class Plugin extends CommonDBTM {
       if (!empty($pluglist)) {
          echo "<tr><th>".__('Name')."</th><th>"._n('Version', 'Versions',1)."</th>";
          echo "<th>".__('License')."</th>";
-         echo "<th>".__('Status')."</th><th>"._n('Author', 'Authors',2)."</th>";
+         echo "<th>".__('Status')."</th><th>"._n('Author', 'Authors', Session::getPluralNumber())."</th>";
          echo "<th>".__('Website')."</th>";
          echo "<th>".__('CSRF compliant')."</th>";
          echo "<th colspan='2'>&nbsp;</th></tr>\n";
@@ -585,6 +608,7 @@ class Plugin extends CommonDBTM {
          CronTask::Unregister($this->fields['directory']);
          self::load($this->fields['directory'],true);
          FieldUnicity::deleteForItemtype($this->fields['directory']);
+         Link_Itemtype::deleteForItemtype($this->fields['directory']);
 
          // Run the Plugin's Uninstall Function first
          $function = 'plugin_' . $this->fields['directory'] . '_uninstall';
@@ -674,6 +698,10 @@ class Plugin extends CommonDBTM {
                }
             }
          }  // exists _check_config
+         // reset menu
+         if (isset($_SESSION['glpimenu'])) {
+            unset($_SESSION['glpimenu']);
+         }
       } // getFromDB
    }
 
@@ -689,6 +717,10 @@ class Plugin extends CommonDBTM {
          $this->update(array('id'    => $ID,
                              'state' => self::NOTACTIVATED));
          $this->removeFromSession($this->fields['directory']);
+         // reset menu
+         if (isset($_SESSION['glpimenu'])) {
+            unset($_SESSION['glpimenu']);
+         }
       }
    }
 
@@ -908,7 +940,7 @@ class Plugin extends CommonDBTM {
 
       // No need to translate, this part always display in english (for copy/paste to forum)
 
-      echo "\n</pre></td></tr><tr class='tab_bg_2'><th>Plugins list</th></tr>";
+      echo "\n<tr class='tab_bg_2'><th>Plugins list</th></tr>";
       echo "<tr class='tab_bg_1'><td><pre>\n&nbsp;\n";
 
       $plug     = new Plugin();
@@ -982,17 +1014,27 @@ class Plugin extends CommonDBTM {
          unset($attrib['netport_types']);
       }
 
-      foreach (array('contract_types', 'directconnect_types', 'document_types', 'helpdesk_visible_types',
-                     'infocom_types', 'linkgroup_tech_types', 'linkgroup_types', 'linkuser_tech_types',
-                     'linkuser_types', 'networkport_instantiations',
-                     'networkport_types', 'notificationtemplates_types', 'planning_types',
-                     'reservation_types', 'rulecollections_types', 'systeminformations_types',
-                     'ticket_types', 'unicity_types') as $att) {
+      foreach (array('contract_types', 'directconnect_types', 'document_types',
+                     'helpdesk_visible_types', 'infocom_types', 'linkgroup_tech_types',
+                     'linkgroup_types', 'linkuser_tech_types', 'linkuser_types', 'location_types',
+                     'networkport_instantiations', 'networkport_types',
+                     'notificationtemplates_types', 'planning_types', 'reservation_types',
+                     'rulecollections_types', 'systeminformations_types', 'ticket_types',
+                     'unicity_types', 'link_types') as $att) {
 
          if (isset($attrib[$att]) && $attrib[$att]) {
             array_push($CFG_GLPI[$att], $itemtype);
             unset($attrib[$att]);
          }
+      }
+
+      if (isset($attrib['device_types']) && $attrib['device_types']
+          && method_exists($itemtype, 'getItem_DeviceType')) {
+
+         if (class_exists($itemtype::getItem_DeviceType())) {
+            array_push($CFG_GLPI['device_types'], $itemtype);
+         }
+         unset($attrib[$att]);
       }
 
       if (isset($attrib['addtabon'])) {

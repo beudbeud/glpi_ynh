@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: document_item.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: document_item.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -39,7 +39,7 @@ Session::checkCentralAccess();
 $document_item   = new Document_Item();
 
 if (isset($_POST["add"])) {
-   $document_item->check(-1,'w',$_POST);
+   $document_item->check(-1, CREATE, $_POST);
    if ($document_item->add($_POST)) {
       Event::log($_POST["documents_id"], "documents", 4, "document",
                  //TRANS: %s is the user login

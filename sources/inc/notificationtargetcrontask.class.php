@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationtargetcrontask.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notificationtargetcrontask.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,10 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Class NotificationTarget
+
+/**
+ * NotificationTargetCrontask Class
+**/
 class NotificationTargetCrontask extends NotificationTarget {
 
 
@@ -51,7 +54,6 @@ class NotificationTargetCrontask extends NotificationTarget {
     * @param $options   array
    **/
    function getDatasForTemplate($event, $options=array()) {
-      global $CFG_GLPI;
 
       $events                             = $this->getAllEvents();
       $this->datas['##crontask.action##'] = $events[$event];
@@ -67,8 +69,8 @@ class NotificationTargetCrontask extends NotificationTarget {
 
          $tmp['##crontask.name##']       .= $crontask['name'];
          $tmp['##crontask.description##'] = $cron->getDescription($id);
-         $tmp['##crontask.url##']         = urldecode($CFG_GLPI["url_base"].
-                                                      "/index.php?redirect=crontask_".$id);
+         $tmp['##crontask.url##']         = $this->formatURL($options['additionnaloption']['usertype'],
+                                                             "Crontask_".$id);
          $this->datas['crontasks'][] = $tmp;
       }
 

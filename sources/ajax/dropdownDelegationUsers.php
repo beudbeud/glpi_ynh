@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: dropdownDelegationUsers.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: dropdownDelegationUsers.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -50,11 +50,6 @@ if ($_POST["nodelegate"] == 1) {
    $_POST['_right']              = "id";
 } else {
    $_POST['_right'] = "delegate";
-}
-
-if (isset($_POST['_users_id_requester_notif']) && !empty($_POST['_users_id_requester_notif'])) {
-   $_POST['_users_id_requester_notif']
-            = Toolbox::decodeArrayFromInput($_POST['_users_id_requester_notif']);
 }
 
 $ticket = new Ticket();

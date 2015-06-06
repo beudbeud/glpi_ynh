@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationevent.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notificationevent.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -123,6 +123,7 @@ class NotificationEvent extends CommonDBTM {
                   as $data) {
             $targets = getAllDatasFromTable('glpi_notificationtargets',
                                             'notifications_id = '.$data['id']);
+
             $notificationtarget->clearAddressesList();
 
             //Process more infos (for example for tickets)
@@ -159,12 +160,20 @@ class NotificationEvent extends CommonDBTM {
                            unset($email_notprocessed[$users_infos['language']]
                                                     [$users_infos['email']]);
                         }
-                        if ($tid = $template->getTemplateByLanguage($notificationtarget, $users_infos,
-                                                                    $event, $options)) {
+                        $options['item'] = $item;
+                        if ($tid = $template->getTemplateByLanguage($notificationtarget,
+                                                                    $users_infos, $event,
+                                                                    $options)) {
                            //Send notification to the user
                            if ($label == '') {
-                              Notification::send($template->getDataToSend($notificationtarget, $tid,
-                                                                          $users_infos, $options));
+                              $datas = $template->getDataToSend($notificationtarget, $tid,
+                                                                $users_infos, $options);
+                              $datas['_notificationtemplates_id'] = $data['notificationtemplates_id'];
+                              $datas['_itemtype']                 = $item->getType();
+                              $datas['_items_id']                 = $item->getID();
+                              $datas['_entities_id']              = $entity;
+
+                              Notification::send($datas);
                            } else {
                               $notificationtarget->getFromDB($target['id']);
                               echo "<tr class='tab_bg_2'><td>".$label."</td>";
@@ -204,7 +213,7 @@ class NotificationEvent extends CommonDBTM {
 
       echo "<div class='spaced'>";
       echo "<table class='tab_cadre_fixe'>";
-      echo "<tr><th colspan='2'>"._n('Notification', 'Notifications',2).
+      echo "<tr><th colspan='2'>"._n('Notification', 'Notifications', Session::getPluralNumber()).
             "</th><th colspan='2'><font color='blue'> (".$item->getTypeName(1).")</font></th></tr>";
 
       $events = array();
@@ -212,9 +221,9 @@ class NotificationEvent extends CommonDBTM {
          $events = $target->getAllEvents();
 
          if (count($events)>0) {
-            echo "<tr><th>".self::getTypeName(2).'</th><th>'._n('Recipient', 'Recipients', 2)."</th>";
-            echo "<th>"._n('Notification template', 'Notification templates', 2)."</th>".
-                 "<th>"._n('Email', 'Emails', 2)."</th></tr>";
+            echo "<tr><th>".self::getTypeName(Session::getPluralNumber()).'</th><th>'._n('Recipient', 'Recipients', Session::getPluralNumber())."</th>";
+            echo "<th>"._n('Notification template', 'Notification templates', Session::getPluralNumber())."</th>".
+                 "<th>"._n('Email', 'Emails', Session::getPluralNumber())."</th></tr>";
 
             foreach ($events as $event => $label) {
                self::raiseEvent($event, $item, $options, $label);

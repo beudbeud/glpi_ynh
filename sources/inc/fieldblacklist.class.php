@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: fieldblacklist.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: fieldblacklist.class.php 23266 2014-12-11 09:07:05Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,15 +28,22 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class Fieldblacklist
+/**
+ * Fieldblacklist Class
+**/
 class Fieldblacklist extends CommonDropdown {
+
+   static $rightname = 'config';
+
+   var $can_be_translated = false;
+
 
    static function getTypeName($nb=0) {
       return _n('Ignored value for the unicity', 'Ignored values for the unicity', $nb);
@@ -44,13 +51,16 @@ class Fieldblacklist extends CommonDropdown {
 
 
    static function canCreate() {
-      return Session::haveRight('config', 'w');
+      return static::canUpdate();
    }
 
-
-   static function canView() {
-      return Session::haveRight('config', 'r');
+   /**
+    * @since version 0.85
+   **/
+   static function canPurge() {
+      return static::canUpdate();
    }
+
 
 
    function getAdditionalFields() {
@@ -242,7 +252,7 @@ class Fieldblacklist extends CommonDropdown {
          $options[0] = Dropdown::EMPTY_VALUE;
          foreach ($CFG_GLPI['unicity_types'] as $itemtype) {
             if ($item = getItemForItemtype($itemtype)) {
-               if ($item->can(-1,'r')) {
+               if ($item->can(-1, READ)) {
                   $options[$itemtype] = $item->getTypeName(1);
                }
             }

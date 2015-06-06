@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: central.class.php 22986 2014-05-30 10:34:27Z yllen $
+ * @version $Id: central.class.php 23421 2015-04-08 09:06:11Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,9 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// class Central
+/**
+ * Central class
+**/
 class Central extends CommonGLPI {
 
 
@@ -61,7 +63,7 @@ class Central extends CommonGLPI {
          $tabs[1] = __('Personal View');
          $tabs[2] = __('Group View');
          $tabs[3] = __('Global View');
-         $tabs[4] = _n('RSS feed', 'RSS feeds', 2);
+         $tabs[4] = _n('RSS feed', 'RSS feeds', Session::getPluralNumber());
 
          return $tabs;
       }
@@ -99,27 +101,27 @@ class Central extends CommonGLPI {
    **/
    static function showGlobalView() {
 
-      $showticket  = Session::haveRight("show_all_ticket","1");
-      $showproblem = Session::haveRight("show_all_problem","1");
+      $showticket  = Session::haveRight("ticket", Ticket::READALL);
+      $showproblem = Session::haveRight("problem", Problem::READALL);
 
-      echo "<table class='tab_cadre_central'><tr>";
-      echo "<td class='top'>";
+      echo "<table class='tab_cadre_central'><tr class='noHover'>";
+      echo "<td class='top' width='50%'>";
       echo "<table class='central'>";
-      echo "<tr><td>";
+      echo "<tr class='noHover'><td>";
       if ($showticket) {
          Ticket::showCentralCount();
       }
       if ($showproblem) {
          Problem::showCentralCount();
       }
-      if (Session::haveRight("contract","r")) {
+      if (Contract::canView()) {
          Contract::showCentral();
       }
       echo "</td></tr>";
       echo "</table></td>";
 
-      if (Session::haveRight("logs","r")) {
-         echo "<td class='top'>";
+      if (Session::haveRight("logs", READ)) {
+         echo "<td class='top'  width='50%'>";
 
          //Show last add events
          Event::showForUser($_SESSION["glpiname"]);
@@ -140,15 +142,14 @@ class Central extends CommonGLPI {
    static function showMyView() {
       global $DB, $CFG_GLPI;
 
-      $showticket = (Session::haveRight("show_all_ticket", "1")
-                     || Session::haveRight("show_assign_ticket", "1"));
+      $showticket = Session::haveRightsOr("ticket",
+                                          array(Ticket::READMY, Ticket::READALL, Ticket::READASSIGN));
 
-      $showproblem = (Session::haveRight("show_all_problem", "1")
-                      || Session::haveRight("show_my_problem", "1"));
+      $showproblem = Session::haveRightsOr('problem', array(Problem::READALL, Problem::READMY));
 
       echo "<table class='tab_cadre_central'>";
 
-      if (Session::haveRight("config", "w")) {
+      if (Session::haveRight("config", UPDATE)) {
          $logins = User::checkDefaultPasswords();
          $user   = new User();
          if (!empty($logins)) {
@@ -180,19 +181,23 @@ class Central extends CommonGLPI {
                             __('MySQL replica: read only'));
          echo "</th></tr>";
       }
-      echo "<tr><td class='top'><table class='central'>";
-      echo "<tr><td>";
-      if (Session::haveRight('validate_request',1)
-         || Session::haveRight('validate_incident',1)) {
+      echo "<tr class='noHover'><td class='top' width='50%'><table class='central'>";
+      echo "<tr class='noHover'><td>";
+      if (Session::haveRightsOr('ticketvalidation', TicketValidation::getValidateRights())) {
          Ticket::showCentralList(0,"tovalidate",false);
       }
-      if (Ticket::isAllowedStatus(Ticket::SOLVED, Ticket::CLOSED)) {
-         Ticket::showCentralList(0, "toapprove", false);
-      }
-      Ticket::showCentralList(0, "rejected", false);
-      Ticket::showCentralList(0, "requestbyself", false);
-      Ticket::showCentralList(0, "observed", false);
       if ($showticket) {
+
+         if (Ticket::isAllowedStatus(Ticket::SOLVED, Ticket::CLOSED)) {
+            Ticket::showCentralList(0, "toapprove", false);
+         }
+
+         Ticket::showCentralList(0, "survey", false);
+         
+         Ticket::showCentralList(0, "rejected", false);
+         Ticket::showCentralList(0, "requestbyself", false);
+         Ticket::showCentralList(0, "observed", false);
+
          Ticket::showCentralList(0, "process", false);
          Ticket::showCentralList(0, "waiting", false);
       }
@@ -201,11 +206,11 @@ class Central extends CommonGLPI {
       }
       echo "</td></tr>";
       echo "</table></td>";
-      echo "<td class='top'><table class='central'>";
-      echo "<tr><td>";
+      echo "<td class='top'  width='50%'><table class='central'>";
+      echo "<tr class='noHover'><td>";
       Planning::showCentral(Session::getLoginUserID());
       Reminder::showListForCentral();
-      if (Session::haveRight("reminder_public","r")) {
+      if (Session::haveRight("reminder_public", READ)) {
          Reminder::showListForCentral(false);
       }
       echo "</td></tr>";
@@ -222,7 +227,7 @@ class Central extends CommonGLPI {
 
       echo "<table class='tab_cadre_central'>";
 
-      echo "<tr><td class='top' width='50%'>";
+      echo "<tr class='noHover'><td class='top' width='50%'>";
       RSSFeed::showListForCentral();
       echo "</td><td class='top' width='50%'>";
       if (RSSFeed::canView()) {
@@ -240,19 +245,17 @@ class Central extends CommonGLPI {
    **/
    static function showGroupView() {
 
-      $showticket = (Session::haveRight("show_all_ticket","1")
-                     || Session::haveRight("show_assign_ticket","1"));
+      $showticket = Session::haveRightsOr("ticket", array(Ticket::READALL, Ticket::READASSIGN));
 
-      $showproblem = (Session::haveRight("show_all_problem", "1")
-                      || Session::haveRight("show_my_problem", "1"));
+      $showproblem = Session::haveRightsOr('problem', array(Problem::READALL, Problem::READMY));
 
       echo "<table class='tab_cadre_central'>";
-      echo "<tr><td class='top'><table class='central'>";
-      echo "<tr><td>";
+      echo "<tr class='noHover'><td class='top' width='50%'><table class='central'>";
+      echo "<tr class='noHover'><td>";
       if ($showticket) {
          Ticket::showCentralList(0, "process", true);
       }
-      if (Session::haveRight('show_group_ticket','1')) {
+      if (Session::haveRight('ticket', Ticket::READGROUP)) {
          Ticket::showCentralList(0, "waiting", true);
       }
       if ($showproblem) {
@@ -261,12 +264,12 @@ class Central extends CommonGLPI {
 
       echo "</td></tr>";
       echo "</table></td>";
-      echo "<td class='top'><table class='central'>";
-      echo "<tr><td>";
-      if (Session::haveRight('show_group_ticket','1')) {
+      echo "<td class='top' width='50%'><table class='central'>";
+      echo "<tr class='noHover'><td>";
+      if (Session::haveRight('ticket', Ticket::READGROUP)) {
+         Ticket::showCentralList(0, "observed", true);
          Ticket::showCentralList(0, "toapprove", true);
          Ticket::showCentralList(0, "requestbyself", true);
-         Ticket::showCentralList(0, "observed", true);
       } else {
          Ticket::showCentralList(0, "waiting", true);
       }

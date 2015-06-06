@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ticketsatisfaction.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ticketsatisfaction.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -58,17 +58,24 @@ if (isset($_POST['inquest_config']) && isset($_POST['entities_id'])) {
       echo "<table class='tab_cadre_fixe' width='50%'>";
       echo "<tr class='tab_bg_1'><td width='50%'>".__('Create survey after')."</td>";
       echo "<td>";
-      Dropdown::showInteger('inquest_delay', $inquest_delay, 1, 90, 1,
-                            array('0'    => __('As soon as possible')),
-                            array('unit' => 'day'));
+      Dropdown::showNumber('inquest_delay',
+                           array('value' => $inquest_delay,
+                                 'min'   => 1,
+                                 'max'   => 90,
+                                 'step'  => 1,
+                                 'toadd' => array('0' => __('As soon as possible')),
+                                 'unit'  => 'day'));
       echo "</td></tr>";
 
       echo "<tr class='tab_bg_1'>".
            "<td>".__('Rate to trigger survey')."</td>";
       echo "<td>";
-      Dropdown::showInteger('inquest_rate', $inquest_rate, 10, 100, 10,
-                            array(0      => __('Disabled')),
-                            array('unit' => '%'));
+      Dropdown::showNumber('inquest_rate', array('value'   => $inquest_rate,
+                                                 'min'     => 10,
+                                                 'max'     => 100,
+                                                 'step'    => 10,
+                                                 'toadd'   => array(0 => __('Disabled')),
+                                                 'unit'    => '%'));
       echo "</td></tr>";
 
       if ($max_closedate != '') {

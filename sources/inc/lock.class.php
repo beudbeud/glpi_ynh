@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: lock.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: lock.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -97,7 +97,7 @@ class Lock {
                $tmp->getFromDB($line['items_id']);
                $header = true;
                if ($first) {
-                  echo "<tr><th colspan='2'>".$type::getTypeName(2)."</th></tr>\n";
+                  echo "<tr><th colspan='2'>".$type::getTypeName(Session::getPluralNumber())."</th></tr>\n";
                   $first = false;
                }
 
@@ -119,7 +119,7 @@ class Lock {
             foreach ($DB->request(getTableForItemType($type), $params) as $line) {
                $header = true;
                if ($first) {
-                  echo "<tr><th colspan='2'>".$type::getTypeName(2)."</th></tr>\n";
+                  echo "<tr><th colspan='2'>".$type::getTypeName(Session::getPluralNumber())."</th></tr>\n";
                   $first = false;
                }
 
@@ -149,7 +149,7 @@ class Lock {
          foreach ($DB->request($query) as $line) {
             $header = true;
             if ($first) {
-               echo "<tr><th colspan='2'>".Software::getTypeName(2)."</th></tr>\n";
+               echo "<tr><th colspan='2'>".Software::getTypeName(Session::getPluralNumber())."</th></tr>\n";
                $first = false;
             }
 
@@ -179,7 +179,7 @@ class Lock {
          foreach ($DB->request($query) as $line) {
             $header = true;
             if ($first) {
-               echo "<tr><th colspan='2'>".SoftwareLicense::getTypeName(2)."</th>".
+               echo "<tr><th colspan='2'>".SoftwareLicense::getTypeName(Session::getPluralNumber())."</th>".
                      "</tr>\n";
                $first = false;
             }
@@ -203,7 +203,7 @@ class Lock {
          $item->getFromDB($line['id']);
          $header = true;
          if ($first) {
-            echo "<tr><th colspan='2'>".NetworkPort::getTypeName(2)."</th></tr>\n";
+            echo "<tr><th colspan='2'>".NetworkPort::getTypeName(Session::getPluralNumber())."</th></tr>\n";
             $first = false;
          }
 
@@ -227,7 +227,7 @@ class Lock {
          $item->getFromDB($line['id']);
          $header = true;
          if ($first) {
-            echo "<tr><th colspan='2'>".NetworkName::getTypeName(2)."</th></tr>\n";
+            echo "<tr><th colspan='2'>".NetworkName::getTypeName(Session::getPluralNumber())."</th></tr>\n";
             $first = false;
          }
 
@@ -255,7 +255,7 @@ class Lock {
          $item->getFromDB($line['id']);
          $header = true;
          if ($first) {
-            echo "<tr><th colspan='2'>".IPAddress::getTypeName(2)."</th></tr>\n";
+            echo "<tr><th colspan='2'>".IPAddress::getTypeName(Session::getPluralNumber())."</th></tr>\n";
             $first = false;
          }
 
@@ -277,7 +277,7 @@ class Lock {
       }
       if ($nb) {
          $header = true;
-         echo "<tr><th colspan='2'>"._n('Component', 'Components', 2)."</th></tr>\n";
+         echo "<tr><th colspan='2'>"._n('Component', 'Components', Session::getPluralNumber())."</th></tr>\n";
          foreach ($types as $old => $type) {
             $associated_type  = str_replace('Item_', '', $type);
             $associated_table = getTableForItemType($associated_type);
@@ -302,6 +302,9 @@ class Lock {
          }
       }
       if ($header) {
+         echo "<tr><th>";
+         Html::checkAllAsCheckbox('lock_form');
+         echo "</th><th>&nbsp</th></tr>\n";
          echo "</table>";
          Html::openArrowMassives('lock_form', true);
          Html::closeArrowMassives(array('unlock' => _sx('button', 'Unlock')));
@@ -320,12 +323,12 @@ class Lock {
     * @see CommonGLPI::getTabNameForItem()
     *
     * @param $item               CommonGLPI object
-    * @param $withtemplate        (default 0)
+    * @param $withtemplate       (default 0)
    **/
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
       if ($item->isDynamic() && $item->canCreate()) {
-         return Lock::getTypeName(2);
+         return Lock::getTypeName(Session::getPluralNumber());
       }
       return '';
    }
@@ -342,86 +345,6 @@ class Lock {
          self::showForItem($item);
       }
       return true;
-   }
-
-   /**
-    * Unlock locked items
-    *
-    * @param $itemtype          itemtype of ids to locks
-    * @param $baseitemtype      itemtype of the based item
-    * @param $items       array of items to unlock
-   **/
-   static function unlockItems($itemtype, $baseitemtype, $items) {
-      global $DB;
-
-      $ok    = 0;
-      $ko    = 0;
-      $infos = self::getLocksQueryInfosByItemType($itemtype, $baseitemtype);
-
-      if ($item = getItemForItemtype($infos['type'])) {
-
-         foreach ($items as $id => $value) {
-            if ($value == 1) {
-               $infos['condition'][$infos['field']] = $id;
-               foreach ($DB->request($infos['table'], $infos['condition']) as $data) {
-                  // Restore without history
-                  if ($item->restore(array('id' => $data['id']))) {
-                     $ok++;
-                  } else {
-                     $ko++;
-                  }
-               }
-            }
-         }
-      }
-
-      return array('ok' => $ok,
-                   'ko' => $ko);
-   }
-
-
-   /**
-    * Get massive actions to unlock items
-    *
-    * @param $itemtype source itemtype
-    *
-    * @return an array of actions to be added (empty if no actions to add)
-   **/
-   static function getUnlockMassiveActions($itemtype) {
-
-      if (Session::haveRight('computer', 'w') && ($itemtype == 'Computer')) {
-         return array("unlock_Monitor"                => __('Unlock monitors'),
-                      "unlock_Peripheral"             => __('Unlock peripherals'),
-                      "unlock_Printer"                => __('Unlock printers'),
-                      "unlock_SoftwareVersion"        => __('Unlock software'),
-                      "unlock_NetworkPort"            => __('Unlock network ports'),
-                      "unlock_NetworkName"            => __('Unlock network names'),
-                      "unlock_IPAddress"              => __('Unlock IP addresses'),
-                      "unlock_ComputerDisk"           => __('Unlock volumes'),
-                      "unlock_Device"                 => __('Unlock devices'),
-                      "unlock_ComputerVirtualMachine" => __('Unlock virtual machines')
-                      );
-      }
-      return array();
-   }
-
-
-   /**
-    * Return itemtype associated with the unlock massive action
-    *
-    * @param action the selected massive action
-    *
-    * @return the itemtype associated
-   **/
-   static function getItemTypeForMassiveAction($action) {
-
-      if (preg_match('/unlock_(.*)/', $action, $results)) {
-         $itemtype = $results[1];
-         if (class_exists($itemtype)) {
-            return $itemtype;
-         }
-      }
-      return false;
    }
 
 
@@ -467,7 +390,8 @@ class Lock {
                                '`glpi_networknames`.`itemtype`'   => 'NetworkPort',
                                '`glpi_networknames`.`items_id`'   => '`glpi_networkports`.`id`',
                                '`glpi_networkports`.`itemtype`'   => $baseitemtype);
-            $condition['FIELDS'] = array('glpi_networknames' => 'id');
+            $condition['FIELDS']
+                       = array('glpi_networknames' => 'id');
             $table     = array('glpi_networknames', 'glpi_networkports');
             $field     = '`glpi_networkports`.`items_id`';
             break;
@@ -480,7 +404,8 @@ class Lock {
                                '`glpi_networknames`.`itemtype`'   => 'NetworkPort',
                                '`glpi_networknames`.`items_id`'   => '`glpi_networkports`.`id`',
                                '`glpi_networkports`.`itemtype`'   => $baseitemtype);
-            $condition['FIELDS'] = array('glpi_ipaddresses' => 'id');
+            $condition['FIELDS']
+                       = array('glpi_ipaddresses' => 'id');
             $table     = array('glpi_ipaddresses', 'glpi_networknames', 'glpi_networkports');
             $field     = '`glpi_networkports`.`items_id`';
             break;
@@ -511,8 +436,8 @@ class Lock {
             // Devices
             if (preg_match('/^Item\_Device/',$itemtype)) {
                $condition = array('itemtype'   => $baseitemtype,
-                                 'is_dynamic' => 1,
-                                 'is_deleted' => 1);
+                                  'is_dynamic' => 1,
+                                  'is_deleted' => 1);
                $table     = getTableForItemType($itemtype);
                $field     = 'items_id';
             }
@@ -523,6 +448,108 @@ class Lock {
                    'table'     => $table,
                    'field'     => $field,
                    'type'      => $type);
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::getMassiveActionsForItemtype()
+   **/
+   static function getMassiveActionsForItemtype(array &$actions, $itemtype, $is_deleted=0,
+                                                CommonDBTM $checkitem=NULL) {
+
+      $action_name = __CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'unlock';
+
+      if (Session::haveRight('computer', UPDATE)
+          && ($itemtype == 'Computer')) {
+
+         $actions[$action_name] = __('Unlock components');
+      }
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::showMassiveActionsSubForm()
+   **/
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
+
+      switch ($ma->getAction()) {
+         case 'unlock' :
+            $types = array('Monitor'                => _n('Monitor', 'Monitors', Session::getPluralNumber()),
+                           'Peripheral'             => _n('Device', 'Devices', Session::getPluralNumber()),
+                           'Printer'                => _n('Printer', 'Printers', Session::getPluralNumber()),
+                           'SoftwareVersion'        => _n('Version', 'Versions', Session::getPluralNumber()),
+                           'NetworkPort'            => _n('Network port', 'Network ports', Session::getPluralNumber()),
+                           'NetworkName'            => _n('Network name', 'Network names', Session::getPluralNumber()),
+                           'IPAddress'              => _n('IP address', 'IP addresses', Session::getPluralNumber()),
+                           'ComputerDisk'           => _n('Volume', 'Volumes', Session::getPluralNumber()),
+                           'Device'                 => _n('Component', 'Components', Session::getPluralNumber()),
+                           'ComputerVirtualMachine' => _n('Virtual machine', 'Virtual machines', Session::getPluralNumber()));
+
+            _e('Select the type of the item that must be unlock');
+            echo "<br><br>\n";
+
+            Dropdown::showFromArray('attached_item', $types,
+                                    array('multiple' => true,
+                                          'size'     => 5,
+                                          'values'   => array_keys($types)));
+
+            echo "<br><br>".Html::submit(_x('button','Post'), array('name' => 'massiveaction'));
+            return true;
+      }
+      return false;
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
+   **/
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $baseitem,
+                                                       array $ids) {
+      global $DB;
+
+      switch ($ma->getAction()) {
+         case 'unlock' :
+            $input = $ma->getInput();
+            if (isset($input['attached_item'])) {
+               $attached_items = $input['attached_item'];
+               if (($device_key = array_search('Device', $attached_items)) !== false) {
+                  unset($attached_items[$device_key]);
+                  $attached_items = array_merge($attached_items, Item_Devices::getDeviceTypes());
+               }
+               $links = array();
+               foreach ($attached_items as $attached_item) {
+                  $infos = self::getLocksQueryInfosByItemType($attached_item, $baseitem->getType());
+                  if ($item = getItemForItemtype($infos['type'])) {
+                     $infos['item'] = $item;
+                     $links[$attached_item] = $infos;
+                  }
+               }
+               foreach ($ids as $id) {
+                  $action_valid = false;
+                  foreach ($links as $infos) {
+                     $infos['condition'][$infos['field']] = $id;
+                     foreach ($DB->request($infos['table'], $infos['condition']) as $data) {
+                        // Restore without history
+                        $action_valid = $infos['item']->restore(array('id' => $data['id']));
+                     }
+                  }
+                  if ($action_valid) {
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
+                  } else {
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                     $ma->addMessage($infos['item']->getErrorMessage(ERROR_ON_ACTION));
+                  }
+               }
+            }
+            return;
+      }
+      parent::processMassiveActionsForOneItemtype($ma, $baseitem, $ids);
    }
 
 }

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -29,14 +29,14 @@
 
    @package   FusionInventory
    @author    David Durieux
-   @co-author 
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @co-author
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
    @link      http://forge.fusioninventory.org/projects/fusioninventory-for-glpi/
    @since     2010
- 
+
    ------------------------------------------------------------------------
  */
 
@@ -44,12 +44,12 @@
 $USEDBREPLICATE=1;
 $DBCONNECTION_REQUIRED=0;
 
-define('GLPI_ROOT', '../../..'); 
-include (GLPI_ROOT . "/inc/includes.php"); 
+define('GLPI_ROOT', '../../..');
+include (GLPI_ROOT . "/inc/includes.php");
 
 Html::header(__('FusionInventory', 'fusioninventory'), $_SERVER['PHP_SELF'], "utils", "report");
 
-PluginFusioninventoryProfile::checkRight("reportnetworkequipment", "r");
+Session::checkRight('plugin_fusioninventory_reportnetworkequipment', READ);
 
 if (isset($_GET["networkports_id"])) {
    $ports_id = $_GET["networkports_id"];
@@ -99,6 +99,6 @@ if(isset($_GET["networkports_id"])) {
 
 Html::closeForm();
 
-Html::footer(); 
+Html::footer();
 
 ?>

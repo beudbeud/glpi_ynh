@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: devicepowersupply.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: devicepowersupply.class.php 22884 2014-04-09 11:48:04Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,6 +37,8 @@ if (!defined('GLPI_ROOT')) {
 
 /// Class DevicePowerSupply
 class DevicePowerSupply extends CommonDevice {
+
+   static protected $forward_entity_to = array('Item_DevicePowerSupply', 'Infocom');
 
    static function getTypeName($nb=0) {
       return _n('Power supply', 'Power supplies', $nb);

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -40,46 +40,20 @@
    ------------------------------------------------------------------------
  */
 
-function pluginFusioninventoryInstall($version, $migration='') {
+function pluginFusioninventoryInstall($version, $migrationname='Migration') {
    global $DB;
 
    ini_set("memory_limit", "-1");
    ini_set("max_execution_time", "0");
 
-   
-   if ($migration == '') {
-      $migration = new Migration($version);
-   }
+   $migration = new $migrationname($version);
 
    /*
     * Load classes
     */
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/profile.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/agentmodule.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/staticmisc.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/setup.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/unknowndevice.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/inventoryruleimportcollection.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/inventoryruleimport.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/module.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/mapping.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/config.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/communicationrest.class.php");
-   require_once GLPI_ROOT . "/plugins/fusioninventory/inc/lock.class.php";
-   require_once GLPI_ROOT . "/plugins/fusioninventory/inc/inventorycomputerlib.class.php";
-   require_once GLPI_ROOT . "/plugins/fusioninventory/inc/inventorycomputerlibhook.class.php";
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/snmpmodel.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/snmpmodeldevice.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/snmpmodelmib.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/snmpmodelmiblabel.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/snmpmodelmibobject.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/snmpmodelmiboid.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/snmpmodelimportexport.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/networkequipment.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/printer.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/configlogfield.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/networkporttype.class.php");
-   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/toolbox.class.php");
+   foreach (glob(GLPI_ROOT.'/plugins/fusioninventory/inc/*.php') as $file) {
+      require_once($file);
+   }
 
    $migration->displayMessage("Installation of plugin FusionInventory");
 
@@ -229,23 +203,27 @@ function pluginFusioninventoryInstall($version, $migration='') {
       if (!is_dir(GLPI_PLUGIN_DOC_DIR.'/fusioninventory/files/manifests')) {
          mkdir(GLPI_PLUGIN_DOC_DIR.'/fusioninventory/files/manifests');
       }
+      if (!is_dir(GLPI_PLUGIN_DOC_DIR.'/fusioninventory/files/import')) {
+         mkdir(GLPI_PLUGIN_DOC_DIR.'/fusioninventory/files/import');
+      }
+      if (!is_dir(GLPI_PLUGIN_DOC_DIR.'/fusioninventory/files/export')) {
+         mkdir(GLPI_PLUGIN_DOC_DIR.'/fusioninventory/files/export');
+      }
 
    /*
     * Manage profiles
     */
-      $migration->displayMessage("Initialize profiles");
-      PluginFusioninventoryProfile::initProfile('fusioninventory');
-
-
+    $migration->displayMessage("Initialize profiles");
+    PluginFusioninventoryProfile::initProfile();
 
    /*
-    * bug of purge network port when purge unknown devices, so we clean
+    * bug of purge network port when purge unmanaged devices, so we clean
     */
       $sql = "SELECT `glpi_networkports`.`id` as nid FROM `glpi_networkports`
-         LEFT JOIN `glpi_plugin_fusioninventory_unknowndevices`
-            ON `glpi_plugin_fusioninventory_unknowndevices`.`id` = `glpi_networkports`.`items_id`
-         WHERE `itemtype`='PluginFusioninventoryUnknownDevice'
-            AND `glpi_plugin_fusioninventory_unknowndevices`.`id` IS NULL ";
+         LEFT JOIN `glpi_plugin_fusioninventory_unmanageds`
+            ON `glpi_plugin_fusioninventory_unmanageds`.`id` = `glpi_networkports`.`items_id`
+         WHERE `itemtype`='PluginFusioninventoryUnmanaged'
+            AND `glpi_plugin_fusioninventory_unmanageds`.`id` IS NULL ";
       $result=$DB->query($sql);
       while ($data=$DB->fetch_array($result)) {
          $networkPort->delete(array('id'=>$data['nid']), 1);
@@ -269,7 +247,6 @@ function pluginFusioninventoryInstall($version, $migration='') {
     * Register Agent TASKS
     */
       $migration->displayMessage("Initialize agent TASKS");
-      PluginFusioninventoryProfile::changeProfile();
       $pfAgentmodule = new PluginFusioninventoryAgentmodule();
       $input = array();
       $input['modulename'] = "WAKEONLAN";
@@ -318,7 +295,7 @@ function pluginFusioninventoryInstall($version, $migration='') {
     * Add cron task
     */
       $migration->displayMessage("Initialize cron task");
-      CronTask::Register('PluginFusioninventoryTaskjob', 'taskscheduler', '60',
+      CronTask::Register('PluginFusioninventoryTask', 'taskscheduler', '60',
                          array('mode' => 2, 'allowmode' => 3, 'logs_lifetime'=> 30));
       Crontask::Register('PluginFusioninventoryTaskjobstate', 'cleantaskjob', (3600 * 24),
                          array('mode' => 2, 'allowmode' => 3, 'logs_lifetime' => 30));
@@ -326,6 +303,9 @@ function pluginFusioninventoryInstall($version, $migration='') {
                          array('mode'=>2, 'allowmode'=>3, 'logs_lifetime'=>30));
       CronTask::Register('PluginFusioninventoryTaskjob', 'updatedynamictasks', '60',
                          array('mode' => 2, 'allowmode' => 3, 'logs_lifetime'=> 30, 'state' => 0));
+      Crontask::Register('PluginFusioninventoryAgent', 'cleanoldagents', (3600 * 24),
+                         array('mode' => 2, 'allowmode' => 3, 'logs_lifetime' => 30,
+                               'comment'=>'Clean agents not contacted since xxx days'));
 
    /*
     * Create rules
@@ -333,6 +313,12 @@ function pluginFusioninventoryInstall($version, $migration='') {
       $migration->displayMessage("Create rules");
       $pfSetup = new PluginFusioninventorySetup();
       $pfSetup->initRules();
+
+
+   /*
+    * Add notification for configuration management
+    */
+
 
 
 
@@ -344,8 +330,6 @@ function pluginFusioninventoryInstall($version, $migration='') {
       $pfLock->importFromOcs();
 
 
-   CronTask::Register('PluginFusioninventoryTaskjob', 'taskscheduler', '60',
-                      array('mode' => 2, 'allowmode' => 3, 'logs_lifetime'=> 30));
    Crontask::Register('PluginFusioninventoryTaskjobstate', 'cleantaskjob', (3600 * 24),
                       array('mode' => 2, 'allowmode' => 3, 'logs_lifetime' => 30));
 
@@ -353,8 +337,11 @@ function pluginFusioninventoryInstall($version, $migration='') {
    $pfNetworkporttype = new PluginFusioninventoryNetworkporttype();
    $pfNetworkporttype->init();
 
-   // Import models
-   PluginFusioninventorySnmpmodel::importAllModels();
+   require_once(GLPI_ROOT . "/plugins/fusioninventory/inc/inventorycomputerstat.class.php");
+   PluginFusioninventoryInventoryComputerStat::init();
+
+
+   $mode_cli = (basename($_SERVER['SCRIPT_NAME']) == "cli_install.php");
 
 }
 

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: printer.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: printer.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,9 +33,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("printer", "r");
+Session::checkRight("printer", READ);
 
-Html::header(Printer::getTypeName(2), $_SERVER['PHP_SELF'], "inventory", "printer");
+Html::header(Printer::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "assets", "printer");
 
 Search::show('Printer');
 

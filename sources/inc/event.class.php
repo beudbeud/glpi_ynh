@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: event.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: event.class.php 23303 2015-01-21 14:24:35Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,15 +28,20 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Event class
+/**
+ * Event Class
+**/
 class Event extends CommonDBTM {
+
+   static $rightname = 'logs';
+
 
 
    static function getTypeName($nb=0) {
@@ -113,14 +118,14 @@ class Event extends CommonDBTM {
       }
 
       $logItemtype = array('system'      => __('System'),
-                           'devices'     => _n('Component', 'Components', 2),
+                           'devices'     => _n('Component', 'Components', Session::getPluralNumber()),
                            'planning'    => __('Planning'),
-                           'reservation' => _n('Reservation', 'Reservations', 2),
-                           'dropdown'    => _n('Dropdown', 'Dropdowns', 2),
-                           'rules'       => _n('Rule', 'Rules', 2));
+                           'reservation' => _n('Reservation', 'Reservations', Session::getPluralNumber()),
+                           'dropdown'    => _n('Dropdown', 'Dropdowns', Session::getPluralNumber()),
+                           'rules'       => _n('Rule', 'Rules', Session::getPluralNumber()));
 
       $logService = array('inventory'    => __('Assets'),
-                          'tracking'     => _n('Ticket', 'Tickets', 2),
+                          'tracking'     => _n('Ticket', 'Tickets', Session::getPluralNumber()),
                           'maintain'     => __('Assistance'),
                           'planning'     => __('Planning'),
                           'tools'        => __('Tools'),
@@ -128,11 +133,11 @@ class Event extends CommonDBTM {
                           'login'        => __('Connection'),
                           'setup'        => __('Setup'),
                           'security'     => __('Security'),
-                          'reservation'  => _n('Reservation', 'Reservations', 2),
-                          'cron'         => _n('Automatic action', 'Automatic actions', 2),
-                          'document'     => _n('Document', 'Documents', 2),
-                          'notification' => _n('Notification', 'Notifications',2),
-                          'plugin'       => __('Plugins'));
+                          'reservation'  => _n('Reservation', 'Reservations', Session::getPluralNumber()),
+                          'cron'         => _n('Automatic action', 'Automatic actions', Session::getPluralNumber()),
+                          'document'     => _n('Document', 'Documents', Session::getPluralNumber()),
+                          'notification' => _n('Notification', 'Notifications', Session::getPluralNumber()),
+                          'plugin'       => _n('Plugin', 'Plugins', Session::getPluralNumber()));
 
       return array($logItemtype, $logService);
    }
@@ -155,10 +160,13 @@ class Event extends CommonDBTM {
                break;
 
             case "infocom" :
-               echo "<a href='#' onClick=\"window.open('".$CFG_GLPI["root_doc"].
-                     "/front/infocom.form.php?id=".$items_id."','infocoms','location=infocoms,width=".
-                     "1000,height=400,scrollbars=no')\">".$items_id."</a>";
-               break;
+               $rand = mt_rand();
+               echo " <a href='#' onClick=\"".Html::jsGetElementbyID('infocom'.$rand).".
+                       dialog('open');\">$items_id</a>";
+               Ajax::createIframeModalWindow('infocom'.$rand,
+                                             $CFG_GLPI["root_doc"]."/front/infocom.form.php".
+                                                "?id=".$items_id,
+                                             array('height' => 600));
 
             case "devices" :
                echo $items_id;
@@ -211,7 +219,6 @@ class Event extends CommonDBTM {
                 WHERE `message` LIKE '".$usersearch."%'
                 ORDER BY `date` DESC
                 LIMIT 0,".intval($_SESSION['glpilist_limit']);
-
       // Get results
       $result = $DB->query($query);
 
@@ -229,7 +236,7 @@ class Event extends CommonDBTM {
       // Output events
       $i = 0;
 
-      echo "<br><div class='spaced'><table class='tab_cadrehov'>";
+      echo "<br><div class='spaced'><table class='tab_cadre'>";
       echo "<tr><th colspan='5'>";
       //TRANS: %d is the number of item to display
       echo "<a href=\"".$CFG_GLPI["root_doc"]."/front/event.php\">".
@@ -263,7 +270,8 @@ class Event extends CommonDBTM {
          echo "<td class='center'>";
          self::displayItemLogID($type, $items_id);
          echo "</td><td class='center'>".Html::convDateTime($date)."</td>";
-         echo "<td class='center'>".$logService[$service]."</td><td>".$message."</td></tr>";
+         echo "<td class='center'>".(isset($logService[$service])?$logService[$service]:'');
+         echo "</td><td>".$message."</td></tr>";
 
          $i++;
       }
@@ -289,7 +297,8 @@ class Event extends CommonDBTM {
       list($logItemtype, $logService) = self::logArray();
 
       // Columns of the Table
-      $items = array("items_id" => array(__('Source'), "colspan='2'"),
+      $items = array("type"     => array(__('Source'), ""),
+                     "items_id" => array(__('ID'), ""),
                      "date"     => array(__('Date'), ""),
                      "service"  => array(__('Service'), "width='8%'"),
                      "level"    => array(__('Level'), "width='8%'"),
@@ -328,7 +337,7 @@ class Event extends CommonDBTM {
       $parameters = "sort=$sort&amp;order=$order";
       Html::printPager($start, $numrows, $target, $parameters);
 
-      echo "<table class='tab_cadre_fixe'>";
+      echo "<table class='tab_cadre_fixehov'>";
       echo "<tr>";
 
       foreach ($items as $field => $args) {

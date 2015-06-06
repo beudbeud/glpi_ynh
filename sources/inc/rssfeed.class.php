@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rssfeed.class.php 22836 2014-04-02 07:02:14Z moyo $
+ * @version $Id: rssfeed.class.php 23401 2015-03-20 08:06:12Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -55,8 +55,11 @@ if (!defined('GLPI_ROOT')) {
 //    echo $feed->get_link();
 // }
 
-/// RSSFeed class
-/// @since version 0.84
+/**
+ * RSSFeed Class
+ *
+ * @since version 0.84
+**/
 class RSSFeed extends CommonDBTM {
 
    // For visibility checks
@@ -65,22 +68,29 @@ class RSSFeed extends CommonDBTM {
    protected $profiles  = array();
    protected $entities  = array();
 
+   static $rightname    = 'rssfeed_public';
+
+
 
    static function getTypeName($nb=0) {
-      return _n('RSS feed', 'RSS feeds', $nb);
+
+      if (Session::haveRight('rssfeed_public',READ)) {
+         return _n('RSS feed', 'RSS feed', $nb);
+      }
+      return _n('Personal RSS feed', 'Personal RSS feed', $nb);
    }
 
 
    static function canCreate() {
 
-      return (Session::haveRight('rssfeed_public', 'w')
+      return (Session::haveRight(self::$rightname, CREATE)
               || ($_SESSION['glpiactiveprofile']['interface'] != 'helpdesk'));
    }
 
 
    static function canView() {
 
-      return (Session::haveRight('rssfeed_public', 'r')
+      return (Session::haveRight('rssfeed_public', READ)
               || ($_SESSION['glpiactiveprofile']['interface'] != 'helpdesk'));
    }
 
@@ -89,7 +99,7 @@ class RSSFeed extends CommonDBTM {
 
       // Is my rssfeed or is in visibility
       return (($this->fields['users_id'] == Session::getLoginUserID())
-              || (Session::haveRight('rssfeed_public', 'r')
+              || (Session::haveRight('rssfeed_public', READ)
                   && $this->haveVisibilityAccess()));
    }
 
@@ -103,7 +113,38 @@ class RSSFeed extends CommonDBTM {
    function canUpdateItem() {
 
       return (($this->fields['users_id'] == Session::getLoginUserID())
-              || (Session::haveRight('rssfeed_public', 'w')
+              || (Session::haveRight('rssfeed_public', UPDATE)
+                  && $this->haveVisibilityAccess()));
+   }
+
+
+   /**
+    * @since 0.85
+    * for personal rss feed
+   **/
+   static function canUpdate() {
+      return ($_SESSION['glpiactiveprofile']['interface'] != 'helpdesk');
+   }
+
+
+   /**
+    * @since 0.85
+    * for personal rss feed
+   **/
+   static function canPurge() {
+      return ($_SESSION['glpiactiveprofile']['interface'] != 'helpdesk');
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::canPurgeItem()
+   **/
+   function canPurgeItem() {
+
+      return (($this->fields['users_id'] == Session::getLoginUserID())
+              || (Session::haveRight(self::$rightname, PURGE)
                   && $this->haveVisibilityAccess()));
    }
 
@@ -140,42 +181,6 @@ class RSSFeed extends CommonDBTM {
    }
 
 
-   /**
-    * @see CommonDBTM::doSpecificMassiveActions()
-   **/
-   function doSpecificMassiveActions($input=array()) {
-
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "deletevisibility" :
-            foreach ($input['item'] as $type => $items) {
-               if (in_array($type, array('Entity_RSSFeed', 'Group_RSSFeed', 'Profile_RSSFeed',
-                                         'RSSFeed_User'))) {
-                  $item = new $type();
-                  foreach ($items as $key => $val) {
-                     if ($item->can($key,'w')) {
-                        if ($item->delete(array('id' => $key))) {
-                           $res['ok']++;
-                        } else {
-                           $res['ko']++;
-                        }
-                     } else {
-                        $res['noright']++;
-                     }
-                  }
-               }
-            }
-            break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
-      }
-      return $res;
-   }
-
 
    function countVisibilities() {
 
@@ -194,7 +199,7 @@ class RSSFeed extends CommonDBTM {
    function haveVisibilityAccess() {
 
       // No public rssfeed right : no visibility check
-      if (!Session::haveRight('rssfeed_public', 'r')) {
+      if (!self::canView()) {
          return false;
       }
 
@@ -282,7 +287,7 @@ class RSSFeed extends CommonDBTM {
    **/
    static function addVisibilityJoins($forceall=false) {
 
-      if (!Session::haveRight('rssfeed_public', 'r')) {
+      if (!self::canView()) {
          return '';
       }
 
@@ -326,7 +331,7 @@ class RSSFeed extends CommonDBTM {
 
       $restrict = "`glpi_rssfeeds`.`users_id` = '".Session::getLoginUserID()."' ";
 
-      if (!Session::haveRight('rssfeed_public', 'r')) {
+      if (!self::canView()) {
          return $restrict;
       }
 
@@ -482,15 +487,20 @@ class RSSFeed extends CommonDBTM {
    **/
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
-      if (Session::haveRight("rssfeed_public","r")) {
+      if (self::canView()) {
          switch ($item->getType()) {
             case 'RSSFeed' :
-               if ($_SESSION['glpishow_count_on_tabs']) {
-                  return array(1 => self::getTypeName(1),
-                               2 => self::createTabEntry(__('Targets'),
-                                                         $item->countVisibilities()));
+               $showtab = array(1 => __('Content'));
+               if (session::haveRight('rssfeed_public', UPDATE)) {
+                  if ($_SESSION['glpishow_count_on_tabs']) {
+                     $nb = $item->countVisibilities();
+                     $showtab[2] = self::createTabEntry(_n('Target','Targets', $nb),
+                                                         $nb);
+                     return $showtab;
+                  }
+                  $showtab[2] = _n('Target','Targets', Session::getPluralNumber());
                }
-               return array(2 => __('Targets'));
+               return $showtab;
          }
       }
       return '';
@@ -503,6 +513,7 @@ class RSSFeed extends CommonDBTM {
    function defineTabs($options=array()) {
 
       $ong = array();
+      $this->addDefaultFormTab($ong);
       $this->addStandardTab(__CLASS__, $ong, $options);
 
       return $ong;
@@ -606,19 +617,16 @@ class RSSFeed extends CommonDBTM {
       // Test _rss cache directory. I permission trouble : unable to edit
       if (Toolbox::testWriteAccessToDirectory(GLPI_RSS_DIR) > 0) {
          echo "<div class='center'>";
-         echo sprintf(__('Check permissions to the directory: %s'), GLPI_RSS_DIR);
-         echo "<p class='red b'>";
-         _e('Error');
-         echo "</p>";
+         printf(__('Check permissions to the directory: %s'), GLPI_RSS_DIR);
+         echo "<p class='red b'>".__('Error')."</p>";
          echo "</div>";
          return false;
       }
-      
+
       $this->initForm($ID, $options);
 
-      $canedit = $this->can($ID,'w');
+      $canedit = $this->can($ID, UPDATE);
 
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
       $rowspan = 4;
@@ -671,11 +679,11 @@ class RSSFeed extends CommonDBTM {
                                     'min'                  => HOUR_TIMESTAMP,
                                     'max'                  => DAY_TIMESTAMP,
                                     'step'                 => HOUR_TIMESTAMP,
+                                    'display_emptychoice'  => false,
                                     'toadd'                => array(5*MINUTE_TIMESTAMP,
                                                                     15*MINUTE_TIMESTAMP,
                                                                     30*MINUTE_TIMESTAMP,
-                                                                    45*MINUTE_TIMESTAMP),
-                                    'display_emptychoice'  => false));
+                                                                    45*MINUTE_TIMESTAMP)));
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_2'>";
@@ -704,7 +712,6 @@ class RSSFeed extends CommonDBTM {
       }
       echo "</tr>";
       $this->showFormButtons($options);
-      $this->addDivForTabs();
 
       return true;
    }
@@ -875,11 +882,11 @@ class RSSFeed extends CommonDBTM {
                    ORDER BY `glpi_rssfeeds`.`name`";
 
          $titre = "<a href='".$CFG_GLPI["root_doc"]."/front/rssfeed.php'>".
-                    _n('Personal RSS feed', 'Personal RSS feeds', 2)."</a>";
+                    _n('Personal RSS feed', 'Personal RSS feeds', Session::getPluralNumber())."</a>";
 
       } else {
          // Show public rssfeeds / not mines : need to have access to public rssfeeds
-         if (!Session::haveRight('rssfeed_public', 'r')) {
+         if (!self::canView()) {
             return false;
          }
 
@@ -898,9 +905,9 @@ class RSSFeed extends CommonDBTM {
 
          if ($_SESSION['glpiactiveprofile']['interface'] != 'helpdesk') {
             $titre = "<a href=\"".$CFG_GLPI["root_doc"]."/front/rssfeed.php\">".
-                       _n('Public RSS feed', 'Public RSS feeds', 2)."</a>";
+                       _n('Public RSS feed', 'Public RSS feeds', Session::getPluralNumber())."</a>";
          } else {
-            $titre = _n('Public RSS feed', 'Public RSS feeds', 2);
+            $titre = _n('Public RSS feed', 'Public RSS feeds', Session::getPluralNumber());
          }
       }
 
@@ -923,10 +930,11 @@ class RSSFeed extends CommonDBTM {
       }
 
       echo "<br><table class='tab_cadrehov'>";
-      echo "<tr><th colspan='2'><div class='relative'><span>$titre</span>";
+      echo "<tr class='noHover'><th colspan='2'><div class='relative'><span>$titre</span>";
 
-      if (self::canCreate()) {
-         echo "<span class='rssfeed_right'>";
+      if (($personal && self::canCreate())
+            || (!$personal && Session::haveRight('rssfeed_public', CREATE))) {
+         echo "<span class='floatright'>";
          echo "<a href='".$CFG_GLPI["root_doc"]."/front/rssfeed.form.php'>";
          echo "<img src='".$CFG_GLPI["root_doc"]."/pics/plus.png' alt='".__s('Add')."' title=\"".
                 __s('Add')."\"></a></span>";
@@ -980,9 +988,7 @@ class RSSFeed extends CommonDBTM {
       global $DB, $CFG_GLPI;
 
       $ID      = $this->fields['id'];
-      $canedit = $this->can($ID,'w');
-
-      echo "<div class='center'>";
+      $canedit = $this->canEdit($ID);
 
       $rand = mt_rand();
 
@@ -1017,26 +1023,34 @@ class RSSFeed extends CommonDBTM {
       echo "<div class='spaced'>";
       if ($canedit && $nb) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $paramsma = array('num_displayed'    => $nb,
-                           'specific_actions' => array('deletevisibility' => _x('button',
-                                                                                'Delete permanently')));
+         $massiveactionparams = array('num_displayed'
+                              => $nb,
+                           'container'
+                              => 'mass'.__CLASS__.$rand,
+                           'specific_actions'
+                              => array('delete' => _x('button', 'Delete permanently')));
 
          if ($this->fields['users_id'] != Session::getLoginUserID()) {
-            $paramsma['confirm']
+            $massiveactionparams['confirm']
                = __('Caution! You are not the author of this element. Delete targets can result in loss of access to that element.');
          }
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
-      echo "<tr>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $nb) {
-         echo "<th width='10'>";
-         echo Html::checkAllAsCheckbox('mass'.__CLASS__.$rand);
-         echo "</th>";
+         $header_begin  .= "<th width='10'>";
+         $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_end    .= "</th>";
       }
-      echo "<th>".__('Type')."</th>";
-      echo "<th>"._n('Recipient', 'Recipients', 2)."</th>";
-      echo "</tr>";
+      $header_end .= "<th>".__('Type')."</th>";
+      $header_end .= "<th>"._n('Recipient', 'Recipients', Session::getPluralNumber())."</th>";
+      $header_end .= "</tr>";
+      echo $header_begin.$header_top.$header_end;
 
       // Users
       if (count($this->users)) {
@@ -1045,7 +1059,7 @@ class RSSFeed extends CommonDBTM {
                echo "<tr class='tab_bg_1'>";
                if ($canedit) {
                   echo "<td>";
-                  echo "<input type='checkbox' name='item[RSSFeed_User][".$data["id"]."]' value='1' >";
+                  Html::showMassiveActionCheckBox('RSSFeed_User',$data["id"]);
                   echo "</td>";
                }
                echo "<td>".__('User')."</td>";
@@ -1062,7 +1076,7 @@ class RSSFeed extends CommonDBTM {
                echo "<tr class='tab_bg_1'>";
                if ($canedit) {
                   echo "<td>";
-                  echo "<input type='checkbox' name='item[Group_RSSFeed][".$data["id"]."]' value='1'>";
+                  Html::showMassiveActionCheckBox('Group_RSSFeed',$data["id"]);
                   echo "</td>";
                }
                echo "<td>".__('Group')."</td>";
@@ -1081,7 +1095,7 @@ class RSSFeed extends CommonDBTM {
                   }
                }
                echo "<td>".$entname."</td>";
-               echo "<tr>";
+               echo "</tr>";
             }
          }
       }
@@ -1093,8 +1107,7 @@ class RSSFeed extends CommonDBTM {
                echo "<tr class='tab_bg_1'>";
                if ($canedit) {
                   echo "<td>";
-                  echo "<input type='checkbox' name='item[Entity_RSSFeed][".$data["id"]."]'
-                         value='1'>";
+                  Html::showMassiveActionCheckBox('Entity_RSSFeed',$data["id"]);
                   echo "</td>";
                }
                echo "<td>".__('Entity')."</td>";
@@ -1106,7 +1119,7 @@ class RSSFeed extends CommonDBTM {
                                       "<span class='b'>(".__('R').")</span>");
                }
                echo "<td>".$entname."</td>";
-               echo "<tr>";
+               echo "</tr>";
             }
          }
       }
@@ -1118,8 +1131,7 @@ class RSSFeed extends CommonDBTM {
                echo "<tr class='tab_bg_1'>";
                if ($canedit) {
                   echo "<td>";
-                  echo "<input type='checkbox' name='item[Profile_RSSFeed][".$data["id"]."]'
-                         value='1'>";
+                  Html::showMassiveActionCheckBox('Profile_RSSFeed',$data["id"]);
                   echo "</td>";
                }
                echo "<td>"._n('Profile', 'Profiles', 1)."</td>";
@@ -1137,15 +1149,18 @@ class RSSFeed extends CommonDBTM {
                   }
                }
                echo "<td>".$entname."</td>";
-               echo "<tr>";
+               echo "</tr>";
             }
          }
       }
 
+      if ($nb) {
+         echo $header_begin.$header_bottom.$header_end;
+      }
       echo "</table>";
       if ($canedit && $nb) {
-         $paramsma['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         $massiveactionparams['ontop'] = false;
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
 
@@ -1155,5 +1170,20 @@ class RSSFeed extends CommonDBTM {
       return true;
    }
 
+
+   /**
+    * @since version 0.85
+    *
+    * @see commonDBTM::getRights()
+   **/
+   function getRights($interface='central') {
+
+      if ($interface == 'helpdesk') {
+         $values = array(READ => __('Read'));
+      } else {
+         $values = parent::getRights();
+      }
+      return $values;
+   }
 }
 ?>

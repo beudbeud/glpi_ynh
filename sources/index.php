@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: index.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: index.php 22774 2014-03-12 15:07:22Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -27,6 +27,7 @@
  --------------------------------------------------------------------------
  */
 
+
 /** @file
 * @brief
 */
@@ -48,7 +49,6 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
 
 } else {
    $TRY_OLD_CONFIG_FIRST = true;
-
    include (GLPI_ROOT . "/inc/includes.php");
    $_SESSION["glpicookietest"] = 'testcookie';
 
@@ -93,36 +93,39 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
    echo "</div>";
 
    echo "<div id='boxlogin'>";
-   echo "<form action='".$CFG_GLPI["root_doc"]."/login.php' method='post'>";
+   echo "<form action='".$CFG_GLPI["root_doc"]."/front/login.php' method='post'>";
 
+
+   echo "<fieldset>";
    // Other CAS
    if (isset($_GET["noAUTO"])) {
-      echo "<input type='hidden' name='noAUTO' value='1'/>";
+      echo "<input type='hidden' name='noAUTO' value='1' />";
    }
-
    // redirect to ticket
    if (isset($_GET["redirect"])) {
       Toolbox::manageRedirect($_GET["redirect"]);
-      echo '<input type="hidden" name="redirect" value="'.$_GET['redirect'].'">';
+      echo '<input type="hidden" name="redirect" value="'.$_GET['redirect'].'"/>';
    }
-   echo "<fieldset>";
    echo '<legend>'.__('Authentication').'</legend>';
-   echo '<div class="row"><span class="label"><label>'.__('Login').'</label></span>';
-   echo '<span class="formw"><input type="text" name="login_name" id="login_name" required="required">';
+   echo '<div class="loginrow"><span class="loginlabel"><label>'.__('Login').'</label></span>';
+   echo '<span class="loginformw">';
+   echo '<input type="text" name="login_name" id="login_name" required="required" />';
    echo '</span></div>';
 
-   echo '<div class="row"><span class="label"><label>'.__('Password').'</label></span>';
-   echo '<span class="formw">';
-   echo '<input type="password" name="login_password" id="login_password" required="required"></span>'.
-        '</div>';
+   echo '<div class="loginrow"><span class="loginlabel"><label>'.__('Password').'</label></span>';
+   echo '<span class="loginformw">';
+   echo '<input type="password" name="login_password" id="login_password" required="required" />';
+   echo '</span></div>';
 
    echo "</fieldset>";
    echo '<p><span>';
-   echo '<input type="submit" name="submit" value="'._sx('button','Post').'" class="submit"/>';
+   echo '<input type="submit" name="submit" value="'._sx('button','Post').'" class="submit" />';
    echo '</span></p>';
     if ($CFG_GLPI["use_mailing"]
        && countElementsInTable('glpi_notifications',
-                               "`itemtype`='User' AND `event`='passwordforget' AND `is_active`=1")) {
+                               "`itemtype`='User'
+                                AND `event`='passwordforget'
+                                AND `is_active`=1")) {
       echo '<div id="forget"><a href="front/lostpassword.php?lostpassword=1">'.
              __('Forgotten password?').'</a></div>';
    }
@@ -137,7 +140,7 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
 
    echo "<div class='error'>";
    echo "<noscript><p>";
-   _e('You must activate the JavaScript function of your navigator');
+   _e('You must activate the JavaScript function of your browser');
    echo "</p></noscript>";
 
    if (isset($_GET['error'])) {
@@ -150,12 +153,16 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
             _e('Checking write permissions for session files');
             echo "<br>".GLPI_SESSION_DIR;
             break;
+
+         case 3 :
+            _e('Invalid use of session ID');
+            break;
       }
    }
    echo "</div>";
 
 
-     echo "</div>"; // end contenu login
+   echo "</div>"; // end contenu login
 
       // Display FAQ is enable
    if ($CFG_GLPI["use_public_faq"]) {
@@ -169,7 +176,6 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
       Event::getCountLogin();
       echo "</div>";
    }
-
    echo "<div id='footer-login'>";
    echo "<a href='http://glpi-project.org/' title='Powered By Indepnet'>";
    echo 'GLPI version '.(isset($CFG_GLPI["version"])?$CFG_GLPI["version"]:"").

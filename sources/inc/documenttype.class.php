@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: documenttype.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: documenttype.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,8 +35,13 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// DocumentType class
+/**
+ * DocumentType Class
+**/
 class DocumentType  extends CommonDropdown {
+
+   static $rightname      = 'typedoc';
+
 
    function getAdditionalFields() {
 
@@ -137,14 +142,19 @@ class DocumentType  extends CommonDropdown {
    }
 
 
-   static function canCreate() {
-      return Session::haveRight('typedoc', 'w');
+   /**
+    * @since version 0.85
+   **/
+   static function showAvailableTypesLink() {
+      global $CFG_GLPI;
+
+      echo " <a href='#' onClick=\"".Html::jsGetElementbyID('documenttypelist').".dialog('open');\">";
+      echo "<img src='".$CFG_GLPI["root_doc"]."/pics/aide.png' title=\"".__s('Help')."\"
+             alt=\"".__s('Help')."\" class='calendrier'>";
+      echo "</a>";
+      Ajax::createIframeModalWindow('documenttypelist',
+                                    $CFG_GLPI["root_doc"]."/front/documenttype.list.php",
+                                    array('title' => static::getTypeName(Session::getPluralNumber())));
    }
-
-
-   static function canView() {
-      return Session::haveRight('typedoc', 'r');
-   }
-
 }
 ?>

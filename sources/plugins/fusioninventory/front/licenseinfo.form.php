@@ -36,13 +36,13 @@
    @link      http://www.fusioninventory.org/
    @link      http://forge.fusioninventory.org/projects/fusioninventory-for-glpi/
    @since     2010
- 
+
    ------------------------------------------------------------------------
  */
 
 include ("../../../inc/includes.php");
 
-Session::checkRight("config", "w");
+Session::checkRight('config', UPDATE);
 
 if (isset($_POST['associate'])) {
    $pflicenseinfo = new PluginFusioninventoryComputerLicenseInfo();

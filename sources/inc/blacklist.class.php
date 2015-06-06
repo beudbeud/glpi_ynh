@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: blacklist.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: blacklist.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,19 +28,26 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Blacklist class
-/// @since version 0.84
+/**
+ * Blacklist Class
+ *
+ * @since version 0.84
+**/
 class Blacklist extends CommonDropdown {
 
    // From CommonDBTM
    public $dohistory = true;
+
+   static $rightname = 'config';
+
+   var $can_be_translated = false;
 
    const IP     = 1;
    const MAC    = 2;
@@ -50,12 +57,15 @@ class Blacklist extends CommonDropdown {
 
 
    static function canCreate() {
-      return Session::haveRight('config', 'w');
+      return static::canUpdate();
    }
 
 
-   static function canView() {
-      return Session::haveRight('config', 'r');
+   /**
+    * @since version 0.85
+   **/
+   static function canPurge() {
+      return static::canUpdate();
    }
 
 

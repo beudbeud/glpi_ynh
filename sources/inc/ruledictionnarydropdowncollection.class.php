@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ruledictionnarydropdowncollection.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ruledictionnarydropdowncollection.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,10 +33,9 @@
 
 class RuleDictionnaryDropdownCollection extends RuleCollection {
 
-   // From RuleCollection
-//   public $rule_class_name = 'RuleDictionnaryDropdown';
-   static public $right     = 'rule_dictionnary_dropdown';
-   public $menu_type        = 'dictionnary';
+   static $rightname = 'rule_dictionnary_dropdown';
+
+   public $menu_type = 'dictionnary';
 
    // Specific ones
    /// dropdown table

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: uemailUpdate.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: uemailUpdate.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -42,12 +42,20 @@ Session::checkLoginUser();
 
 if ((isset($_POST['field']) && ($_POST["value"] > 0))
     || (isset($_POST['allow_email']) && $_POST['allow_email'])) {
-   $user          = new User();
+
    $default_email = "";
    $emails        = array();
-   if ($user->getFromDB($_POST["value"])) {
-      $default_email = $user->getDefaultEmail();
-      $emails        = $user->getAllEmails();
+   if (isset($_POST['typefield']) && ($_POST['typefield'] == 'supplier')) {
+      $supplier = new Supplier();
+      if ($supplier->getFromDB($_POST["value"])) {
+      $default_email = $supplier->fields['email'];
+      }
+   } else {
+      $user          = new User();
+      if ($user->getFromDB($_POST["value"])) {
+         $default_email = $user->getDefaultEmail();
+         $emails        = $user->getAllEmails();
+      }
    }
 
    echo __('Email followup').'&nbsp;';
@@ -76,17 +84,20 @@ if ((isset($_POST['field']) && ($_POST["value"] > 0))
 
    } else if (count($emails) > 1) {
       // Several emails : select in the list
-      $email_string = "<select name='".$_POST['field']."[alternative_email]' value=''>";
-      $email_string .= "<option value='' selected>$default_email</option>";
+      $emailtab = array();
       foreach ($emails as $new_email) {
          if ($new_email != $default_email) {
-            $email_string .= "<option value='$new_email'>$new_email</option>";
+            $emailtab[$new_email] = $new_email;
+         } else {
+            $emailtab[''] = $new_email;
          }
       }
-      $email_string .= "</select>";
+      $email_string = Dropdown::showFromArray($_POST['field']."[alternative_email]", $emailtab,
+                                              array('value'   => '',
+                                                    'display' => false));
    } else {
       $email_string = "<input type='text' size='25' name='".$_POST['field']."[alternative_email]'
-            value='$default_email'>";
+                        value='$default_email'>";
    }
 
    echo '<br>';

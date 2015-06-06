@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rulecriteria.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: rulecriteria.php 22716 2014-02-26 14:33:48Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -59,11 +59,14 @@ if (isset($_POST["sub_type"]) && ($rule = getItemForItemtype($_POST["sub_type"])
          $allow_condition = array();
       }
 
-      $randcrit = RuleCriteria::dropdownConditions($_POST["sub_type"],
-                                                   array('criterion'        => $_POST["criteria"],
-                                                         'allow_conditions' => $allow_condition));
-
-      echo "&nbsp;&nbsp;";
+      $condparam = array('criterion'        => $_POST["criteria"],
+                         'allow_conditions' => $allow_condition);
+      if (isset($_POST['condition'])) {
+         $condparam['value'] = $_POST['condition'];
+      }
+      echo "<table width='100%'><tr><td width='30%'>";
+      $randcrit = RuleCriteria::dropdownConditions($_POST["sub_type"], $condparam);
+      echo "</td><td>";
       echo "<span id='condition_span$randcrit'>\n";
       echo "</span>\n";
 
@@ -75,9 +78,14 @@ if (isset($_POST["sub_type"]) && ($rule = getItemForItemtype($_POST["sub_type"])
                                     $CFG_GLPI["root_doc"]."/ajax/rulecriteriavalue.php",
                                     $paramscriteria);
 
+      if (isset($_POST['pattern'])) {
+         $paramscriteria['value'] = stripslashes($_POST['pattern']);
+      }
+
       Ajax::updateItem("condition_span$randcrit",
                        $CFG_GLPI["root_doc"]."/ajax/rulecriteriavalue.php", $paramscriteria,
                        "dropdown_condition$randcrit");
+      echo "</td></tr></table>";
    }
 }
 ?>

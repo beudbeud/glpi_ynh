@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: contact.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: contact.class.php 23304 2015-01-21 14:46:37Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -41,7 +41,11 @@ if (!defined('GLPI_ROOT')) {
 class Contact extends CommonDBTM{
 
    // From CommonDBTM
-   public $dohistory = true;
+   public $dohistory           = true;
+
+   static $rightname           = 'contact_enterprise';
+   protected $usenotepadrights = true;
+
 
 
    static function getTypeName($nb=0) {
@@ -49,29 +53,34 @@ class Contact extends CommonDBTM{
    }
 
 
-   static function canCreate() {
-      return Session::haveRight('contact_enterprise', 'w');
-   }
-
-   static function canView() {
-      return Session::haveRight('contact_enterprise', 'r');
-   }
-
-
    function cleanDBonPurge() {
+      global $DB;
 
       $cs = new Contact_Supplier();
       $cs->cleanDBonItemDelete($this->getType(), $this->fields['id']);
+
+      $query1 = "DELETE
+                 FROM `glpi_projecttaskteams`
+                 WHERE `items_id` = '".$this->fields['id']."'
+                       AND `itemtype` = '".__CLASS__."'";
+      $DB->query($query1);
+
+      $query1 = "DELETE
+                 FROM `glpi_projectteams`
+                 WHERE `items_id` = '".$this->fields['id']."'
+                       AND `itemtype` = '".__CLASS__."'";
+      $DB->query($query1);
    }
 
 
    function defineTabs($options=array()) {
 
       $ong = array();
+      $this->addDefaultFormTab($ong);
       $this->addStandardTab('Contact_Supplier', $ong, $options);
       $this->addStandardTab('Document_Item', $ong, $options);
       $this->addStandardTab('Link', $ong, $options);
-      $this->addStandardTab('Note', $ong, $options);
+      $this->addStandardTab('Notepad', $ong, $options);
       $this->addStandardTab('Log', $ong, $options);
 
       return $ong;
@@ -139,7 +148,6 @@ class Contact extends CommonDBTM{
    function showForm($ID, $options=array()) {
 
       $this->initForm($ID, $options);
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
@@ -197,7 +205,7 @@ class Contact extends CommonDBTM{
       echo "<td>";
       Html::autocompletionTextField($this, "email");
       echo "</td>";
-      echo "<td>".__('State')."</td>";
+      echo "<td>"._x('location','State')."</td>";
       echo "<td>";
       Html::autocompletionTextField($this, "state");
       echo "</td></tr>";
@@ -223,47 +231,8 @@ class Contact extends CommonDBTM{
 
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
 
       return true;
-   }
-
-
-   /**
-    * @see CommonDBTM::doSpecificMassiveActions()
-   **/
-   function doSpecificMassiveActions($input=array()) {
-
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "add_contact_supplier" :
-            $contactsupplier = new Contact_Supplier();
-            return $contactsupplier->doSpecificMassiveActions($input);
-
-         default :
-            return parent::doSpecificMassiveActions($input);
-      }
-      return false;
-   }
-
-
-   /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
-    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
-
-      switch ($input['action']) {
-         case "add_contact_supplier" :
-            $contactsupplier = new Contact_Supplier();
-            return $contactsupplier->showSpecificMassiveActionsParameters($input);
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
-      }
-      return false;
    }
 
 
@@ -276,14 +245,32 @@ class Contact extends CommonDBTM{
       $actions = parent::getSpecificMassiveActions($checkitem);
 
       if ($isadmin) {
-         $actions['add_contact_supplier'] = _x('button', 'Add a supplier');
+         $actions['Contact_Supplier'.MassiveAction::CLASS_ACTION_SEPARATOR.'add']
+               = _x('button', 'Add a supplier');
       }
-      if (Session::haveRight('transfer','r')
-          && Session::isMultiEntitiesMode()
-          && $isadmin) {
-         $actions['add_transfer_list'] = _x('button', 'Add to transfer list');
+
+      if ($isadmin) {
+         MassiveAction::getAddTransferList($actions);
       }
+
       return $actions;
+   }
+
+
+   /**
+    * @see CommonDBTM::getRawName()
+    *
+    * @since version 0.85
+   **/
+   function getRawName() {
+
+      if (isset($this->fields["id"]) && ($this->fields["id"] > 0)) {
+         return formatUserName('',
+                               '',
+                               (isset($this->fields["name"]) ? $this->fields["name"] : ''),
+                               (isset($this->fields["firstname"]) ? $this->fields["firstname"] : ''));
+      }
+      return '';
    }
 
 
@@ -351,7 +338,7 @@ class Contact extends CommonDBTM{
 
       $tab[85]['table']         = $this->getTable();
       $tab[85]['field']         = 'state';
-      $tab[85]['name']          = __('State');
+      $tab[85]['name']          = _x('location','State');
       $tab[85]['datatype']      = 'string';
 
       $tab[87]['table']         = $this->getTable();
@@ -371,7 +358,7 @@ class Contact extends CommonDBTM{
 
       $tab[8]['table']          = 'glpi_suppliers';
       $tab[8]['field']          = 'name';
-      $tab[8]['name']           = __('Associated suppliers');
+      $tab[8]['name']           = _n('Associated supplier', 'Associated suppliers', Session::getPluralNumber());
       $tab[8]['forcegroupby']   = true;
       $tab[8]['datatype']       = 'itemlink';
       $tab[8]['joinparams']     = array('beforejoin'
@@ -382,13 +369,6 @@ class Contact extends CommonDBTM{
       $tab[16]['field']         = 'comment';
       $tab[16]['name']          = __('Comments');
       $tab[16]['datatype']      = 'text';
-
-      $tab[90]['table']         = $this->getTable();
-      $tab[90]['field']         = 'notepad';
-      $tab[90]['name']          = __('Notes');
-      $tab[90]['massiveaction'] = false;
-      $tab[90]['datatype']      = 'text';
-
 
       $tab[80]['table']         = 'glpi_entities';
       $tab[80]['field']         = 'completename';
@@ -401,11 +381,10 @@ class Contact extends CommonDBTM{
       $tab[86]['name']          = __('Child entities');
       $tab[86]['datatype']      = 'bool';
 
+      $tab += Notepad::getSearchOptionsToAdd();
+
       return $tab;
    }
-
-
-
 
 
    /**
@@ -417,7 +396,7 @@ class Contact extends CommonDBTM{
 
       include (GLPI_ROOT . "/lib/vcardclass/classes-vcard.php");
 
-      if (!$this->can($this->fields['id'],'r')) {
+      if (!$this->can($this->fields['id'], READ)) {
          return false;
       }
 

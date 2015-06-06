@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: updateMetaSearch.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: updateMetaSearch.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -39,63 +39,36 @@ if (!($item = getItemForItemtype($_POST['itemtype']))) {
    exit();
 }
 
-$item->checkGlobal('r');
+$item->checkGlobal(READ);
 
-$first_group    = true;
-$newgroup       = "";
-$items_in_group = 0;
-$searchopt      = Search::getCleanedOptions($_POST["itemtype"], 'r', false);
-echo "<table width='100%'><tr><td class='right'>";
-echo "<select id='Search2".$_POST["itemtype"].$_POST["num"]."' name='field2[".$_POST["num"]."]'
-       size='1'>";
+$group     = "";
+$values    = array();
+$searchopt = Search::getCleanedOptions($_POST["itemtype"], READ, false);
+echo "<table width='100%'><tr><td width='40%'>";
 
 foreach ($searchopt as $key => $val) {
 
    // print groups
    $str_limit   = 28; // not use $_SESSION['glpidropdown_chars_limit'] because it came to too short
    if (!is_array($val)) {
-      if (!empty($newgroup)
-          && $items_in_group>0) {
-         echo $newgroup;
-         $first_group = false;
-      }
-      $items_in_group = 0;
-      $newgroup       = "";
-      if (!$first_group) {
-         $newgroup .= "</optgroup>";
-      }
-      $val       = Toolbox::substr($val, 0, $str_limit);
-      $newgroup .= "<optgroup label=\"$val\">";
-
+      $group = $val;
    } else {
       // No search on plugins
-      echo $key."--";
       if (!isPluginItemType($key) && !isset($val["nometa"])) {
-         $newgroup .= "<option value='$key' title=\"".Html::cleanInputText($val["name"])."\"";
-         if ($key == $_POST["field"]) {
-            $newgroup .= "selected";
-         }
-         $newgroup .= ">". Toolbox::substr($val["name"], 0, $str_limit) ."</option>\n";
-         $items_in_group++;
+         $values[$group][$key] = $val["name"];
       }
    }
 }
-
-if (!empty($newgroup)
-    && $items_in_group > 0) {
-   echo $newgroup;
-}
-if (!$first_group) {
-   echo "</optgroup>";
-}
-echo "</select>";
+$rand     = Dropdown::showFromArray("metacriteria[".$_POST["num"]."][field]", $values,
+                                    array('value' => $_POST["field"],
+                                          'width' => '100%'));
+$field_id = Html::cleanId("dropdown_metacriteria[".$_POST["num"]."][field]".$rand);
 
 echo "</td><td class='left'>";
 
 echo "<span id='Search2Span".$_POST["itemtype"].$_POST["num"]."'>\n";
 
-$_POST['meta']       = 1;
-$_POST['searchtype'] = $_POST["searchtype2"];
+$_POST['meta'] = 1;
 
 include (GLPI_ROOT."/ajax/searchoption.php");
 echo "</span>\n";
@@ -104,10 +77,10 @@ $params = array('field'      => '__VALUE__',
                 'itemtype'   => $_POST["itemtype"],
                 'num'        => $_POST["num"],
                 'value'      => $_POST["value"],
-                'searchtype' => $_POST["searchtype2"],
+                'searchtype' => $_POST["searchtype"],
                 'meta'       => 1);
 
-Ajax::updateItemOnSelectEvent("Search2".$_POST["itemtype"].$_POST["num"],
+Ajax::updateItemOnSelectEvent($field_id,
                               "Search2Span".$_POST["itemtype"].$_POST["num"],
                               $CFG_GLPI["root_doc"]."/ajax/searchoption.php", $params);
 echo '</td></tr></table>';

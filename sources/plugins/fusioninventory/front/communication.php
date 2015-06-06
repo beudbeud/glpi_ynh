@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Vincent Mazzoni
    @co-author David Durieux
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -76,13 +76,16 @@ if (!class_exists("PluginFusioninventoryConfig")) {
    session_destroy();
    exit();
 }
-   
+
 $pfCommunication  = new PluginFusioninventoryCommunication();
 
+if (!isset($rawdata)) {
+   $rawdata = file_get_contents("php://input");
+}
 if (isset($_GET['action']) && isset($_GET['machineid'])) {
    PluginFusioninventoryCommunicationRest::handleFusionCommunication();
-} else if (isset($GLOBALS["HTTP_RAW_POST_DATA"])) {
-   $pfCommunication->handleOCSCommunication();
+} else if (!empty($rawdata)) {
+   $pfCommunication->handleOCSCommunication($rawdata);
 }
 
 session_destroy();

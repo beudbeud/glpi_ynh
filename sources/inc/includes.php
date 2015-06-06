@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: includes.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: includes.php 22987 2014-06-04 06:22:20Z ddurieux $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -97,7 +97,6 @@ if (isset($_REQUEST)) {
    $_REQUEST = array_map(array('Toolbox','addslashes_deep'), $_REQUEST);
    $_REQUEST = array_map(array('Toolbox', 'clean_cross_side_scripting_deep'), $_REQUEST);
 }
-
 if (isset($_FILES)) {
    // GPC do not filter $_FILES
 //    if (Toolbox::get_magic_quotes_gpc()) {
@@ -142,9 +141,18 @@ if (!isset($_SESSION["MESSAGE_AFTER_REDIRECT"])) {
 
 // Manage force tab
 if (isset($_REQUEST['forcetab'])) {
-   if (preg_match('/([a-zA-Z]+).form.php/',$_SERVER['PHP_SELF'],$matches)) {
+   if (preg_match('/\/plugins\/([a-zA-Z]+)\/front\/([a-zA-Z]+).form.php/',$_SERVER['PHP_SELF'],$matches)) {
+      $itemtype = 'plugin'.$matches[1].$matches[2];
+      Session::setActiveTab($itemtype, $_REQUEST['forcetab']);
+   } else if (preg_match('/([a-zA-Z]+).form.php/',$_SERVER['PHP_SELF'],$matches)) {
       $itemtype = $matches[1];
-      Session::setActiveTab($matches[1], $_REQUEST['forcetab']);
+      Session::setActiveTab($itemtype, $_REQUEST['forcetab']);
+   } else if (preg_match('/\/plugins\/([a-zA-Z]+)\/front\/([a-zA-Z]+).php/',$_SERVER['PHP_SELF'],$matches)) {
+      $itemtype = 'plugin'.$matches[1].$matches[2];
+      Session::setActiveTab($itemtype, $_REQUEST['forcetab']);
+   } else if (preg_match('/([a-zA-Z]+).php/',$_SERVER['PHP_SELF'],$matches)) {
+      $itemtype = $matches[1];
+      Session::setActiveTab($itemtype, $_REQUEST['forcetab']);
    }
 }
 // Manage tabs
@@ -173,7 +181,6 @@ if (GLPI_USE_CSRF_CHECK
       Session::checkCSRF($_POST);
    }
 }
-
 // SET new global Token
 $CURRENTCSRFTOKEN = '';
 ?>

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: bookmark.class.php 22724 2014-02-26 17:44:56Z yllen $
+ * @version $Id: bookmark.class.php 23303 2015-01-21 14:24:35Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -37,15 +37,21 @@ if (!defined('GLPI_ROOT')) {
 
 /**
  * Bookmark class
- */
+**/
 class Bookmark extends CommonDBTM {
+
+   // From CommonGLPI
+   public $taborientation          = 'horizontal';
 
    var       $auto_message_on_action = false;
    protected $displaylist            = false;
 
+   static $rightname                 = 'bookmark_public';
+
    const WIDTH  = 750;
    const SEARCH = 1; //SEARCH SYSTEM bookmark
    const URI    = 2;
+
 
 
    /**
@@ -61,27 +67,100 @@ class Bookmark extends CommonDBTM {
    }
 
 
-   static function canCreate() {
-      return true;
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::getSpecificMassiveActions()
+   **/
+   function getSpecificMassiveActions($checkitem=NULL) {
+
+      $actions[__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'move_bookmark'] = __('Move');
+      return $actions;
    }
 
-   static function canView() {
-      return true;
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::showMassiveActionsSubForm()
+   **/
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
+      global $CFG_GLPI;
+
+      switch ($ma->getAction()) {
+         case 'move_bookmark' :
+            $values             = array('after'  => __('After'),
+                                        'before' => __('Before'));
+            Dropdown::showFromArray('move_type', $values, array('width' => '20%'));
+
+            $param              = array('name'  => "bookmarks_id_ref",
+                                        'width' => '50%');
+            $param['condition'] = "(`is_private`='1' AND `users_id`='".Session::getLoginUserID()."') ";
+            $param['entity']    = -1;
+            Bookmark::dropdown($param);
+            echo "<br><br>\n";
+            echo Html::submit(_x('button', 'Move'), array('name' => 'massiveaction'))."</span>";
+            return true;
+      }
+      return parent::showMassiveActionsSubForm($ma);
    }
 
 
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
+   **/
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
+      global $DB;
+
+      switch ($ma->getAction()) {
+         case 'move_bookmark' :
+            $input = $ma->getInput();
+            if ($item->moveBookmark($ids, $input['bookmarks_id_ref'],
+                                    $input['move_type'])) {
+               $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_OK);
+            } else {
+               $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
+            }
+            return;
+      }
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
+   }
+
+
+   /**
+    * Special case: a private bookmark has entities_id==-1 => we cannot check it
+    * @see CommonDBTM::canCreateItem()
+    *
+    * @since version 0.85
+   **/
+   function canCreateItem() {
+
+      if (($this->fields['is_private'] == 1)
+          && ($this->fields['users_id'] == Session::getLoginUserID())) {
+         return true;
+      }
+      return parent::canCreateItem();
+   }
+
+
+   /**
+    *  Special case: a private bookmark has entities_id==-1 => we cannot check it
+    * @see CommonDBTM::canViewItem()
+    *
+    * @since version 0.85
+   **/
    function canViewItem() {
-      return ($this->fields['users_id'] == Session::getLoginUserID()
-              || (Session::haveRight('bookmark_public', 'r')
-                  && Session::haveAccessToEntity($this->fields['entities_id'], $this->fields['is_recursive'])));
-   }
-   function canUpdateItem() {
 
-      return ($this->fields['users_id'] == Session::getLoginUserID()
-              || (!$this->fields['is_private']
-                  && Session::haveRight('bookmark_public', 'w')
-                  && Session::haveAccessToEntity($this->fields['entities_id'])));
+      if (($this->fields['is_private'] == 1)
+          && ($this->fields['users_id'] == Session::getLoginUserID())) {
+         return true;
+      }
+      return parent::canViewItem();
    }
+
 
    function isNewItem() {
       /// For tabs management : force isNewItem
@@ -104,7 +183,7 @@ class Bookmark extends CommonDBTM {
          case __CLASS__:
             $ong     = array();
             $ong[1]  = __('Personal');
-            if (Session::haveRight('bookmark_public','r')) {
+            if (self::canView()) {
                $ong[2] = __('Public');
             }
             return $ong;
@@ -121,7 +200,7 @@ class Bookmark extends CommonDBTM {
             if ($tabnum == 2) {
                $is_private = 0;
             }
-            $item->showBookmarkList($_POST['target'], $is_private);
+            $item->showBookmarkList($_GET['_target'], $is_private);
             return true;
       }
       return false;
@@ -204,14 +283,13 @@ class Bookmark extends CommonDBTM {
 
       // Only an edit form : always check w right
       if ($ID > 0) {
-         $this->check($ID,'w');
+         $this->check($ID, UPDATE);
       } else {
-         $this->check(-1,'w');
+         $this->check(-1, CREATE);
       }
 
       echo '<br>';
-      echo "<form method='post' name='form_save_query' action='".$CFG_GLPI['root_doc'].
-             "/front/popup.php'>";
+      echo "<form method='post' name='form_save_query' action='".$_SERVER['PHP_SELF']."'>";
       echo "<div class='center'>";
       if (isset($options['itemtype'])) {
          echo "<input type='hidden' name='itemtype' value='".$options['itemtype']."'>";
@@ -224,7 +302,7 @@ class Bookmark extends CommonDBTM {
          echo "<input type='hidden' name='url' value='" . rawurlencode($options['url']) . "'>";
       }
 
-      echo "<table class='tab_cadre_report' width='".self::WIDTH."px'>";
+      echo "<table class='tab_cadre' width='".self::WIDTH."px'>";
       echo "<tr><th>&nbsp;</th><th>";
       if ($ID > 0) {
          //TRANS: %1$s is the Itemtype name and $2$d the ID of the item
@@ -242,7 +320,7 @@ class Bookmark extends CommonDBTM {
       echo "<tr class='tab_bg_2'><td>".__('Type')."</td>";
       echo "<td>";
 
-      if (Session::haveRight('bookmark_public', 'w')) {
+      if (static::canCreate()) {
          Dropdown::showPrivatePublicSwitch($this->fields["is_private"],
                                            $this->fields["entities_id"],
                                            $this->fields["is_recursive"]);
@@ -269,7 +347,7 @@ class Bookmark extends CommonDBTM {
          echo "<input type='hidden' name='id' value='$ID'>";
          echo "<input type='submit' name='update' value=\"".__s('Save')."\" class='submit'>";
          echo "</td></tr><tr><td class='tab_bg_2 right' colspan='2'>";
-         echo "<input type='submit' name='delete' value=\""._sx('button', 'Delete permanently')."\"
+         echo "<input type='submit' name='purge' value=\""._sx('button', 'Delete permanently')."\"
                 class='submit'>";
          echo "</td></tr>";
       }
@@ -292,7 +370,7 @@ class Bookmark extends CommonDBTM {
       switch ($type) {
          case self::SEARCH :
             $fields_toclean = array('add_search_count', 'add_search_count2', 'delete_search_count',
-                                    'delete_search_count2', 'glpisearchcount', 'glpisearchcount2',
+                                    'delete_search_count2',
                                     'start', '_glpi_csrf_token');
             foreach ($fields_toclean as $field) {
                if (isset($query_tab[$field])) {
@@ -300,18 +378,6 @@ class Bookmark extends CommonDBTM {
                }
             }
 
-            // Manage glpisearchcount / dclean if needed + store
-            if (isset($_SESSION["glpisearchcount"][$itemtype])) {
-               $query_tab['glpisearchcount'] = $_SESSION["glpisearchcount"][$itemtype];
-            } else {
-               $query_tab['glpisearchcount'] = 1;
-            }
-            // Manage glpisearchcount2 / dclean if needed + store
-            if (isset($_SESSION["glpisearchcount2"][$itemtype])) {
-               $query_tab['glpisearchcount2'] = $_SESSION["glpisearchcount2"][$itemtype];
-            } else {
-               $query_tab['glpisearchcount2'] = 0;
-            }
             break;
       }
       return $query_tab;
@@ -336,63 +402,37 @@ class Bookmark extends CommonDBTM {
             $query_tab_save = $query_tab;
             $partial_load   = false;
             // Standard search
-            if (isset($query_tab_save['field']) && count($query_tab_save['field'])) {
-               unset($query_tab['field']);
-               unset($query_tab['searchtype']);
-               unset($query_tab['contains']);
-               unset($query_tab['link']);
+            if (isset($query_tab_save['criteria']) && count($query_tab_save['criteria'])) {
+               unset($query_tab['criteria']);
                $new_key = 0;
-               foreach ($query_tab_save['field'] as $key => $val) {
-                  if (($val != 'view') && ($val != 'all')
-                      && (!isset($opt[$val])
-                          || (isset($opt[$val]['nosearch']) && $opt[$val]['nosearch']))) {
-                     $query_tab['glpisearchcount']--;
+               foreach ($query_tab_save['criteria'] as $key => $val) {
+                  if (($val['field'] != 'view') && ($val['field'] != 'all')
+                      && (!isset($opt[$val['field']])
+                          || (isset($opt[$val['field']]['nosearch'])
+                              && $opt[$val['field']]['nosearch']))) {
                      $partial_load = true;
                   } else {
-                     $query_tab['field'][$new_key] = $val;
-                     if (isset($query_tab_save['searchtype'])
-                         && isset($query_tab_save['searchtype'][$key])) {
-                        $query_tab['searchtype'][$new_key] = $query_tab_save['searchtype'][$key];
-                     }
-                     $query_tab['contains'][$new_key] = $query_tab_save['contains'][$key];
-                     if (isset($query_tab_save['link'][$key])) {
-                        $query_tab['link'][$new_key] = $query_tab_save['link'][$key];
-                     }
+                     $query_tab['criteria'][$new_key] = $val;
                      $new_key++;
                   }
                }
             }
-            if ($query_tab['glpisearchcount'] == 0) {
-               $query_tab['glpisearchcount'] = 1;
-            }
 
             // Meta search
-            if (isset($query_tab_save['itemtype2']) && count($query_tab_save['itemtype2'])
-                && isset($query_tab_save['field2'])) {
+            if (isset($query_tab_save['metacriteria']) && count($query_tab_save['metacriteria'])) {
                $meta_ok = Search::getMetaItemtypeAvailable($query_tab['itemtype']);
 
-               unset($query_tab['field2']);
-               unset($query_tab['searchtype2']);
-               unset($query_tab['contains2']);
-               unset($query_tab['link2']);
-               unset($query_tab['itemtype2']);
+               unset($query_tab['metacriteria']);
+
                $new_key = 0;
-               foreach ($query_tab_save['field2'] as $key => $val) {
-                  $opt = Search::getCleanedOptions($query_tab_save['itemtype2'][$key]);
+               foreach ($query_tab_save['metacriteria'] as $key => $val) {
+                  $opt = Search::getCleanedOptions($val['itemtype']);
                   // Use if meta type is valid and option available
-                  if (!in_array($query_tab_save['itemtype2'][$key], $meta_ok)
-                      || !isset($opt[$val])) {
-                     $query_tab['glpisearchcount2']--;
+                  if (!in_array($val['itemtype'], $meta_ok)
+                      || !isset($opt[$val['field']])) {
                      $partial_load = true;
                   } else {
-                     $query_tab['field2'][$new_key] = $val;
-                     if (isset($query_tab_save['searchtype2'])
-                         && isset($query_tab_save['searchtype2'][$key])) {
-                        $query_tab['searchtype2'][$new_key] = $query_tab_save['searchtype2'][$key];
-                     }
-                     $query_tab['contains2'][$new_key] = $query_tab_save['contains2'][$key];
-                     $query_tab['link2'][$new_key]     = $query_tab_save['link2'][$key];
-                     $query_tab['itemtype2'][$new_key] = $query_tab_save['itemtype2'][$key];
+                     $query_tab['metacriteria'][$new_key] = $val;
                      $new_key++;
                   }
                }
@@ -428,8 +468,9 @@ class Bookmark extends CommonDBTM {
 
          if ($opener) {
             echo "<script type='text/javascript' >\n";
-            echo "window.opener.location.href='$url';";
+            echo "window.parent.location.href='$url';";
             echo "</script>";
+            exit();
          } else {
             Html::redirect($url);
          }
@@ -543,7 +584,8 @@ class Bookmark extends CommonDBTM {
                 FROM `".$this->getTable()."`
                 LEFT JOIN `glpi_bookmarks_users`
                   ON (`".$this->getTable()."`.`itemtype` = `glpi_bookmarks_users`.`itemtype`
-                      AND `".$this->getTable()."`.`id` = `glpi_bookmarks_users`.`bookmarks_id`)
+                      AND `".$this->getTable()."`.`id` = `glpi_bookmarks_users`.`bookmarks_id`
+                      AND `glpi_bookmarks_users`.`users_id` = '".Session::getLoginUserID()."')
                 WHERE ";
 
       if ($is_private) {
@@ -556,94 +598,275 @@ class Bookmark extends CommonDBTM {
 
       $query .= " ORDER BY `itemtype`, `name`";
 
+      // get bookmarks
+      $bookmarks = array();
       if ($result = $DB->query($query)) {
-         $rand = mt_rand();
-         $numrows = $DB->numrows($result);
-         Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-
-         echo "<div class='center' id='tabsbody' >";
-         $massiveactionparams = array('num_displayed'  => $numrows,
-                                      'width'          => 600,
-                                      'height'         => 200,
-                                      'rand'           => $rand);
-
-//          Html::showMassiveActions(__CLASS__, $massiveactionparams);
-
-         echo "<table class='tab_cadre_fixehov'>";
-         echo "<tr>";
-         echo "<th>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
-         echo "<th class='center' colspan='2'>"._n('Bookmark', 'Bookmarks', 2)."</th>";
-         echo "<th width='20px'>&nbsp;</th>";
-         echo "<th>".__('Default view')."</th></tr>";
-
-         if ($numrows) {
-            $current_type      = -1;
-            $current_type_name = NOT_AVAILABLE;
-            while ($this->fields = $DB->fetch_assoc($result)) {
-               if ($current_type != $this->fields['itemtype']) {
-                  $current_type      = $this->fields['itemtype'];
-                  $current_type_name = NOT_AVAILABLE;
-
-                  if ($current_type == "AllAssets") {
-                     $current_type_name = __('Global');
-                  } else if ($item = getItemForItemtype($current_type)) {
-                     $current_type_name = $item->getTypeName(1);
-                  }
-               }
-               $canedit = $this->can($this->fields["id"],"w");
-
-               echo "<tr class='tab_bg_1'>";
-               echo "<td width='10px'>";
-               if ($canedit) {
-                  Html::showMassiveActionCheckBox(__CLASS__, $this->fields["id"]);
-               } else {
-                  echo "&nbsp;";
-               }
-               echo "</td>";
-               echo "<td>$current_type_name</td>";
-               echo "<td>";
-               if ($canedit) {
-                  echo "<a href=\"".$CFG_GLPI['root_doc']."/front/popup.php?popup=edit_bookmark&amp;id=".
-                           $this->fields["id"]."\" alt='".__s('Update')."'>".
-                           $this->fields["name"]."</a>";
-               } else {
-                  echo $this->fields["name"];
-               }
-               echo "</td>";
-
-               echo "<td><a href=\"".$CFG_GLPI['root_doc']."/front/popup.php?popup=load_bookmark&amp;id=".
-                           $this->fields["id"]."\" class='vsubmit'>".__('Load')."</a>";
-               echo "</td>";
-               echo "<td class='center'>";
-               if ($this->fields['type'] == self::SEARCH) {
-                  if (is_null($this->fields['IS_DEFAULT'])) {
-                     echo "<a href=\"".$CFG_GLPI['root_doc']."/front/popup.php?popup=edit_bookmark&amp;".
-                            "mark_default=1&amp;id=".$this->fields["id"]."\" alt=\"".
-                            __s('Not default search')."\" itle=\"".__s('Not default search')."\">".
-                            "<img src=\"".$CFG_GLPI['root_doc']."/pics/bookmark_grey.png\"></a>";
-                  } else {
-                     echo "<a href=\"".$CFG_GLPI['root_doc']."/front/popup.php?popup=edit_bookmark&amp;".
-                            "mark_default=0&amp;id=".$this->fields["id"]."\" alt=\"".
-                            __s('Default search')."\" title=\"".__s('Default search')."\">".
-                            "<img src=\"".$CFG_GLPI['root_doc']."/pics/bookmark.png\"></a>";
-                  }
-               }
-               echo "</td></tr>";
+         if ($numrows = $DB->numrows($result)) {
+            while ($data = $DB->fetch_assoc($result)) {
+               $bookmarks[$data['id']] = $data;
             }
-            echo "</table></div>";
-
-            if ($is_private || Session::haveRight('bookmark_public', 'w')) {
-               $massiveactionparams['ontop']       = false;
-               $massiveactionparams['forcecreate'] = true;
-               Html::showMassiveActions(__CLASS__, $massiveactionparams);
-            }
-         } else {
-            echo "<tr class='tab_bg_1'><td colspan='5'>";
-            _e('You have not recorded any bookmarks yet');
-            echo "</td></tr></table>";
          }
-         Html::closeForm();
       }
+
+      $ordered_bookmarks = array();
+
+      // get personal order
+      if ($is_private) {
+         $user = new User();
+         $personalorderfield = 'privatebookmarkorder';
+
+         if ($user->getFromDB(Session::getLoginUserID())) {
+            $personalorder = importArrayFromDB($user->fields[$personalorderfield]);
+         }
+         if (!is_array($personalorder)) {
+            $personalorder = array();
+         }
+
+         // Add bookmarks on personal order
+         if (count($personalorder)) {
+            foreach ($personalorder as $val) {
+               if (isset($bookmarks[$val])) {
+                  $ordered_bookmarks[$val] = $bookmarks[$val];
+                  unset($bookmarks[$val]);
+               }
+            }
+         }
+      }
+      // Add unsaved in order bookmarks
+      if (count($bookmarks)) {
+         foreach ($bookmarks as $key => $val) {
+            $ordered_bookmarks[$key] = $val;
+         }
+      }
+      if ($is_private) {
+         // New bookmark : save order
+         $store_bookmark = array_keys($ordered_bookmarks);
+         $user->update(array('id'                => Session::getLoginUserID(),
+                             $personalorderfield => exportArrayToDB($store_bookmark)));
+      }
+
+      $rand    = mt_rand();
+      $numrows = $DB->numrows($result);
+      Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
+
+      echo "<div class='center' id='tabsbody' >";
+      $maactions = array('purge' => _x('button', 'Delete permanently'));
+      if ($is_private) {
+         $maactions[__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'move_bookmark'] = __('Move');
+      }
+      $massiveactionparams = array('num_displayed'     => $numrows,
+                                    'container'        => 'mass'.__CLASS__.$rand,
+                                    'width'            => 600,
+                                    'extraparams'      => array('is_private' => $is_private),
+                                    'height'           => 200,
+                                    'specific_actions' => $maactions);
+
+      // No massive action on bottom
+
+      echo "<table class='tab_cadre_fixehov'>";
+      echo "<tr>";
+      echo "<th>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+      echo "<th class='center' colspan='2'>"._n('Bookmark', 'Bookmarks', Session::getPluralNumber())."</th>";
+      echo "<th width='20px'>&nbsp;</th>";
+      echo "<th>".__('Default view')."</th>";
+      $colspan = 5;
+      if ($is_private) {
+         $colspan+=2;
+         echo "<th colspan='2'>&nbsp;</th>";
+      }
+      echo "</tr>";
+
+      if ($totalcount = count($ordered_bookmarks)) {
+         $current_type      = -1;
+         $number            = 0;
+         $current_type_name = NOT_AVAILABLE;
+         foreach ($ordered_bookmarks as $key => $this->fields) {
+            $number ++;
+            if ($current_type != $this->fields['itemtype']) {
+               $current_type      = $this->fields['itemtype'];
+               $current_type_name = NOT_AVAILABLE;
+
+               if ($current_type == "AllAssets") {
+                  $current_type_name = __('Global');
+               } else if ($item = getItemForItemtype($current_type)) {
+                  $current_type_name = $item->getTypeName(1);
+               }
+            }
+            $canedit = $this->canEdit($this->fields["id"]);
+
+            echo "<tr class='tab_bg_1'>";
+            echo "<td width='10px'>";
+            if ($canedit) {
+               Html::showMassiveActionCheckBox(__CLASS__, $this->fields["id"]);
+            } else {
+               echo "&nbsp;";
+            }
+            echo "</td>";
+            echo "<td>$current_type_name</td>";
+            echo "<td>";
+            if ($canedit) {
+               echo "<a href=\"".$CFG_GLPI['root_doc']."/front/bookmark.php?action=edit&amp;id=".
+                      $this->fields["id"]."\" alt='"._sx('button', 'Update')."'>".
+                      $this->fields["name"]."</a>";
+            } else {
+               echo $this->fields["name"];
+            }
+            echo "</td>";
+
+            echo "<td><a href=\"".$CFG_GLPI['root_doc']."/front/bookmark.php?action=load&amp;id=".
+                       $this->fields["id"]."\" class='vsubmit'>".__('Load')."</a>";
+            echo "</td>";
+            echo "<td class='center'>";
+            if ($this->fields['type'] == self::SEARCH) {
+               if (is_null($this->fields['IS_DEFAULT'])) {
+                  echo "<a href=\"".$CFG_GLPI['root_doc']."/front/bookmark.php?action=edit&amp;".
+                         "mark_default=1&amp;id=".$this->fields["id"]."\" alt=\"".
+                         __s('Not default search')."\" itle=\"".__s('Not default search')."\">".
+                         "<img src=\"".$CFG_GLPI['root_doc']."/pics/bookmark_grey.png\"></a>";
+               } else {
+                  echo "<a href=\"".$CFG_GLPI['root_doc']."/front/bookmark.php?action=edit&amp;".
+                         "mark_default=0&amp;id=".$this->fields["id"]."\" alt=\"".
+                         __s('Default search')."\" title=\"".__s('Default search')."\">".
+                         "<img src=\"".$CFG_GLPI['root_doc']."/pics/bookmark.png\"></a>";
+               }
+            }
+            echo "</td>";
+            if ($is_private) {
+               if ($number != 1) {
+                  echo "<td>";
+                  Html::showSimpleForm($this->getSearchURL(), array('action' => 'up'), '',
+                                       array('id'      => $this->fields["id"]),
+                                       $CFG_GLPI["root_doc"]."/pics/deplier_up.png");
+                  echo "</td>";
+               } else {
+                  echo "<td>&nbsp;</td>";
+               }
+
+               if ($number != $totalcount) {
+                  echo "<td>";
+                  Html::showSimpleForm($this->getSearchURL(), array('action' => 'down'), '',
+                                       array('id'      => $this->fields["id"]),
+                                       $CFG_GLPI["root_doc"]."/pics/deplier_down.png");
+                  echo "</td>";
+               } else {
+                  echo "<td>&nbsp;</td>";
+               }
+            }
+            echo "</tr>";
+            $first = false;
+         }
+         echo "</table></div>";
+
+         if ($is_private
+             || Session::haveRight('bookmark_public', PURGE)) {
+            $massiveactionparams['ontop']       = false;
+            $massiveactionparams['forcecreate'] = true;
+            Html::showMassiveActions($massiveactionparams);
+         }
+      } else {
+         echo "<tr class='tab_bg_1'><td colspan='$colspan'>";
+         _e('You have not recorded any bookmarks yet');
+         echo "</td></tr></table>";
+      }
+      Html::closeForm();
+
+   }
+
+
+   /**
+    * Modify rule's ranking and automatically reorder all rules
+    *
+    * @since version 0.85
+    *
+    * @param $ID     the rule ID whose ranking must be modified
+    * @param $action up or down
+   **/
+   function changeBookmarkOrder($ID, $action) {
+
+      $user = new User();
+      $personalorderfield = 'privatebookmarkorder';
+      if ($user->getFromDB(Session::getLoginUserID())) {
+         $personalorder = importArrayFromDB($user->fields[$personalorderfield]);
+      }
+      if (!is_array($personalorder)) {
+         $personalorder = array();
+      }
+
+      if (in_array($ID, $personalorder)) {
+         $pos = array_search($ID, $personalorder);
+         switch($action) {
+            case 'up' :
+               if (isset($personalorder[$pos-1])) {
+                  $personalorder[$pos] = $personalorder[$pos-1];
+                  $personalorder[$pos-1] = $ID;
+               }
+               break;
+
+            case 'down' :
+               if (isset($personalorder[$pos+1])) {
+                  $personalorder[$pos] = $personalorder[$pos+1];
+                  $personalorder[$pos+1] = $ID;
+               }
+               break;
+         }
+         $user->update(array('id'                => Session::getLoginUserID(),
+                             $personalorderfield => exportArrayToDB($personalorder)));
+      }
+   }
+
+
+   /**
+    * Move a bookmark in an ordered collection
+    *
+    * @since version 0.85
+    *
+    * @param $items    array      of the rules ID to move
+    * @param $ref_ID   integer    of the rule position  (0 means all, so before all or after all)
+    * @param $action   string     of move : after or before ( default 'after')
+    *
+    * @return true if all ok
+   **/
+   function moveBookmark($items= array(), $ref_ID, $action='after') {
+      global $DB;
+
+      if (count($items)) {
+         // Clean IDS : drop ref_ID
+         if (isset($items[$ref_ID])) {
+            unset($items[$ref_ID]);
+         }
+
+         $user               = new User();
+         $personalorderfield = 'privatebookmarkorder';
+         if ($user->getFromDB(Session::getLoginUserID())) {
+            $personalorder = importArrayFromDB($user->fields[$personalorderfield]);
+         }
+         if (!is_array($personalorder)) {
+            return false;
+         }
+
+         $newpersonalorder = array();
+         foreach ($personalorder as $val) {
+            // Found item
+            if ($val == $ref_ID) {
+               // Add after so add ref ID
+               if ($action == 'after') {
+                  $newpersonalorder[] = $ref_ID;
+               }
+               foreach ($items as $val2) {
+                  $newpersonalorder[] = $val2;
+               }
+               if ($action == 'before') {
+                  $newpersonalorder[] = $ref_ID;
+               }
+            } else if (!isset($items[$val])) {
+               $newpersonalorder[] = $val;
+            }
+         }
+         $user->update(array('id'                => Session::getLoginUserID(),
+                             $personalorderfield => exportArrayToDB($newpersonalorder)));
+         return true;
+      }
+      return false;
    }
 
 
@@ -656,15 +879,20 @@ class Bookmark extends CommonDBTM {
    static function showSaveButton($type, $itemtype=0) {
       global $CFG_GLPI;
 
-      echo " <a href='#' onClick=\"var w = window.open('".$CFG_GLPI["root_doc"].
-              "/front/popup.php?popup=edit_bookmark&amp;type=$type&amp;itemtype=$itemtype&amp;url=".
-              rawurlencode($_SERVER["REQUEST_URI"])."' ,'glpipopup', 'height=500, width=".
-              (self::WIDTH+250).", top=100, left=100, scrollbars=yes' );w.focus();\">";
+
+      echo " <a href='#' onClick=\"".Html::jsGetElementbyID('bookmarksave').".dialog('open');\">";
       echo "<img src='".$CFG_GLPI["root_doc"]."/pics/bookmark_record.png'
              title=\"".__s('Save as bookmark')."\" alt=\"".__s('Save as bookmark')."\"
              class='calendrier'>";
       echo "</a>";
+      Ajax::createIframeModalWindow('bookmarksave',
+                                    $CFG_GLPI["root_doc"]."/front/bookmark.php?type=$type".
+                                          "&action=edit&itemtype=$itemtype&".
+                                          "url=".rawurlencode($_SERVER["REQUEST_URI"]),
+                                    array('title'         => __('Save as bookmark'),
+                                          'reloadonclose' => true));
    }
+
 
 }
 ?>

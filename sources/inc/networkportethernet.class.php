@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: networkportethernet.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: networkportethernet.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,6 +38,7 @@ if (!defined('GLPI_ROOT')) {
 /// NetworkPortEthernet class : Ethernet instantiation of NetworkPort
 /// @since 0.84
 class NetworkPortEthernet extends NetworkPortInstantiation {
+
 
    static function getTypeName($nb=0) {
       return __('Ethernet port');

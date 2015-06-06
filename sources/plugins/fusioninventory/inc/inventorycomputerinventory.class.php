@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -255,12 +255,20 @@ class PluginFusioninventoryInventoryComputerInventory {
          if ((isset($a_computerinventory['Computer']['operatingsystems_id']))
                AND (!empty($a_computerinventory['Computer']['operatingsystems_id']))) {
             $input['osname'] = $a_computerinventory['Computer']['operatingsystems_id'];
-
+         }
+         if ((isset($a_inventory['fusioninventorycomputer']['oscomment']))
+               AND (!empty($a_inventory['fusioninventorycomputer']['oscomment']))) {
+            $input['oscomment'] = $a_inventory['fusioninventorycomputer']['oscomment'];
          }
          if ((isset($a_computerinventory['Computer']['computermodels_id']))
                  AND (!empty($a_computerinventory['Computer']['computermodels_id']))) {
             $input['model'] = $a_computerinventory['Computer']['computermodels_id'];
          }
+         if ((isset($a_computerinventory['Computer']['domains_id']))
+                 AND (!empty($a_computerinventory['Computer']['domains_id']))) {
+            $input['domains_id'] = $a_computerinventory['Computer']['domains_id'];
+         }
+
          // TODO
 //         if (isset($arrayinventory['CONTENT']['STORAGES'])) {
 //            foreach($arrayinventory['CONTENT']['STORAGES'] as $storage) {
@@ -525,6 +533,8 @@ class PluginFusioninventoryInventoryComputerInventory {
          // * For benchs
          //$start = microtime(TRUE);
 
+         PluginFusioninventoryInventoryComputerStat::increment();
+
          $pfInventoryComputerLib->updateComputer(
                  $a_computerinventory,
                  $items_id,
@@ -569,7 +579,7 @@ class PluginFusioninventoryInventoryComputerInventory {
                     $PLUGIN_FUSIONINVENTORY_XML->asXML(),
                     'computer');
          }
-      } else if ($itemtype == 'PluginFusioninventoryUnknownDevice') {
+      } else if ($itemtype == 'PluginFusioninventoryUnmanaged') {
 
          $a_computerinventory = $pfFormatconvert->computerSoftwareTransformation(
                                                 $a_computerinventory,
@@ -611,7 +621,7 @@ class PluginFusioninventoryInventoryComputerInventory {
             PluginFusioninventoryToolbox::writeXML(
                     $items_id,
                     $PLUGIN_FUSIONINVENTORY_XML->asXML(),
-                    'PluginFusioninventoryUnknownDevice');
+                    'PluginFusioninventoryUnmanaged');
          }
 
          if (isset($a_computerinventory['Computer']['name'])) {

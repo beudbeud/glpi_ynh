@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: computerdisk.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: computerdisk.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,9 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Disk class
+/**
+ * Disk Class
+**/
 class ComputerDisk extends CommonDBChild {
 
    // From CommonDBChild
@@ -62,15 +64,15 @@ class ComputerDisk extends CommonDBChild {
 
       // can exists for template
       if (($item->getType() == 'Computer')
-          && Session::haveRight("computer","r")) {
+          && Computer::canView()) {
 
          if ($_SESSION['glpishow_count_on_tabs']) {
-            return self::createTabEntry(self::getTypeName(2),
+            return self::createTabEntry(self::getTypeName(Session::getPluralNumber()),
                                         countElementsInTable('glpi_computerdisks',
                                                              "computers_id = '".$item->getID()."'
                                                                  AND `is_deleted`='0'"));
          }
-         return self::getTypeName(2);
+         return self::getTypeName(Session::getPluralNumber());
       }
       return '';
    }
@@ -85,6 +87,20 @@ class ComputerDisk extends CommonDBChild {
 
       self::showForComputer($item, $withtemplate);
       return true;
+   }
+
+
+   /**
+    * @see CommonGLPI::defineTabs()
+    *
+    * @since version 0.85
+   **/
+   function defineTabs($options=array()) {
+
+      $ong = array();
+      $this->addDefaultFormTab($ong);
+
+      return $ong;
    }
 
 
@@ -125,20 +141,19 @@ class ComputerDisk extends CommonDBChild {
    function showForm($ID, $options=array()) {
       global $CFG_GLPI;
 
-      if (!Session::haveRight("computer", "w")) {
-        return false;
+      if (!Session::haveRight("computer", UPDATE)) {
+         return false;
       }
 
       $comp = new Computer();
       if ($ID > 0) {
-         $this->check($ID,'r');
+         $this->check($ID, READ);
          $comp->getFromDB($this->fields['computers_id']);
       } else {
-         $this->check(-1, 'w', $options);
+         $this->check(-1, CREATE, $options);
          $comp->getFromDB($options['computers_id']);
       }
 
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
       if ($this->isNewID($ID)) {
@@ -192,7 +207,6 @@ class ComputerDisk extends CommonDBChild {
       echo "&nbsp;".__('Mio')."</td></tr>";
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
 
       return true;
 
@@ -213,10 +227,20 @@ class ComputerDisk extends CommonDBChild {
       $ID = $comp->fields['id'];
 
       if (!$comp->getFromDB($ID)
-          || !$comp->can($ID, "r")) {
+          || !$comp->can($ID, READ)) {
          return false;
       }
-      $canedit = $comp->can($ID, "w");
+      $canedit = $comp->canEdit($ID);
+
+
+      if ($canedit
+          && !(!empty($withtemplate) && ($withtemplate == 2))) {
+         echo "<div class='center firstbloc'>".
+               "<a class='vsubmit' href='computerdisk.form.php?computers_id=$ID&amp;withtemplate=".
+                  $withtemplate."'>";
+         _e('Add a volume');
+         echo "</a></div>\n";
+      }
 
       echo "<div class='center'>";
 
@@ -229,25 +253,28 @@ class ComputerDisk extends CommonDBChild {
                       AND `is_deleted` = '0'";
 
       if ($result = $DB->query($query)) {
-         echo "<table class='tab_cadre_fixe'>";
+         echo "<table class='tab_cadre_fixehov'>";
          $colspan = 7;
          if (Plugin::haveImport()) {
             $colspan++;
          }
-         echo "<tr><th colspan='$colspan'>".self::getTypeName($DB->numrows($result))."</th></tr>";
+         echo "<tr class='noHover'><th colspan='$colspan'>".self::getTypeName($DB->numrows($result)).
+              "</th></tr>";
 
          if ($DB->numrows($result)) {
-            echo "<tr><th>".__('Name')."</th>";
+
+            $header = "<tr><th>".__('Name')."</th>";
             if (Plugin::haveImport()) {
-               echo "<th>".__('Automatic inventory')."</th>";
+               $header .= "<th>".__('Automatic inventory')."</th>";
             }
-            echo "<th>".__('Partition')."</th>";
-            echo "<th>".__('Mount point')."</th>";
-            echo "<th>".__('File system')."</th>";
-            echo "<th>".__('Global size')."</th>";
-            echo "<th>".__('Free size')."</th>";
-            echo "<th>".__('Free percentage')."</th>";
-            echo "</tr>";
+            $header .= "<th>".__('Partition')."</th>";
+            $header .= "<th>".__('Mount point')."</th>";
+            $header .= "<th>".__('File system')."</th>";
+            $header .= "<th>".__('Global size')."</th>";
+            $header .= "<th>".__('Free size')."</th>";
+            $header .= "<th>".__('Free percentage')."</th>";
+            $header .= "</tr>";
+            echo $header;
 
             Session::initNavigateListItems(__CLASS__,
                               //TRANS : %1$s is the itemtype name,
@@ -261,9 +288,7 @@ class ComputerDisk extends CommonDBChild {
                echo "<tr class='tab_bg_2'>";
                echo "<td>".$disk->getLink()."</td>";
                if (Plugin::haveImport()) {
-                  echo "<td>";
-                  echo Dropdown::getYesNo($data['is_dynamic']);
-                  echo "</td>";
+                  echo "<td>".Dropdown::getYesNo($data['is_dynamic'])."</td>";
                }
                echo "<td>".$data['device']."</td>";
                echo "<td>".$data['mountpoint']."</td>";
@@ -284,17 +309,11 @@ class ComputerDisk extends CommonDBChild {
                echo "</tr>";
                Session::addToNavigateListItems(__CLASS__, $data['id']);
             }
-
+            echo $header;
          } else {
             echo "<tr class='tab_bg_2'><th colspan='$colspan'>".__('No item found')."</th></tr>";
          }
 
-         if ($canedit
-             && !(!empty($withtemplate) && ($withtemplate == 2))) {
-            echo "<tr class='tab_bg_2'><td colspan='$colspan' class='center'>";
-            echo "<a class='vsubmit' href='computerdisk.form.php?computers_id=$ID&amp;withtemplate=".
-                   $withtemplate."'>".__('Add a volume')."</a></td></tr>";
-         }
          echo "</table>";
       }
       echo "</div><br>";

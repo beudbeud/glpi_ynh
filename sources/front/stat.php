@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: stat.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: stat.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,9 +33,9 @@
 
 include ('../inc/includes.php');
 
-Html::header(__('Statistics'), '', "maintain", "stat");
+Html::header(__('Statistics'), '', "helpdesk", "stat");
 
-Session::checkRight("statistic", "1");
+Session::checkRight("statistic", READ);
 
 Stat::title();
 

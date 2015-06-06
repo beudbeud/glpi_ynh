@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: comments.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: comments.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -59,7 +59,7 @@ if (isset($_POST["table"])
 
          if (isset($_POST['withlink'])) {
             echo "<script type='text/javascript' >\n";
-            echo "Ext.get('".$_POST['withlink']."').dom.href='".$tmpname['link']."';";
+            echo Html::jsGetElementbyID($_POST['withlink']).".attr('href', '".$tmpname['link']."');";
             echo "</script>\n";
          }
          break;
@@ -70,7 +70,9 @@ if (isset($_POST["table"])
             echo $tmpname["comment"];
             if (isset($_POST['withlink'])) {
                echo "<script type='text/javascript' >\n";
-               echo "Ext.get('".$_POST['withlink']."').dom.href='".Toolbox::getItemTypeFormURL(getItemTypeForTable($_POST["table"]))."?id=".$_POST["value"]."';";
+               echo Html::jsGetElementbyID($_POST['withlink']).".
+                    attr('href', '".Toolbox::getItemTypeFormURL(getItemTypeForTable($_POST["table"])).
+                    "?id=".$_POST["value"]."');";
                echo "</script>\n";
             }
          }

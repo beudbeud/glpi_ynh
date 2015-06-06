@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: authmail.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: authmail.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,7 +33,7 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("config", "w");
+Session::checkRight("config", UPDATE);
 
 if (!isset($_GET["id"])) {
    $_GET["id"] = "";
@@ -49,12 +49,15 @@ if (isset($_POST["update"])) {
 } else if (isset($_POST["add"])) {
    //If no name has been given to this configuration, then go back to the page without adding
    if ($_POST["name"] != "") {
-      $newID = $config_mail->add($_POST);
+      if (($newID = $config_mail->add($_POST))
+          && $_SESSION['glpibackcreated']) {
+         Html::redirect($config_mail->getFormURL()."?id=".$newID);
+      }
    }
    Html::back();
 
-} else if (isset($_POST["delete"])) {
-   $config_mail->delete($_POST);
+} else if (isset($_POST["purge"])) {
+   $config_mail->delete($_POST, 1);
    $_SESSION['glpi_authconfig'] = 2;
    $config_mail->redirectToList();
 
@@ -67,9 +70,9 @@ if (isset($_POST["update"])) {
    Html::back();
 }
 
-Html::header(AuthMail::getTypeName(1), $_SERVER['PHP_SELF'], "config", "extauth", "imap");
+Html::header(AuthMail::getTypeName(1), $_SERVER['PHP_SELF'], "config", "auth", "imap");
 
-$config_mail->showForm($_GET["id"]);
+$config_mail->display(array('id' => $_GET["id"]));
 
 Html::footer();
 ?>

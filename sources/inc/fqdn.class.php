@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: fqdn.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: fqdn.class.php 22810 2014-03-21 12:04:41Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -41,15 +41,9 @@ class FQDN extends CommonDropdown {
 
    public $dohistory = true;
 
+   static $rightname = 'internet';
 
-   static function canCreate() {
-      return Session::haveRight('internet', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('internet', 'r');
-   }
+   var $can_be_translated = false;
 
 
    static function getTypeName($nb=0) {
@@ -128,7 +122,7 @@ class FQDN extends CommonDropdown {
    **/
    function getFQDN() {
 
-      if ($this->can($this->getID(), 'r')) {
+      if ($this->can($this->getID(), READ)) {
          return $this->fields["fqdn"];
       }
       return "";

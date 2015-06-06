@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: based_config.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: based_config.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -100,6 +100,11 @@ if (!defined("GLPI_GRAPH_DIR")) {
    define("GLPI_GRAPH_DIR",GLPI_ROOT . "/files/_graphs");
 }
 
+// Path for picture storage
+if (!defined("GLPI_PICTURE_DIR")) {
+   define("GLPI_PICTURE_DIR",GLPI_ROOT . "/files/_pictures");
+}
+
 // Path for temp storage
 if (!defined("GLPI_TMP_DIR")) {
    define("GLPI_TMP_DIR",GLPI_ROOT . "/files/_tmp");
@@ -128,6 +133,14 @@ if (!defined("GLPI_PHPMAILER_DIR")) {
    # define("GLPI_PHPMAILER_DIR", "/usr/share/php/phpmailer");
 }
 
+// Default tcpdf installation dir
+if (!defined("GLPI_TCPDF_DIR")) {
+   define("GLPI_TCPDF_DIR", GLPI_ROOT."/lib/tcpdf");
+
+   # if PHPMailer installed, use (in config_path.php)
+   # define("GLPI_TCPDF_DIR", "/usr/share/php/tcpdf");
+}
+
 // Default EZ Components path to base.php
 if (!defined("GLPI_EZC_BASE")) {
    define("GLPI_EZC_BASE", GLPI_ROOT."/lib/ezcomponents/Base/src/base.php");
@@ -136,7 +149,6 @@ if (!defined("GLPI_EZC_BASE")) {
    # define("GLPI_EZC_BASE", "ezc/Base/base.php");
 }
 
-// Default Zend_Loader path
 if (!defined("GLPI_ZEND_PATH")) {
    define("GLPI_ZEND_PATH", GLPI_ROOT."/lib/Zend");
 
@@ -174,5 +186,13 @@ if (!defined('GLPI_HTMLAWED')) {
 
    # if htmLawed available in system, use (in config_path.php)
    # define('GLPI_HTMLAWED', '/usr/share/htmlawed/htmLawed.php');
+}
+
+// Default path to password_compat
+if (!defined('GLPI_PASSWORD_COMPAT')) {
+   define('GLPI_PASSWORD_COMPAT', GLPI_ROOT.'/lib/password_compat/password.php');
+
+   # if password_compat available in system, use (in config_path.php)
+   # define('GLPI_PASSWORD_COMPAT', '/usr/share/php/password_compat/password.php');
 }
 ?>

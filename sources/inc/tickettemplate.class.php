@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: tickettemplate.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: tickettemplate.class.php 23346 2015-02-03 15:11:10Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,20 +35,26 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Ticket Template class
-/// since version 0.83
+/**
+ * Ticket Template class
+ *
+ * since version 0.83
+**/
 class TicketTemplate extends CommonDropdown {
 
    // From CommonDBTM
-   public $dohistory                   = true;
+   public $dohistory                 = true;
 
    // From CommonDropdown
-   public $first_level_menu            = "maintain";
-   public $second_level_menu           = "ticket";
-   public $third_level_menu            = "TicketTemplate";
+   public $first_level_menu          = "helpdesk";
+   public $second_level_menu         = "ticket";
+   public $third_level_menu          = "TicketTemplate";
 
-   public $display_dropdowntitle       = false;
+   public $display_dropdowntitle     = false;
 
+   static $rightname                 = 'tickettemplate';
+
+   var $can_be_translated            = false;
 
    // Specific fields
    /// Mandatory Fields
@@ -81,7 +87,7 @@ class TicketTemplate extends CommonDropdown {
          if (isset($this->hidden['itemtype'])
              && !isset($this->hidden['items_id'])) {
             $this->hidden['items_id'] = $ticket->getSearchOptionIDByField('field', 'items_id',
-                                                                          'glpi_tickets');
+                                                                          'glpi_items_tickets');
          }
          // Always get all mandatory fields
          $ttm             = new TicketTemplateMandatoryField();
@@ -91,7 +97,7 @@ class TicketTemplate extends CommonDropdown {
          if (isset($this->mandatory['itemtype'])
              && !isset($this->mandatory['items_id'])) {
             $this->mandatory['items_id'] = $ticket->getSearchOptionIDByField('field', 'items_id',
-                                                                             'glpi_tickets');
+                                                                             'glpi_items_tickets');
          }
 
          $ttp              = new TicketTemplatePredefinedField();
@@ -114,16 +120,6 @@ class TicketTemplate extends CommonDropdown {
 
    static function getTypeName($nb=0) {
       return _n('Ticket template', 'Ticket templates', $nb);
-   }
-
-
-   static function canCreate() {
-      return Session::haveRight('tickettemplate', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('tickettemplate', 'r');
    }
 
 
@@ -154,43 +150,44 @@ class TicketTemplate extends CommonDropdown {
          // SearchOption ID => name used for options
          $allowed_fields[$withtypeandcategory][$with_items_id]
              = array($ticket->getSearchOptionIDByField('field', 'name',
-                                                       'glpi_tickets')        => 'name',
+                                                       'glpi_tickets')   => 'name',
                      $ticket->getSearchOptionIDByField('field', 'content',
-                                                       'glpi_tickets')        => 'content',
+                                                       'glpi_tickets')   => 'content',
                      $ticket->getSearchOptionIDByField('field', 'status',
-                                                       'glpi_tickets')        => 'status',
+                                                       'glpi_tickets')   => 'status',
                      $ticket->getSearchOptionIDByField('field', 'urgency',
-                                                       'glpi_tickets')        => 'urgency',
+                                                       'glpi_tickets')   => 'urgency',
                      $ticket->getSearchOptionIDByField('field', 'impact',
-                                                       'glpi_tickets')        => 'impact',
+                                                       'glpi_tickets')   => 'impact',
                      $ticket->getSearchOptionIDByField('field', 'priority',
-                                                       'glpi_tickets')        => 'priority',
+                                                       'glpi_tickets')   => 'priority',
                      $ticket->getSearchOptionIDByField('field', 'name',
-                                                       'glpi_requesttypes')   => 'requesttypes_id',
+                                                       'glpi_requesttypes')
+                                                                         => 'requesttypes_id',
                      $ticket->getSearchOptionIDByField('field', 'completename',
-                                                       'glpi_locations')      => 'locations_id',
+                                                       'glpi_locations') => 'locations_id',
                      $ticket->getSearchOptionIDByField('field', 'name',
-                                                       'glpi_slas')           => 'slas_id',
+                                                       'glpi_slas')      => 'slas_id',
                      $ticket->getSearchOptionIDByField('field', 'due_date',
-                                                       'glpi_tickets')        => 'due_date',
+                                                       'glpi_tickets')   => 'due_date',
                      $ticket->getSearchOptionIDByField('field', 'date',
-                                                       'glpi_tickets')        => 'date',
+                                                       'glpi_tickets')   => 'date',
                      $ticket->getSearchOptionIDByField('field', 'actiontime',
-                                                       'glpi_tickets')        => 'actiontime',
+                                                       'glpi_tickets')   => 'actiontime',
                      $ticket->getSearchOptionIDByField('field', 'itemtype',
-                                                       'glpi_tickets')        => 'itemtype',
+                                                       'glpi_items_tickets')   => 'itemtype',
                      $ticket->getSearchOptionIDByField('field', 'global_validation',
-                                                       'glpi_tickets')        => 'global_validation',
+                                                       'glpi_tickets')   => 'global_validation',
 
-                     4                                                        => '_users_id_requester',
-                     71                                                       => '_groups_id_requester',
-                     5                                                        => '_users_id_assign',
-                     8                                                        => '_groups_id_assign',
+                     4                                                   => '_users_id_requester',
+                     71                                                  => '_groups_id_requester',
+                     5                                                   => '_users_id_assign',
+                     8                                                   => '_groups_id_assign',
                      $ticket->getSearchOptionIDByField('field', 'name',
-                                                       'glpi_suppliers')      => '_suppliers_id_assign',
+                                                       'glpi_suppliers') => '_suppliers_id_assign',
 
-                     66                                                       => '_users_id_observer',
-                     65                                                       => '_groups_id_observer',
+                     66                                                  => '_users_id_observer',
+                     65                                                  => '_groups_id_observer',
             );
 
          if ($withtypeandcategory) {
@@ -205,15 +202,18 @@ class TicketTemplate extends CommonDropdown {
          if ($with_items_id) {
             $allowed_fields[$withtypeandcategory][$with_items_id]
                [$ticket->getSearchOptionIDByField('field', 'items_id',
-                                                  'glpi_tickets')] = 'items_id';
+                                                  'glpi_items_tickets')] = 'items_id';
          }
          // Add validation request
          $allowed_fields[$withtypeandcategory][$with_items_id][-2] = '_add_validation';
+
+         // Add document
+         $allowed_fields[$withtypeandcategory][$with_items_id]
+               [$ticket->getSearchOptionIDByField('field', 'name',
+                                                  'glpi_documents')] = '_documents_id';
       }
 
       return $allowed_fields[$withtypeandcategory][$with_items_id];
-
-     /// TODO ADD : linked tickets ? : array passed. How to manage it ? store array in DB + add hidden searchOption ?
    }
 
 
@@ -255,8 +255,10 @@ class TicketTemplate extends CommonDropdown {
                       $ticket->getSearchOptionIDByField('field', 'completename',
                                                         'glpi_itilcategories'),
                       $ticket->getSearchOptionIDByField('field', 'type', 'glpi_tickets'),
-                      $ticket->getSearchOptionIDByField('field', 'items_id', 'glpi_tickets'));
-
+                      $ticket->getSearchOptionIDByField('field', 'items_id', 'glpi_tickets'),
+                      $ticket->getSearchOptionIDByField('field', 'name', 'glpi_documents'),
+                      66 // users_id_observer
+                      );
       return $fields;
    }
 
@@ -298,7 +300,7 @@ class TicketTemplate extends CommonDropdown {
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
-      if (Session::haveRight("tickettemplate","r")) {
+      if (Session::haveRight(self::$rightname, READ)) {
          switch ($item->getType()) {
             case 'TicketTemplate' :
                $ong[1] = __('Standard interface');

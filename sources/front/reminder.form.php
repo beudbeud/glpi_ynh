@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: reminder.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: reminder.form.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -40,24 +40,27 @@ $remind = new Reminder();
 Session::checkLoginUser();
 
 if (isset($_POST["add"])) {
-   $remind->check(-1,'w',$_POST);
+   $remind->check(-1, CREATE, $_POST);
 
-   $newID = $remind->add($_POST);
-   Event::log($newID, "reminder", 4, "tools",
-              sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
+   if ($newID = $remind->add($_POST)) {
+      Event::log($newID, "reminder", 4, "tools",
+                 sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
+      if ($_SESSION['glpibackcreated']) {
+         Html::redirect($remind->getFormURL()."?id=".$newID);
+      }
+   }
    Html::back();
 
-} else if (isset($_POST["delete"])) {
-   $remind->check($_POST["id"],'d');
-
-   $remind->delete($_POST);
+} else if (isset($_POST["purge"])) {
+   $remind->check($_POST["id"], PURGE);
+   $remind->delete($_POST, 1);
    Event::log($_POST["id"], "reminder", 4, "tools",
               //TRANS: %s is the user login
               sprintf(__('%s purges an item'), $_SESSION["glpiname"]));
    $remind->redirectToList();
 
 } else if (isset($_POST["update"])) {
-   $remind->check($_POST["id"],'w');   // Right to update the reminder
+   $remind->check($_POST["id"], UPDATE);   // Right to update the reminder
 
    $remind->update($_POST);
    Event::log($_POST["id"], "reminder", 4, "tools",
@@ -103,12 +106,12 @@ if (isset($_POST["add"])) {
 
 }  else {
    if ($_SESSION["glpiactiveprofile"]["interface"] == "helpdesk") {
-      Html::helpHeader(Reminder::getTypeName(2),'',$_SESSION["glpiname"]);
+      Html::helpHeader(Reminder::getTypeName(Session::getPluralNumber()),'',$_SESSION["glpiname"]);
    } else {
-      Html::header(Reminder::getTypeName(2),'',"utils","reminder");
+      Html::header(Reminder::getTypeName(Session::getPluralNumber()),'',"tools","reminder");
    }
 
-   $remind->showForm($_GET["id"]);
+   $remind->display(array('id' =>$_GET["id"]));
 
    if ($_SESSION["glpiactiveprofile"]["interface"] == "helpdesk") {
       Html::helpFooter();

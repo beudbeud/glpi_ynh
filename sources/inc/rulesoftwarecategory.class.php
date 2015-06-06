@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: rulesoftwarecategory.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: rulesoftwarecategory.class.php 23304 2015-01-21 14:46:37Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -45,8 +45,8 @@ if (!defined('GLPI_ROOT')) {
 class RuleSoftwareCategory extends Rule {
 
    // From Rule
-   static public $right    = 'rule_softwarecategories';
-   public $can_sort        = true;
+   static $rightname = 'rule_softwarecategories';
+   public $can_sort  = true;
 
 
    function getTitle() {
@@ -71,7 +71,7 @@ class RuleSoftwareCategory extends Rule {
       }
 
       $criterias['name']['field']         = 'name';
-      $criterias['name']['name']          = _n('Software', 'Software', 2);
+      $criterias['name']['name']          = _n('Software', 'Software', Session::getPluralNumber());
       $criterias['name']['table']         = 'glpi_softwares';
 
       $criterias['manufacturer']['field'] = 'name';

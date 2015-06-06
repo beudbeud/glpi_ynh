@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: tickettemplatemandatoryfield.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: tickettemplatemandatoryfield.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -62,11 +62,11 @@ class TicketTemplateMandatoryField extends CommonDBChild {
 
 
    /**
-    * @see CommonDBTM::getName()
+    * @see CommonDBTM::getRawName()
     *
-    * @since version 0.84
+    * @since version 0.85
    **/
-   function getName($options=array()) {
+   function getRawName() {
 
       $tt     = new TicketTemplate();
       $fields = $tt->getAllowedFieldsNames(true);
@@ -74,7 +74,7 @@ class TicketTemplateMandatoryField extends CommonDBChild {
       if (isset($fields[$this->fields["num"]])) {
          return $fields[$this->fields["num"]];
       }
-      return NOT_AVAILABLE;
+      return '';
    }
 
 
@@ -82,14 +82,14 @@ class TicketTemplateMandatoryField extends CommonDBChild {
 
       // can exists for template
       if (($item->getType() == 'TicketTemplate')
-          && Session::haveRight("tickettemplate","r")) {
+          && Session::haveRight("tickettemplate", READ)) {
          if ($_SESSION['glpishow_count_on_tabs']) {
-            return self::createTabEntry(self::getTypeName(2),
+            return self::createTabEntry(self::getTypeName(Session::getPluralNumber()),
                                         countElementsInTable($this->getTable(),
                                                              "`tickettemplates_id`
                                                                = '".$item->getID()."'"));
          }
-         return self::getTypeName(2);
+         return self::getTypeName(Session::getPluralNumber());
       }
       return '';
    }
@@ -175,10 +175,10 @@ class TicketTemplateMandatoryField extends CommonDBChild {
 
       $ID = $tt->fields['id'];
 
-      if (!$tt->getFromDB($ID) || !$tt->can($ID, "r")) {
+      if (!$tt->getFromDB($ID) || !$tt->can($ID, READ)) {
          return false;
       }
-      $canedit           = $tt->can($ID, "w");
+      $canedit           = $tt->canEdit($ID);
       $ttm               = new self();
       $used              = $ttm->getMandatoryFields($ID);
       $fields            = $tt->getAllowedFieldsNames(true, isset($used['itemtype']));
@@ -234,21 +234,29 @@ class TicketTemplateMandatoryField extends CommonDBChild {
          echo "<div class='spaced'>";
          if ($canedit && $numrows) {
             Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-            $massiveactionparams = array('num_displayed'  => $numrows);
-            Html::showMassiveActions(__CLASS__, $massiveactionparams);
+            $massiveactionparams = array('num_displayed' => $numrows,
+                                         'container'     => 'mass'.__CLASS__.$rand);
+            Html::showMassiveActions($massiveactionparams);
          }
-         echo "<table class='tab_cadre_fixe'>";
-         echo "<tr><th colspan='3'>";
+         echo "<table class='tab_cadre_fixehov'>";
+         echo "<tr class='noHover'><th colspan='3'>";
          echo self::getTypeName($DB->numrows($result));
          echo "</th></tr>";
          if ($numrows) {
-            echo "<tr>";
+            $header_begin  = "<tr>";
+            $header_top    = '';
+            $header_bottom = '';
+            $header_end    = '';
             if ($canedit) {
-               echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+               $header_top    .= "<th width='10'>";
+               $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+               $header_bottom .= "<th width='10'>";
+               $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
             }
-            echo "<th>".__('Name')."</th>";
-            echo "<th>".__("Profile's interface")."</th>";
-            echo "</tr>";
+            $header_end .= "<th>".__('Name')."</th>";
+            $header_end .= "<th>".__("Profile's interface")."</th>";
+            $header_end .= "</tr>";
+            echo $header_begin.$header_top.$header_end;
 
             foreach ($mandatoryfields as $data) {
                echo "<tr class='tab_bg_2'>";
@@ -265,6 +273,8 @@ class TicketTemplateMandatoryField extends CommonDBChild {
                echo "</td>";
                echo "</tr>";
             }
+            echo $header_begin.$header_bottom.$header_end;
+
 
          } else {
             echo "<tr><th colspan='2'>".__('No item found')."</th></tr>";
@@ -273,7 +283,7 @@ class TicketTemplateMandatoryField extends CommonDBChild {
          echo "</table>";
          if ($canedit && $numrows) {
             $massiveactionparams['ontop'] = false;
-            Html::showMassiveActions(__CLASS__, $massiveactionparams);
+            Html::showMassiveActions($massiveactionparams);
             Html::closeForm();
          }
          echo "</div>";

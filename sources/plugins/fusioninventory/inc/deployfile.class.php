@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    Alexandre Delaunay
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,24 +46,10 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryDeployFile extends CommonDBTM {
 
+   static $rightname = 'plugin_fusioninventory_package';
+
    const REGISTRY_NO_DB_ENTRY = 0x1;
    const REGISTRY_NO_MANIFEST = 0x2;
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight('packages', 'w');
-   }
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight('packages', 'r');
-   }
-
-   static function canDelete() {
-      return self::canEdit();
-   }
-   static function canEdit() {
-      return PluginFusioninventoryProfile::haveRight('packages', 'w');
-   }
-
 
    static function getTypes() {
       return array(
@@ -205,7 +191,7 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
          // start new line
          $pics_path = $CFG_GLPI['root_doc']."/plugins/fusioninventory/pics/";
          echo Search::showNewLine(Search::HTML_OUTPUT, ($i%2));
-         if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+         if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
             echo "<td class='control'>";
             echo "<input type='checkbox' name='file_entries[]' value='$i' />";
             echo "</td>";
@@ -289,19 +275,19 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
             echo "</div>";
          }
          echo "</td>";
-         if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+         if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
             echo "<td class='rowhandler control' title='".__('drag', 'fusioninventory').
                "'><div class='drag row'></div></td>";
          }
          $i++;
       }
-      if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+      if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
          echo "<tr><th>";
          Html::checkAllAsCheckbox("filesList$rand", mt_rand());
          echo "</th><th colspan='3' class='mark'></th></tr>";
       }
       echo "</table>";
-      if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+      if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
          echo "&nbsp;&nbsp;<img src='".$CFG_GLPI["root_doc"]."/pics/arrow-left.png' alt=''>";
          echo "<input type='submit' name='delete' value=\"".
             __('Delete', 'fusioninventory')."\" class='submit'>";
@@ -417,7 +403,7 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
                echo "<input type='text' name='filename' id='server_filename$rand'".
                   " style='width:120px;float:left' />";
                echo "<input type='button' class='submit' value='".__("Choose", 'fusioninventory').
-                  "' onclick='fileModal$rand.show();' style='width:50px' />";
+                  "' onclick='fileModal$rand.dialog(\"open\");' />";
                Ajax::createModalWindow("fileModal$rand",
                         $CFG_GLPI['root_doc']."/plugins/fusioninventory/ajax/deployfilemodal.php",
                         array('title' => __('Select the file on server', 'fusioninventory'),
@@ -461,7 +447,7 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
       echo "</tr><tr>";
       echo "<td>";
       echo "</td><td>";
-      if ($pfDeployPackage->can($pfDeployPackage->getID(), 'w')) {
+      if ($pfDeployPackage->can($pfDeployPackage->getID(), UPDATE)) {
          if ( $mode === 'edit' ) {
             echo "<input type='submit' name='save_item' value=\"".
                _sx('button', 'Save')."\" class='submit' >";
@@ -481,7 +467,7 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
 
       $rand = $params['rand'];
 
-      echo "<script type='javascript'>";
+      echo "<script type='text/javascript'>";
       echo "var Tree_Category_Loader$rand = new Ext.tree.TreeLoader({
          dataUrl:'".$CFG_GLPI["root_doc"]."/plugins/fusioninventory/ajax/serverfilestreesons.php'
       });";
@@ -505,7 +491,7 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
                if (node.leaf == true) {
                   console.log('server_filename$rand');
                   Ext.get('server_filename$rand').dom.value = node.id;
-                  fileModal$rand.hide();
+                  fileModal$rand.dialog('close');
                }
             }
          }
@@ -746,20 +732,23 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
          }
 
          //prepare file data for insertion in repo
-         $datas = array(
+         $data = array(
             'file_tmp_name' => $file_tmp_name,
             'mime_type' => $_FILES['file']['type'],
             'filesize' => $_FILES['file']['size'],
             'filename' => $filename,
-            'p2p' => isset($_POST['p2p']) ? 1 : 0,
-            'uncompress' => isset($_POST['uncompress']) ? 1 : 0,
-            'p2p-retention-duration' => is_numeric($params['p2p-retention-duration']) ?
-               $params['p2p-retention-duration'] : 0,
+            'p2p' => isset($params['p2p']) ? 1 : 0,
+            'uncompress' => isset($params['uncompress']) ? 1 : 0,
+            'p2p-retention-duration' => (
+               is_numeric($params['p2p-retention-duration'])
+               ? $params['p2p-retention-duration']
+               : 0
+            ),
             'orders_id' => $params['orders_id']
          );
 
          //Add file in repo
-         if ($filename && self::addFileInRepo($datas)) {
+         if ($filename && self::addFileInRepo($data)) {
             Session::addMessageAfterRedirect(__('File saved!', 'fusioninventory'));
             return TRUE;
          } else {
@@ -791,20 +780,23 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
          $filesize = filesize($file_path);
 
          //prepare file data for insertion in repo
-         $datas = array(
+         $data = array(
             'file_tmp_name' => $file_path,
             'mime_type' => $mime_type,
             'filesize' => $filesize,
             'filename' => $filename,
-            'p2p' => isset($_POST['p2p']) ? 1 : 0,
-            'uncompress' => isset($_POST['uncompress']) ? 1 : 0,
-            'p2p-retention-duration' => is_numeric($_POST['p2p-retention-duration']) ?
-               $_POST['p2p-retention-duration'] : 0,
+            'p2p' => isset($params['p2p']) ? 1 : 0,
+            'uncompress' => isset($params['uncompress']) ? 1 : 0,
+            'p2p-retention-duration' => (
+               is_numeric($params['p2p-retention-duration'])
+               ? $params['p2p-retention-duration']
+               : 0
+            ),
             'orders_id' => $params['orders_id']
          );
 
          //Add file in repo
-         if ($filename && self::addFileInRepo($datas)) {
+         if ($filename && self::addFileInRepo($data)) {
             Session::addMessageAfterRedirect(__('File saved!', 'fusioninventory'));
             return TRUE;
          } else {
@@ -845,8 +837,6 @@ class PluginFusioninventoryDeployFile extends CommonDBTM {
 
 
    static function addFileInRepo ($params) {
-      set_time_limit(600);
-
       $deployFile = new self;
 
 

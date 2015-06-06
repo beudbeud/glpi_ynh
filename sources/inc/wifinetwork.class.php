@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: wifinetwork.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: wifinetwork.class.php 23267 2014-12-11 09:18:42Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
 */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -41,6 +41,14 @@ class WifiNetwork extends CommonDropdown {
 
    public $dohistory = true;
 
+   static $rightname = 'internet';
+
+   var $can_be_translated = false;
+
+
+   static function getTypeName($nb=0) {
+      return _n('Wifi network', 'Wifi networks', $nb);
+   }
 
    static function getWifiCardVersion() {
 
@@ -74,19 +82,10 @@ class WifiNetwork extends CommonDropdown {
    }
 
 
-   static function canCreate() {
-      return Session::haveRight('internet', 'w');
-   }
-
-
-   static function canView() {
-      return Session::haveRight('internet', 'r');
-   }
-
-
    function defineTabs($options=array()) {
 
       $ong  = array();
+      $this->addDefaultFormTab($ong);
       $this->addStandardTab('NetworkPort',$ong, $options);
 
       return $ong;
@@ -129,9 +128,6 @@ class WifiNetwork extends CommonDropdown {
    }
 
 
-   static function getTypeName($nb=0) {
-      return _n('Wifi network', 'Wifi networks', $nb);
-   }
 
 }
 ?>

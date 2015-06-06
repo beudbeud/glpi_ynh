@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: item_devicegraphiccard.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: item_devicegraphiccard.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -45,11 +45,18 @@ class Item_DeviceGraphicCard extends Item_Devices {
 
    static protected $notable = false;
 
-   static function getSpecificities() {
+   /**
+    * @since version 0.85
+   **/
+   static function getSpecificities($specif='') {
+
       return array('memory' => array('long name'  => sprintf(__('%1$s (%2$s)'), __('Memory'),
                                                             __('Mio')),
                                      'short name' => __('Memory'),
-                                     'size'       => 10));
+                                     'size'       => 10,
+                                     'id'         => 20),
+                   'serial' => parent::getSpecificities('serial'),
+                   'busID'  => parent::getSpecificities('busID'));
    }
 }
 ?>

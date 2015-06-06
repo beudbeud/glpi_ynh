@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ipaddress.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ipaddress.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -67,6 +67,7 @@ class IPAddress extends CommonDBChild {
    /// first three bytes are set to [0, 0, 0xffff]
    protected $binary  = array(0, 0, 0, 0);
 
+   static $rightname  = 'internet';
 
    //////////////////////////////////////////////////////////////////////////////
    // CommonDBTM related methods
@@ -101,35 +102,6 @@ class IPAddress extends CommonDBChild {
    }
 
 
-   // Keep can* because IP Address can be attach to whatever type of item
-   static function canView() {
-
-      return (Session::haveRight('internet', 'r')
-              && parent::canView());
-   }
-
-
-   static function canCreate() {
-
-      return (Session::haveRight('internet', 'w')
-              && parent::canCreate());
-   }
-
-
-   static function canUpdate() {
-
-      return (Session::haveRight('internet', 'w')
-              && parent::canUpdate());
-   }
-
-
-   static function canDelete() {
-
-      return (Session::haveRight('internet', 'w')
-              && parent::canDelete());
-   }
-
-
    static function getTypeName($nb=0) {
       return _n('IP address', 'IP addresses', $nb);
    }
@@ -160,6 +132,23 @@ class IPAddress extends CommonDBChild {
             $msg = sprintf(__('%1$s: %2$s'), __('Invalid IP address'), $input['name']);
             Session::addMessageAfterRedirect($msg, false, ERROR);
             return false;
+         }
+      }
+      if (isset($input['itemtype']) && isset($input['items_id'])) {
+         $input['mainitemtype'] = 'NULL';
+         $input['mainitems_id'] = 0;
+         if ($input['itemtype'] == 'NetworkName') {
+            $name = new NetworkName();
+            if ($name->getFromDB($input['items_id'])) {
+               if ($port = getItemForItemtype($name->getField('itemtype'))) {
+                  if ($port->getFromDB($name->getField('items_id'))) {
+                     if (isset($port->fields['itemtype']) && isset($port->fields['items_id'])) {
+                        $input['mainitemtype'] = $port->fields['itemtype'];
+                        $input['mainitems_id'] = $port->fields['items_id'];
+                     }
+                  }
+               }
+            }
          }
       }
 
@@ -230,14 +219,14 @@ class IPAddress extends CommonDBChild {
 
       if ($item->getType() == 'IPNetwork') {
 
-         if (isset($_POST["start"])) {
-            $start = $_POST["start"];
+         if (isset($_GET["start"])) {
+            $start = $_GET["start"];
          } else {
             $start = 0;
          }
 
-         if (!empty($_POST["order"])) {
-            $table_options['order'] = $_POST["order"];
+         if (!empty($_GET["order"])) {
+            $table_options['order'] = $_GET["order"];
          } else {
             $table_options['order'] = 'ip';
          }
@@ -249,9 +238,9 @@ class IPAddress extends CommonDBChild {
 
          $table           = new HTMLTableMain();
          $content         = "<a href='javascript:reloadTab(\"order=ip\");'>" .
-                              self::getTypeName(2) . "</a>";
+                              self::getTypeName(Session::getPluralNumber()) . "</a>";
          $internet_column = $table->addHeader('IP Address', $content);
-         $content         = sprintf(__('%1$s - %2$s'), _n('Item', 'Items', 2),
+         $content         = sprintf(__('%1$s - %2$s'), _n('Item', 'Items', Session::getPluralNumber()),
                                     "<a href='javascript:reloadTab(\"order=itemtype\");'>" .
                                       __('Order by item type') . "</a>");
          $item_column     = $table->addHeader('Item', $content);
@@ -259,7 +248,7 @@ class IPAddress extends CommonDBChild {
          if ($order_by_itemtype) {
             foreach ($CFG_GLPI["networkport_types"] as $itemtype) {
                $table_options['group_'.$itemtype] = $table->createGroup($itemtype,
-                                                                        $itemtype::getTypeName(2));
+                                                                        $itemtype::getTypeName(Session::getPluralNumber()));
 
                self::getHTMLTableHeader($item->getType(), $table_options['group_'.$itemtype],
                                         $item_column, NULL, $table_options);
@@ -275,7 +264,7 @@ class IPAddress extends CommonDBChild {
          self::getHTMLTableCellsForItem(NULL, $item, NULL, $table_options);
 
          if ($table->getNumberOfRows() > 0) {
-            Html::printAjaxPager(self::getTypeName(2), $start, self::countForItem($item));
+            Html::printAjaxPager(self::getTypeName(Session::getPluralNumber()), $start, self::countForItem($item));
 
             Session::initNavigateListItems(__CLASS__,
                                            //TRANS : %1$s is the itemtype name,
@@ -286,7 +275,7 @@ class IPAddress extends CommonDBChild {
                                   'display_super_for_each_group' => false,
                                   'display_tfoot'                => false));
 
-            Html::printAjaxPager(self::getTypeName(2), $start, self::countForItem($item));
+            Html::printAjaxPager(self::getTypeName(Session::getPluralNumber()), $start, self::countForItem($item));
          } else {
             echo "<table class='tab_cadre_fixe'>";
             echo "<tr><th>".__('No IP address found')."</th></tr>";
@@ -333,11 +322,11 @@ class IPAddress extends CommonDBChild {
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
       if ($item->getID()
-          && $item->can($item->getField('id'),'r')) {
+          && $item->can($item->getField('id'), READ)) {
          if ($_SESSION['glpishow_count_on_tabs']) {
-            return self::createTabEntry(self::getTypeName(2), self::countForItem($item));
+            return self::createTabEntry(self::getTypeName(Session::getPluralNumber()), self::countForItem($item));
          }
-         return self::getTypeName(2);
+         return self::getTypeName(Session::getPluralNumber());
       }
       return '';
    }
@@ -910,7 +899,6 @@ class IPAddress extends CommonDBChild {
       for ($i = $startIndex ; $i < 4 ; ++$i) {
          $query .= "AND `gip`.`binary_$i` = '".$binaryIP[$i]."'";
       }
-
       $addressesWithItems = array();
       foreach ($DB->request($query) as $result) {
          if ($address->getFromDB($result['id'])) {
@@ -939,9 +927,12 @@ class IPAddress extends CommonDBChild {
       if (count($addressesWithItems)) {
          foreach ($addressesWithItems as $key => $tab) {
             if (isset($tab[0])
-                  && (($tab[0] instanceof NetworkName)
-                  || ($tab[0] instanceof IPAddress)
-                  || ($tab[0] instanceof NetworkPort))) { 
+                && (($tab[0] instanceof NetworkName)
+                    || ($tab[0] instanceof IPAddress)
+                    || ($tab[0] instanceof NetworkPort)
+                    || $tab[0]->isDeleted()
+                    || $tab[0]->isTemplate()
+                    || ($tab[0]->getEntityID() != $entity))) {
                unset($addressesWithItems[$key]);
             }
          }
@@ -949,13 +940,10 @@ class IPAddress extends CommonDBChild {
       if (count($addressesWithItems) == 1) {
          $addressWithItems = current($addressesWithItems);
          $item             = $addressWithItems[0];
-         if ($item->getEntityID() == $entity) {
-            $result = array("id"       => $item->getID(),
-                            "itemtype" => $item->getType());
-            unset($addressesWithItems);
-            return $result;
-         }
-
+         $result           = array("id"       => $item->getID(),
+                                   "itemtype" => $item->getType());
+         unset($addressesWithItems);
+         return $result;
       }
 
       return array();
@@ -1011,7 +999,6 @@ class IPAddress extends CommonDBChild {
          $base->addHeader('NetworkPort', NetworkPort::getTypeName(0), $super, $father);
          $base->addHeader('NetworkName', NetworkName::getTypeName(1), $super, $father);
          $base->addHeader('Entity', Entity::getTypeName(1), $super, $father);
-
       } else {
 
          if (isset($options['dont_display'][$column_name])) {
@@ -1026,7 +1013,7 @@ class IPAddress extends CommonDBChild {
 
          if (isset($options['display_isDynamic']) && ($options['display_isDynamic'])) {
             $father = $base->addHeader($column_name.'_dynamic', __('Automatic inventory'),
-                                               $super, $father);
+                                        $super, $father);
          }
 
          IPNetwork::getHTMLTableHeader(__CLASS__, $base, $super, $father, $options);
@@ -1163,7 +1150,7 @@ class IPAddress extends CommonDBChild {
          $ipaddress   = new self();
          $networkname = new NetworkName();
          $networkport = new NetworkPort();
-         
+
          $item = NULL;
          foreach ($DB->request($query) as $line) {
 
@@ -1184,7 +1171,6 @@ class IPAddress extends CommonDBChild {
             $name_header= $row->getGroup()->getHeaderByName('Item', 'NetworkName');
             $entity_header= $row->getGroup()->getHeaderByName('Item', 'Entity');
 
-            
             $row->addCell($ip_header, $line['ip'], $father);
 
             if (!empty($line['name_id'])) {
@@ -1203,7 +1189,6 @@ class IPAddress extends CommonDBChild {
                   }
                }
                $row->addCell($entity_header, $line['entity'], $father);
-               
             } else if ((!empty($line['addr_item_id'])) && (!empty($line['addr_item_type']))) {
                $itemtype = $line['addr_item_type'];
                $item     = new $itemtype();
@@ -1258,7 +1243,7 @@ class IPAddress extends CommonDBChild {
                   $row = $row->createRow();
                }
 
-               $content = $address->fields['name'];
+               $content   = $address->fields['name'];
                $this_cell = $row->addCell($header, $content, $father);
 
                if (isset($options['display_isDynamic']) && ($options['display_isDynamic'])) {

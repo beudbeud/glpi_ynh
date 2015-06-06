@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: commonitilobject.class.php 22913 2014-04-16 09:01:47Z moyo $
+ * @version $Id: commonitilobject.class.php 23460 2015-04-20 07:48:52Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -53,6 +53,10 @@ abstract class CommonITILObject extends CommonDBTM {
 
    /// Use user entity to select entity of the object
    protected $userentity_oncreate = false;
+
+
+   /// From CommonDBTM
+   public $mailqueueonaction = true;
 
    const MATRIX_FIELD         = '';
    const URGENCY_MASK_FIELD   = '';
@@ -237,6 +241,34 @@ abstract class CommonITILObject extends CommonDBTM {
       return array();
    }
 
+
+   /**
+    * get users linked to an object including groups ones
+    *
+    * @since version 0.85
+    *
+    * @param $type type to search (see constants)
+    *
+    * @return array
+   **/
+   function getAllUsers ($type) {
+
+      $users = array();
+      foreach ($this->getUsers($type) as $link) {
+         $users[$link['users_id']] = $link['users_id'];
+      }
+
+      foreach ($this->getGroups($type) as $link) {
+         $gusers = Group_User::getGroupUsers($link['groups_id']);
+         foreach ($gusers as $user) {
+            $users[$user['id']] = $user['id'];
+         }
+      }
+
+      return $users;
+   }
+
+
    /**
     * get suppliers linked to a object
     *
@@ -254,6 +286,7 @@ abstract class CommonITILObject extends CommonDBTM {
 
       return array();
    }
+
 
    /**
     * count users linked to object by type or global
@@ -307,6 +340,7 @@ abstract class CommonITILObject extends CommonDBTM {
       }
       return 0;
    }
+
 
    /**
     * count suppliers linked to object by type or global
@@ -373,7 +407,7 @@ abstract class CommonITILObject extends CommonDBTM {
 
       /// TODO own_ticket -> own_itilobject
       if ($type == CommonITILActor::ASSIGN) {
-         if (Session::haveRight("own_ticket","1")) {
+         if (Session::haveRight("ticket", Ticket::OWN)) {
             return Session::getLoginUserID();
          }
       }
@@ -487,6 +521,36 @@ abstract class CommonITILObject extends CommonDBTM {
    }
 
 
+   /**
+    * Count active ITIL Objects assigned to a supplier
+    *
+    * @since version 0.85
+    *
+    * @param $suppliers_id integer ID of the Supplier
+    *
+    * @return integer
+    **/
+   function countActiveObjectsForSupplier($suppliers_id) {
+
+      $linkclass = new $this->supplierlinkclass();
+      $itemtable = $this->getTable();
+      $itemtype  = $this->getType();
+      $itemfk    = $this->getForeignKeyField();
+      $linktable = $linkclass->getTable();
+
+      return countElementsInTable(array($itemtable,$linktable),
+            "`$linktable`.`$itemfk` = `$itemtable`.`id`
+            AND `$linktable`.`suppliers_id` = '$suppliers_id'
+            AND `$linktable`.`type` = '".CommonITILActor::ASSIGN."'
+            AND `$itemtable`.`is_deleted` = 0
+            AND `$itemtable`.`status`
+            NOT IN ('".implode("', '",
+            array_merge($this->getSolvedStatusArray(),
+                  $this->getClosedStatusArray())
+      )."')");
+   }
+
+
    function cleanDBonPurge() {
 
       if (!empty($this->grouplinkclass)) {
@@ -511,7 +575,14 @@ abstract class CommonITILObject extends CommonDBTM {
       // Add document if needed
       $this->getFromDB($input["id"]); // entities_id field required
       if (!isset($input['_donotadddocs']) || !$input['_donotadddocs']) {
-         $docadded = $this->addFiles($input["id"]);
+         $docadded = $this->addFiles(1, isset($input['_disablenotif'])?$input['_disablenotif']:0);
+         if (isset($this->input['_forcenotif'])) {
+            $input['_forcenotif'] = $this->input['_forcenotif'];
+            unset($input['_disablenotif']);
+         }
+         if (isset($this->input['content'])) {
+            $input['content'] = $this->input['content'];
+         }
       }
 
       if (isset($input["document"]) && ($input["document"] > 0)) {
@@ -540,6 +611,7 @@ abstract class CommonITILObject extends CommonDBTM {
       if (isset($input["solvedate"]) && empty($input["solvedate"])) {
          unset($input["solvedate"]);
       }
+
       if (isset($input['_itil_requester'])) {
          if (isset($input['_itil_requester']['_type'])) {
             $input['_itil_requester']['type']                      = CommonITILActor::REQUESTER;
@@ -562,7 +634,7 @@ abstract class CommonITILObject extends CommonDBTM {
 
                         $useractors = new $this->userlinkclass();
                         if (isset($input['_auto_update'])
-                            || $useractors->can(-1,'w',$input['_itil_requester'])) {
+                            || $useractors->can(-1, CREATE, $input['_itil_requester'])) {
                            $input['_itil_requester']['_from_object'] = true;
                            $useractors->add($input['_itil_requester']);
                            $input['_forcenotif']                     = true;
@@ -576,7 +648,7 @@ abstract class CommonITILObject extends CommonDBTM {
                       && ($input['_itil_requester']['groups_id'] > 0)) {
                      $groupactors = new $this->grouplinkclass();
                      if (isset($input['_auto_update'])
-                         || $groupactors->can(-1,'w',$input['_itil_requester'])) {
+                         || $groupactors->can(-1, CREATE, $input['_itil_requester'])) {
                         $input['_itil_requester']['_from_object'] = true;
                         $groupactors->add($input['_itil_requester']);
                         $input['_forcenotif']                     = true;
@@ -607,7 +679,7 @@ abstract class CommonITILObject extends CommonDBTM {
                          || ($input['_itil_observer']['users_id'] > 0)) {
                         $useractors = new $this->userlinkclass();
                         if (isset($input['_auto_update'])
-                           || $useractors->can(-1,'w',$input['_itil_observer'])) {
+                           || $useractors->can(-1, CREATE, $input['_itil_observer'])) {
                            $input['_itil_observer']['_from_object'] = true;
                            $useractors->add($input['_itil_observer']);
                            $input['_forcenotif']                    = true;
@@ -621,7 +693,7 @@ abstract class CommonITILObject extends CommonDBTM {
                        && ($input['_itil_observer']['groups_id'] > 0)) {
                      $groupactors = new $this->grouplinkclass();
                      if (isset($input['_auto_update'])
-                         || $groupactors->can(-1,'w',$input['_itil_observer'])) {
+                         || $groupactors->can(-1, CREATE, $input['_itil_observer'])) {
                         $input['_itil_observer']['_from_object'] = true;
                         $groupactors->add($input['_itil_observer']);
                         $input['_forcenotif']                    = true;
@@ -643,7 +715,7 @@ abstract class CommonITILObject extends CommonDBTM {
                       && ($input['_itil_assign']['users_id'] > 0)) {
                      $useractors = new $this->userlinkclass();
                      if (isset($input['_auto_update'])
-                         || $useractors->can(-1,'w',$input['_itil_assign'])) {
+                         || $useractors->can(-1, CREATE, $input['_itil_assign'])) {
                         $input['_itil_assign']['_from_object'] = true;
                         $useractors->add($input['_itil_assign']);
                         $input['_forcenotif']                  = true;
@@ -651,7 +723,9 @@ abstract class CommonITILObject extends CommonDBTM {
                              && in_array($this->fields['status'], $this->getNewStatusArray()))
                             || (isset($input['status'])
                                 && in_array($input['status'], $this->getNewStatusArray()))) {
-                           $input['status'] = self::ASSIGNED;
+                           if (in_array(self::ASSIGNED, array_keys($this->getAllStatusArray()))) {
+                              $input['status'] = self::ASSIGNED;
+                           }
                         }
                      }
                   }
@@ -663,7 +737,7 @@ abstract class CommonITILObject extends CommonDBTM {
                      $groupactors = new $this->grouplinkclass();
 
                      if (isset($input['_auto_update'])
-                         || $groupactors->can(-1,'w',$input['_itil_assign'])) {
+                         || $groupactors->can(-1, CREATE, $input['_itil_assign'])) {
                         $input['_itil_assign']['_from_object'] = true;
                         $groupactors->add($input['_itil_assign']);
                         $input['_forcenotif']                  = true;
@@ -671,7 +745,9 @@ abstract class CommonITILObject extends CommonDBTM {
                              && (in_array($this->fields['status'], $this->getNewStatusArray())))
                             || (isset($input['status'])
                                 && (in_array($input['status'], $this->getNewStatusArray())))) {
-                           $input['status'] = self::ASSIGNED;
+                           if (in_array(self::ASSIGNED, array_keys($this->getAllStatusArray()))) {
+                              $input['status'] = self::ASSIGNED;
+                           }
                         }
                      }
                   }
@@ -682,7 +758,7 @@ abstract class CommonITILObject extends CommonDBTM {
                       && ($input['_itil_assign']['suppliers_id'] > 0)) {
                      $supplieractors = new $this->supplierlinkclass();
                      if (isset($input['_auto_update'])
-                         || $supplieractors->can(-1,'w',$input['_itil_assign'])) {
+                         || $supplieractors->can(-1, CREATE, $input['_itil_assign'])) {
                         $input['_itil_assign']['_from_object'] = true;
                         $supplieractors->add($input['_itil_assign']);
                         $input['_forcenotif']                  = true;
@@ -690,7 +766,10 @@ abstract class CommonITILObject extends CommonDBTM {
                              && (in_array($this->fields['status'], $this->getNewStatusArray())))
                             || (isset($input['status'])
                                 && (in_array($input['status'], $this->getNewStatusArray())))) {
-                           $input['status'] = self::ASSIGNED;
+                           if (in_array(self::ASSIGNED, array_keys($this->getAllStatusArray()))) {
+                              $input['status'] = self::ASSIGNED;
+                           }
+
                         }
                      }
                   }
@@ -699,7 +778,7 @@ abstract class CommonITILObject extends CommonDBTM {
          }
       }
 
-      $this->addAdditionalActors();
+      $this->addAdditionalActors($input);
 
       // set last updater if interactive user
       if (!Session::isCron()) {
@@ -746,8 +825,8 @@ abstract class CommonITILObject extends CommonDBTM {
                $this->fields['status'] = self::SOLVED;
                $this->input['status']  = self::SOLVED;
             }
-         } else {
 
+         } else {
             $this->fields['status'] = self::SOLVED;
             $this->input['status']  = self::SOLVED;
          }
@@ -1057,14 +1136,14 @@ abstract class CommonITILObject extends CommonDBTM {
       $input["name"]    = ltrim($input["name"]);
       $input['content'] = ltrim($input['content']);
       if (empty($input["name"])) {
-         $input["name"] = preg_replace('/\\r\\n/',' ',$input['content']);
+         $input['name'] = Html::clean(Html::entity_decode_deep($input['content']));
+         $input["name"] = preg_replace('/\\r\\n/',' ',$input['name']);
          $input["name"] = preg_replace('/\\n/',' ',$input['name']);
          // For mailcollector
          $input["name"] = preg_replace('/\\\\r\\\\n/',' ',$input['name']);
          $input["name"] = preg_replace('/\\\\n/',' ',$input['name']);
-         $input["name"] = Toolbox::stripslashes_deep($input["name"]);
+         $input['name'] = Toolbox::stripslashes_deep($input['name']);
          $input["name"] = Toolbox::substr($input['name'],0,70);
-         
          $input['name'] = Toolbox::addslashes_deep($input['name']);
       }
 
@@ -1130,7 +1209,21 @@ abstract class CommonITILObject extends CommonDBTM {
    function post_addItem() {
 
       // Add document if needed, without notification
-      $this->addFiles($this->fields['id'], 0);
+      $this->addFiles(0, 1);
+
+      // Add default document if set in template
+      if (isset($this->input['_documents_id'])
+          && is_array($this->input['_documents_id'])
+          && count($this->input['_documents_id'])) {
+         $docitem = new Document_Item();
+         foreach ($this->input['_documents_id'] as $docID) {
+            if ($docitem->add(array('documents_id' => $docID,
+                                    '_do_notif'    => false,
+                                    'itemtype'     => $this->getType(),
+                                    'items_id'     => $this->fields['id']))) {
+            }
+         }
+      }
 
       $useractors = NULL;
       // Add user groups linked to ITIL objects
@@ -1231,25 +1324,34 @@ abstract class CommonITILObject extends CommonDBTM {
       if (!is_null($supplieractors)) {
          if (isset($this->input["_suppliers_id_assign"])
              && ($this->input["_suppliers_id_assign"] > 0)) {
-            $supplieractors->add(array($supplieractors->getItilObjectForeignKey()
-                                                      => $this->fields['id'],
-                                       'suppliers_id' => $this->input["_suppliers_id_assign"],
-                                       'type'         => CommonITILActor::ASSIGN,
-                                       '_from_object' => true));
+            $input3 = array($supplieractors->getItilObjectForeignKey()
+                                           => $this->fields['id'],
+                            'suppliers_id' => $this->input["_suppliers_id_assign"],
+                            'type'         => CommonITILActor::ASSIGN);
+
+            if (isset($this->input["_suppliers_id_assign_notif"])) {
+               foreach ($this->input["_suppliers_id_assign_notif"] as $key => $val) {
+                  $input3[$key] = $val;
+               }
+            }
+            $input3['_from_object'] = true;
+            $supplieractors->add($input3);
+
          }
       }
 
 
       // Additional actors
-      $this->addAdditionalActors();
+      $this->addAdditionalActors($this->input);
 
    }
 
 
    /**
     * @since version 0.84
+    * @since version 0.85 must have param $input
    **/
-   private function addAdditionalActors() {
+   private function addAdditionalActors($input) {
 
       $useractors = NULL;
       // Add user groups linked to ITIL objects
@@ -1268,14 +1370,14 @@ abstract class CommonITILObject extends CommonDBTM {
      // Additional groups actors
       if (!is_null($groupactors)) {
          // Requesters
-         if (isset($this->input['_additional_groups_requesters'])
-             && is_array($this->input['_additional_groups_requesters'])
-             && count($this->input['_additional_groups_requesters'])) {
+         if (isset($input['_additional_groups_requesters'])
+             && is_array($input['_additional_groups_requesters'])
+             && count($input['_additional_groups_requesters'])) {
 
             $input2 = array($groupactors->getItilObjectForeignKey() => $this->fields['id'],
                             'type'                                  => CommonITILActor::REQUESTER);
 
-            foreach ($this->input['_additional_groups_requesters'] as $tmp) {
+            foreach ($input['_additional_groups_requesters'] as $tmp) {
                if ($tmp > 0) {
                   $input2['groups_id']    = $tmp;
                   $input2['_from_object'] = true;
@@ -1285,14 +1387,14 @@ abstract class CommonITILObject extends CommonDBTM {
          }
 
          // Observers
-         if (isset($this->input['_additional_groups_observers'])
-             && is_array($this->input['_additional_groups_observers'])
-             && count($this->input['_additional_groups_observers'])) {
+         if (isset($input['_additional_groups_observers'])
+             && is_array($input['_additional_groups_observers'])
+             && count($input['_additional_groups_observers'])) {
 
             $input2 = array($groupactors->getItilObjectForeignKey() => $this->fields['id'],
                             'type'                                  => CommonITILActor::OBSERVER);
 
-            foreach ($this->input['_additional_groups_observers'] as $tmp) {
+            foreach ($input['_additional_groups_observers'] as $tmp) {
                if ($tmp > 0) {
                   $input2['groups_id']    = $tmp;
                   $input2['_from_object'] = true;
@@ -1302,14 +1404,14 @@ abstract class CommonITILObject extends CommonDBTM {
          }
 
          // Assigns
-         if (isset($this->input['_additional_groups_assigns'])
-             && is_array($this->input['_additional_groups_assigns'])
-             && count($this->input['_additional_groups_assigns'])) {
+         if (isset($input['_additional_groups_assigns'])
+             && is_array($input['_additional_groups_assigns'])
+             && count($input['_additional_groups_assigns'])) {
 
             $input2 = array($groupactors->getItilObjectForeignKey() => $this->fields['id'],
                             'type'                                  => CommonITILActor::ASSIGN);
 
-            foreach ($this->input['_additional_groups_assigns'] as $tmp) {
+            foreach ($input['_additional_groups_assigns'] as $tmp) {
                if ($tmp > 0) {
                   $input2['groups_id']    = $tmp;
                   $input2['_from_object'] = true;
@@ -1322,14 +1424,14 @@ abstract class CommonITILObject extends CommonDBTM {
       // Additional suppliers actors
       if (!is_null($supplieractors)) {
          // Assigns
-         if (isset($this->input['_additional_suppliers_assigns'])
-             && is_array($this->input['_additional_suppliers_assigns'])
-             && count($this->input['_additional_suppliers_assigns'])) {
+         if (isset($input['_additional_suppliers_assigns'])
+             && is_array($input['_additional_suppliers_assigns'])
+             && count($input['_additional_suppliers_assigns'])) {
 
             $input2 = array($supplieractors->getItilObjectForeignKey() => $this->fields['id'],
                             'type'                                     => CommonITILActor::ASSIGN);
 
-            foreach ($this->input['_additional_suppliers_assigns'] as $tmp) {
+            foreach ($input['_additional_suppliers_assigns'] as $tmp) {
                if ($tmp > 0) {
                   $input2['suppliers_id'] = $tmp;
                   $input2['_from_object'] = true;
@@ -1342,15 +1444,15 @@ abstract class CommonITILObject extends CommonDBTM {
       // Additional actors : using default notification parameters
       if (!is_null($useractors)) {
          // Observers : for mailcollector
-         if (isset($this->input["_additional_observers"])
-             && is_array($this->input["_additional_observers"])
-             && count($this->input["_additional_observers"])) {
+         if (isset($input["_additional_observers"])
+             && is_array($input["_additional_observers"])
+             && count($input["_additional_observers"])) {
 
             $input2 = array($useractors->getItilObjectForeignKey() => $this->fields['id'],
                             'type'                                 => CommonITILActor::OBSERVER,
                             '_from_object'                         => true);
 
-            foreach ($this->input["_additional_observers"] as $tmp) {
+            foreach ($input["_additional_observers"] as $tmp) {
                if (isset($tmp['users_id'])) {
                   foreach ($tmp as $key => $val) {
                      $input2[$key] = $val;
@@ -1360,15 +1462,15 @@ abstract class CommonITILObject extends CommonDBTM {
             }
          }
 
-         if (isset($this->input["_additional_assigns"])
-             && is_array($this->input["_additional_assigns"])
-             && count($this->input["_additional_assigns"])) {
+         if (isset($input["_additional_assigns"])
+             && is_array($input["_additional_assigns"])
+             && count($input["_additional_assigns"])) {
 
             $input2 = array($useractors->getItilObjectForeignKey() => $this->fields['id'],
                             'type'                                 => CommonITILActor::ASSIGN,
                             '_from_object'                         => true);
 
-            foreach ($this->input["_additional_assigns"] as $tmp) {
+            foreach ($input["_additional_assigns"] as $tmp) {
                if (isset($tmp['users_id'])) {
                   foreach ($tmp as $key => $val) {
                      $input2[$key] = $val;
@@ -1377,16 +1479,16 @@ abstract class CommonITILObject extends CommonDBTM {
                }
             }
          }
-
-         if (isset($this->input["_additional_requesters"])
-             && is_array($this->input["_additional_requesters"])
-             && count($this->input["_additional_requesters"])) {
-
+//          print_r($input);exit();
+         if (isset($input["_additional_requesters"])
+             && is_array($input["_additional_requesters"])
+             && count($input["_additional_requesters"])) {
+//             echo "ii";exit();
             $input2 = array($useractors->getItilObjectForeignKey() => $this->fields['id'],
                             'type'                                 => CommonITILActor::REQUESTER,
                             '_from_object'                         => true);
 
-            foreach ($this->input["_additional_requesters"] as $tmp) {
+            foreach ($input["_additional_requesters"] as $tmp) {
                if (isset($tmp['users_id'])) {
                   foreach ($tmp as $key => $val) {
                      $input2[$key] = $val;
@@ -1400,86 +1502,125 @@ abstract class CommonITILObject extends CommonDBTM {
 
 
    /**
-    * add files (from $_FILES) to an ITIL object
+    * add files (from $this->input['_filename']) to an ITIL object
     * create document if needed
     * create link from document to ITIL object
     *
-    * @param $id        Integer  ID of the ITIL object
-    * @param $donotif   Boolean  if we want to raise notification (default 1)
+    * @param $donotif         Boolean  if we want to raise notification (default 1)
+    * @param $disablenotif             (default 0)
     *
     * @return array of doc added name
    **/
-   function addFiles($id, $donotif=1) {
+   function addFiles($donotif=1, $disablenotif=0) {
       global $CFG_GLPI;
-
-      if (!isset($_FILES) || !isset($_FILES['filename'])) {
+      if (!isset($this->input['_filename']) || (count($this->input['_filename']) == 0)) {
          return array();
       }
-      $docadded = array();
-      $doc      = new Document();
-      $docitem  = new Document_Item();
+      $docadded  = array();
 
-      // if multiple files are uploaded
-      $TMPFILE = array();
-      if (is_array($_FILES['filename']['name'])) {
-         foreach ($_FILES['filename']['name'] as $key => $filename) {
-            if (!empty($filename)) {
-               $TMPFILE[$key]['filename']['name']     = $filename;
-               $TMPFILE[$key]['filename']['type']     = $_FILES['filename']['type'][$key];
-               $TMPFILE[$key]['filename']['tmp_name'] = $_FILES['filename']['tmp_name'][$key];
-               $TMPFILE[$key]['filename']['error']    = $_FILES['filename']['error'][$key];
-               $TMPFILE[$key]['filename']['size']     = $_FILES['filename']['size'][$key];
-            }
+
+      foreach ($this->input['_filename'] as $key => $file) {
+         $doc       = new Document();
+         $docitem   = new Document_Item();
+
+         $docID = 0;
+         $filename = GLPI_TMP_DIR."/".$file;
+         $input2         = array();
+
+         // Crop/Resize image file if needed
+         if (isset($this->input['_coordinates']) && !empty($this->input['_coordinates'][$key])) {
+            $image_coordinates = json_decode(urldecode($this->input['_coordinates'][$key]), true);
+            Toolbox::resizePicture($filename,
+                                   $filename,
+                                   $image_coordinates['img_w'],
+                                   $image_coordinates['img_h'],
+                                   $image_coordinates['img_y'],
+                                   $image_coordinates['img_x'],
+                                   $image_coordinates['img_w'],
+                                   $image_coordinates['img_h'],
+                                   0);
+         } else {
+            Toolbox::resizePicture($filename, $filename, 0, 0, 0, 0, 0, 0, 0);
          }
-      } else {
-         $TMPFILE = array( $_FILES );
-      }
 
-      foreach ($TMPFILE as $_FILES) {
-         if (isset($_FILES['filename'])
-             && (count($_FILES['filename']) > 0)
-             && ($_FILES['filename']["size"] > 0)) {
+         //If file tag is present
+         if (isset($this->input['_tag_filename']) && !empty($this->input['_tag_filename'][$key])) {
+            $this->input['_tag'][$key] = $this->input['_tag_filename'][$key];
+         }
 
-            // Check for duplicate
-            if ($doc->getFromDBbyContent($this->fields["entities_id"],
-                                         $_FILES['filename']['tmp_name'])) {
+         // Check for duplicate
+         if ($doc->getFromDBbyContent($this->fields["entities_id"],
+                                      $filename)) {
+            if (!$doc->fields['is_blacklisted']) {
                $docID = $doc->fields["id"];
+            }
+            // File already exist, we replace the tag by the existing one
+            if (isset($this->input['_tag'][$key])
+                && ($docID > 0)
+                && isset($this->input['content'])) {
 
-            } else {
-               $input2         = array();
-               //TRANS: Default document to files attached to tickets : %d is the ticket id
-               $input2["name"] = addslashes(sprintf(__('Document Ticket %d'), $id));
-
-               if ($this->getType() == 'Ticket') {
-                  $input2["tickets_id"]           = $id;
-               }
-               $input2["entities_id"]             = $this->fields["entities_id"];
-               $input2["documentcategories_id"]   = $CFG_GLPI["documentcategories_id_forticket"];
-               $input2["_only_if_upload_succeed"] = 1;
-               $input2["entities_id"]             = $this->fields["entities_id"];
-               $docID = $doc->add($input2);
+               $this->input['content'] = preg_replace('/'.Document::getImageTag($this->input['_tag'][$key]).'/',
+                                                      Document::getImageTag($doc->fields["tag"]),
+                                                      $this->input['content']);
+               $docadded[$docID]['tag'] = $doc->fields["tag"];
             }
 
-            if ($docID > 0) {
-               if ($docitem->add(array('documents_id' => $docID,
-                                       '_do_notif'    => $donotif,
-                                       'itemtype'     => $this->getType(),
-                                       'items_id'     => $id))) {
-                  $docadded[] = sprintf(__('%1$s - %2$s'), stripslashes($doc->fields["name"]),
-                                        stripslashes($doc->fields["filename"]));
+         } else {
+            //TRANS: Default document to files attached to tickets : %d is the ticket id
+            $input2["name"] = addslashes(sprintf(__('Document Ticket %d'), $this->getID()));
+
+            if ($this->getType() == 'Ticket') {
+               $input2["tickets_id"]           = $this->getID();
+               // Insert image tag
+               if (isset($this->input['_tag'][$key])) {
+                  $input2["tag"]               = $this->input['_tag'][$key];
                }
             }
+            $input2["entities_id"]             = $this->fields["entities_id"];
+            $input2["documentcategories_id"]   = $CFG_GLPI["documentcategories_id_forticket"];
+            $input2["_only_if_upload_succeed"] = 1;
+            $input2["entities_id"]             = $this->fields["entities_id"];
+            $input2["_filename"]               = array($file);
+            $docID = $doc->add($input2);
+         }
 
-         } else if (!empty($_FILES['filename']['name'])
-                    && isset($_FILES['filename']['error'])
-                    && $_FILES['filename']['error']) {
-            Session::addMessageAfterRedirect(__('Failed to send the file (probably too large)'),
-                                             false, ERROR);
+         if ($docID > 0) {
+            if ($docitem->add(array('documents_id'  => $docID,
+                                    '_do_notif'     => $donotif,
+                                    '_disablenotif' => $disablenotif,
+                                    'itemtype'      => $this->getType(),
+                                    'items_id'      => $this->getID()))) {
+               $docadded[$docID]['data'] = sprintf(__('%1$s - %2$s'),
+                                                   stripslashes($doc->fields["name"]),
+                                                   stripslashes($doc->fields["filename"]));
+
+               if (isset($input2["tag"])) {
+                  $docadded[$docID]['tag'] = $input2["tag"];
+                  unset($this->input['_filename'][$key]);
+                  unset($this->input['_tag'][$key]);
+               }
+               if (isset($this->input['_coordinates'][$key])) {
+                  unset($this->input['_coordinates'][$key]);
+               }
+
+            }
          }
          // Only notification for the first New doc
          $donotif = 0;
       }
-      unset ($_FILES);
+
+      // Ticket update
+      if (isset($this->input['content'])) {
+        if ($CFG_GLPI["use_rich_text"]) {
+            $this->input['content'] = $this->convertTagToImage($this->input['content'], true,
+                                                                $docadded);
+            $this->input['_forcenotif'] = true;
+        } else {
+            $this->fields['content'] = $this->setSimpleTextContent($this->input['content']);
+            $this->updateInDB(array('content'));
+        }
+      }
+
       return $docadded;
    }
 
@@ -1533,54 +1674,37 @@ abstract class CommonITILObject extends CommonDBTM {
          }
       }
 
-      $id     = "select_".$p['name'].mt_rand();
-      $output = "<select id='$id' name='".$p['name']."'>";
+      $values = array();
+
       if ($p['showtype'] == 'search') {
-         $output .= "<option value='0' ".(($p['value'] == 0)?" selected ":"").">".
-                      _x('priority', 'All')."</option>";
-         $output .= "<option value='-5' ".(($p['value'] == -5)?" selected ":"").">".
-                     _x('priority', 'At least very high')."</option>";
-         $output .= "<option value='-4' ".(($p['value'] == -4)?" selected ":"").">".
-                     _x('priority', 'At least high')."</option>";
-         $output .= "<option value='-3' ".(($p['value'] == -3)?" selected ":"").">".
-                     _x('priority', 'At least medium')."</option>";
-         $output .= "<option value='-2' ".(($p['value'] == -2)?" selected ":"").">".
-                     _x('priority', 'At least low')."</option>";
-         $output .= "<option value='-1' ".(($p['value'] == -1)?" selected ":"").">".
-                     _x('priority', 'At least very low')."</option>";
+         $values[0]  = static::getPriorityName(0);
+         $values[-5] = static::getPriorityName(-5);
+         $values[-4] = static::getPriorityName(-4);
+         $values[-3] = static::getPriorityName(-3);
+         $values[-2] = static::getPriorityName(-2);
+         $values[-1] = static::getPriorityName(-1);
       }
 
       if (($p['showtype'] == 'search')
           || $p['withmajor']) {
-         $output .= "<option value='6' ".(($p['value'] == 6)?" selected ":"").">".
-                     _x('priority', 'Major')."</option>";
-      }
+         $values[6] = static::getPriorityName(6);
+     }
+      $values[5] = static::getPriorityName(5);
+      $values[4] = static::getPriorityName(4);
+      $values[3] = static::getPriorityName(3);
+      $values[2] = static::getPriorityName(2);
+      $values[1] = static::getPriorityName(1);
 
-      $output .= "<option value='5' ".(($p['value'] == 5)?" selected ":"").">".
-                  _x('priority', 'Very high')."</option>";
-      $output .= "<option value='4' ".(($p['value'] == 4)?" selected ":"").">".
-                  _x('priority', 'High')."</option>";
-      $output .= "<option value='3' ".(($p['value'] == 3)?" selected ":"").">".
-                  _x('priority', 'Medium')."</option>";
-      $output .= "<option value='2' ".(($p['value'] == 2)?" selected ":"").">".
-                  _x('priority', 'Low')."</option>";
-      $output .= "<option value='1' ".(($p['value' ]== 1)?" selected ":"").">".
-                  _x('priority', 'Very low')."</option>";
 
-      $output .= "</select>";
+      return Dropdown::showFromArray($p['name'],$values, $p);
 
-      if ($p['display']) {
-         echo $output;
-         return $id;
-      }
-      return $output;
    }
 
 
    /**
     * Get ITIL object priority Name
     *
-    * @param $value status ID
+    * @param $value priority ID
    **/
    static function getPriorityName($value) {
 
@@ -1602,6 +1726,20 @@ abstract class CommonITILObject extends CommonDBTM {
 
          case 1 :
             return _x('priority', 'Very low');
+
+         // No standard one :
+         case 0 :
+            return _x('priority', 'All');
+         case -1 :
+            return _x('priority', 'At least very low');
+         case -2 :
+            return _x('priority', 'At least low');
+         case -3 :
+            return _x('priority', 'At least medium');
+         case -4 :
+            return _x('priority', 'At least high');
+         case -5 :
+            return _x('priority', 'At least very high');
 
          default :
             // Return $value if not define
@@ -1638,60 +1776,42 @@ abstract class CommonITILObject extends CommonDBTM {
          }
       }
 
-      $id = "select_".$p['name'].mt_rand();
-      $output = "<select id='$id' name='".$p['name']."'>";
+      $values = array();
 
       if ($p['showtype'] == 'search') {
-         $output .= "<option value='0' ".(($p['value'] == 0)?" selected ":"").">".
-                     _x('urgency', 'All')."</option>";
-         $output .= "<option value='-5' ".(($p['value'] == -5)?" selected ":"").">".
-                     _x('urgency', 'At least very high')."</option>";
-         $output .= "<option value='-4' ".(($p['value'] == -4)?" selected ":"").">".
-                     _x('urgency','At least high')."</option>";
-         $output .= "<option value='-3' ".(($p['value'] == -3)?" selected ":"").">".
-                     _x('urgency','At least medium')."</option>";
-         $output .= "<option value='-2' ".(($p['value'] == -2)?" selected ":"").">".
-                     _x('urgency','At least low')."</option>";
-         $output .= "<option value='-1' ".(($p['value'] == -1)?" selected ":"").">".
-                     _x('urgency', 'At least very low')."</option>";
+         $values[0]  = static::getUrgencyName(0);
+         $values[-5] = static::getUrgencyName(-1);
+         $values[-4] = static::getUrgencyName(-4);
+         $values[-3] = static::getUrgencyName(-3);
+         $values[-2] = static::getUrgencyName(-2);
+         $values[-1] = static::getUrgencyName(-1);
       }
 
       if (isset($CFG_GLPI[static::URGENCY_MASK_FIELD])) {
          if (($p['showtype'] == 'search')
              || ($CFG_GLPI[static::URGENCY_MASK_FIELD] & (1<<5))) {
-            $output .= "<option value='5' ".(($p['value'] == 5)?" selected ":"").">".
-                        _x('urgency', 'Very high')."</option>";
+            $values[5]  = static::getUrgencyName(5);
          }
 
          if (($p['showtype'] == 'search')
              || ($CFG_GLPI[static::URGENCY_MASK_FIELD] & (1<<4))) {
-            $output .= "<option value='4' ".(($p['value'] == 4)?" selected ":"").">".
-                        _x('urgency', 'High')."</option>";
+            $values[4]  = static::getUrgencyName(4);
          }
 
-         $output .= "<option value='3' ".(($p['value'] == 3)?" selected ":"").">".
-                     _x('urgency', 'Medium')."</option>";
+         $values[3]  = static::getUrgencyName(3);
 
          if (($p['showtype'] == 'search')
              || ($CFG_GLPI[static::URGENCY_MASK_FIELD] & (1<<2))) {
-            $output .= "<option value='2' ".(($p['value'] == 2)?" selected ":"").">".
-                        _x('urgency', 'Low')."</option>";
+            $values[2]  = static::getUrgencyName(2);
          }
 
          if (($p['showtype'] == 'search')
              || ($CFG_GLPI[static::URGENCY_MASK_FIELD] & (1<<1))) {
-            $output .= "<option value='1' ".(($p['value'] == 1)?" selected ":"").">".
-                        _x('urgency', 'Very low')."</option>";
+            $values[1]  = static::getUrgencyName(1);
          }
       }
 
-      $output .= "</select>";
-
-      if ($p['display']) {
-         echo $output;
-         return $id;
-      }
-      return $output;
+      return Dropdown::showFromArray($p['name'],$values, $p);
    }
 
 
@@ -1717,6 +1837,20 @@ abstract class CommonITILObject extends CommonDBTM {
 
          case 1 :
             return _x('urgency', 'Very low');
+
+         // No standard one :
+         case 0 :
+            return _x('urgency', 'All');
+         case -1 :
+            return _x('urgency', 'At least very low');
+         case -2 :
+            return _x('urgency', 'At least low');
+         case -3 :
+            return _x('urgency', 'At least medium');
+         case -4 :
+            return _x('urgency', 'At least high');
+         case -5 :
+            return _x('urgency', 'At least very high');
 
          default :
             // Return $value if not define
@@ -1753,68 +1887,50 @@ abstract class CommonITILObject extends CommonDBTM {
             $p[$key] = $val;
          }
       }
+      $values = array();
 
-      $id = "select_".$p['name'].mt_rand();
-      $output = "<select id='$id' name='".$p['name']."'>";
 
       if ($p['showtype'] == 'search') {
-         $output .= "<option value='0' ".(($p['value'] == 0)?" selected ":"").">".
-                     _x('impact', 'All')."</option>";
-         $output .= "<option value='-5' ".(($p['value'] == -5)?" selected ":"").">".
-                     _x('impact', 'At least very high')."</option>";
-         $output .= "<option value='-4' ".(($p['value'] == -4)?" selected ":"").">".
-                     _x('impact', 'At least high')."</option>";
-         $output .= "<option value='-3' ".(($p['value'] == -3)?" selected ":"").">".
-                     _x('impact', 'At least medium')."</option>";
-         $output .= "<option value='-2' ".(($p['value'] == -2)?" selected ":"").">".
-                     _x('impact', 'At least low')."</option>";
-         $output .= "<option value='-1' ".(($p['value'] == -1)?" selected ":"").">".
-                     _x('impact', 'At least very low')."</option>";
+         $values[0]  = static::getImpactName(0);
+         $values[-5] = static::getImpactName(-5);
+         $values[-4] = static::getImpactName(-4);
+         $values[-3] = static::getImpactName(-3);
+         $values[-2] = static::getImpactName(-2);
+         $values[-1] = static::getImpactName(-1);
       }
 
       if (isset($CFG_GLPI[static::IMPACT_MASK_FIELD])) {
          if (($p['showtype'] == 'search')
              || ($CFG_GLPI[static::IMPACT_MASK_FIELD] & (1<<5))) {
-            $output .= "<option value='5' ".(($p['value'] == 5)?" selected ":"").">".
-                        _x('impact', 'Very high')."</option>";
+            $values[5]  = static::getImpactName(5);
          }
 
          if (($p['showtype'] == 'search')
              || ($CFG_GLPI[static::IMPACT_MASK_FIELD] & (1<<4))) {
-            $output .= "<option value='4' ".(($p['value'] == 4)?" selected ":"").">".
-                        _x('impact', 'High')."</option>";
+            $values[4]  = static::getImpactName(4);
          }
 
-         $output .= "<option value='3' ".(($p['value'] == 3)?" selected ":"").">".
-                     _x('impact', 'Medium')."</option>";
+         $values[3]  = static::getImpactName(3);
 
          if (($p['showtype'] == 'search')
              || ($CFG_GLPI[static::IMPACT_MASK_FIELD] & (1<<2))) {
-            $output .= "<option value='2' ".(($p['value'] == 2)?" selected ":"").">".
-                        _x('impact', 'Low')."</option>";
+            $values[2]  = static::getImpactName(2);
          }
 
          if (($p['showtype'] == 'search')
              || ($CFG_GLPI[static::IMPACT_MASK_FIELD] & (1<<1))) {
-            $output .= "<option value='1' ".(($p['value'] == 1)?" selected ":"").">".
-                        _x('impact', 'Very low')."</option>";
+            $values[1]  = static::getImpactName(1);
          }
       }
 
-      $output .= "</select>";
-
-      if ($p['display']) {
-         echo $output;
-         return $id;
-      }
-      return $output;
+      return Dropdown::showFromArray($p['name'],$values, $p);
    }
 
 
    /**
     * Get ITIL object Impact Name
     *
-    * @param $value status ID
+    * @param $value impact ID
    **/
    static function getImpactName($value) {
 
@@ -1833,6 +1949,20 @@ abstract class CommonITILObject extends CommonDBTM {
 
          case 1 :
             return _x('impact', 'Very low');
+
+         // No standard one :
+         case 0 :
+            return _x('impact', 'All');
+         case -1 :
+            return _x('impact', 'At least very low');
+         case -2 :
+            return _x('impact', 'At least low');
+         case -3 :
+            return _x('impact', 'At least medium');
+         case -4 :
+            return _x('impact', 'At least high');
+         case -5 :
+            return _x('impact', 'At least very high');
 
          default :
             // Return $value if not define
@@ -1935,7 +2065,7 @@ abstract class CommonITILObject extends CommonDBTM {
       }
 
       if (array_key_exists(static::STATUS_MATRIX_FIELD,
-                           $_SESSION['glpiactiveprofile'])) { // Not set for post-only)
+                           $_SESSION['glpiactiveprofile'])) { // maybe not set for post-only
          return true;
       }
 
@@ -1968,6 +2098,21 @@ abstract class CommonITILObject extends CommonDBTM {
       return $tab;
    }
 
+   /**
+    * Is the ITIL object status exists for the object
+    *
+    * @since version 0.85
+    *
+    * @param $status   status
+    *
+    * @return boolean
+   **/
+   static function isStatusExists($status) {
+
+      $tab = static::getAllStatusArray();
+
+      return isset($tab[$status]);
+   }
 
    /**
     * Dropdown of object status
@@ -2009,17 +2154,7 @@ abstract class CommonITILObject extends CommonDBTM {
             break;
       }
 
-      $output = "<select name='".$p['name']."'>";
-      foreach ($tab as $key => $val) {
-         $output .=  "<option value='$key' ".(($p['value'] == $key)?" selected ":"").">$val</option>";
-      }
-      $output .=  "</select>";
-
-      if ($p['display']) {
-         echo $output;
-      } else {
-         return $output;
-      }
+      return Dropdown::showFromArray($p['name'], $tab, $p);
    }
 
 
@@ -2037,48 +2172,52 @@ abstract class CommonITILObject extends CommonDBTM {
       return (isset($tab[$value]) ? $tab[$value] : $value);
    }
 
+
    /**
     * get field part name corresponding to actor type
     *
     * @param $type      integer : user type
     *
+    * @since version 0.84.6
+    *
     * @return get typename
    **/
    static function getActorFieldNameType($type) {
+
       switch ($type) {
          case CommonITILActor::REQUESTER :
             return 'requester';
-            break;
 
          case CommonITILActor::OBSERVER :
             return 'observer';
-            break;
 
          case CommonITILActor::ASSIGN :
             return 'assign';
-            break;
 
          default :
             return false;
       }
    }
-   
+
+
    /**
     * show groups asociated
     *
     * @param $type      integer : user type
     * @param $canedit   boolean : can edit ?
+    * @param $options   array    options for default values ($options of showForm)
     *
     * @return nothing display
    **/
-   function showGroupsAssociated($type, $canedit, array $options = array()) {
+   function showGroupsAssociated($type, $canedit, array $options=array()) {
       global $CFG_GLPI;
 
       $groupicon = self::getActorIcon('group',$type);
       $group     = new Group();
+      $linkclass = new $this->grouplinkclass();
 
-      $itemtype = $this->getType();
-      $typename = self::getActorFieldNameType($type);
+      $itemtype  = $this->getType();
+      $typename  = self::getActorFieldNameType($type);
 
       $candelete = true;
       $mandatory = '';
@@ -2087,7 +2226,7 @@ abstract class CommonITILObject extends CommonDBTM {
           && isset($options['_tickettemplate'])) {
          $mandatory = $options['_tickettemplate']->getMandatoryMark("_groups_id_".$typename);
          if ($options['_tickettemplate']->isMandatoryField("_groups_id_".$typename)
-            && isset($this->groups[$type]) && (count($this->groups[$type])==1)) {
+             && isset($this->groups[$type]) && (count($this->groups[$type])==1)) {
             $candelete = false;
          }
       }
@@ -2101,10 +2240,9 @@ abstract class CommonITILObject extends CommonDBTM {
             }
             if ($canedit && $candelete) {
                echo "&nbsp;";
-               Html::showSimpleForm($this->getFormURL(), 'delete_group',
+               Html::showSimpleForm($linkclass->getFormURL(), 'delete',
                                     _x('button', 'Delete permanently'),
-                                    array('id'                        => $d['id'],
-                                          $this->getForeignKeyField() => $this->fields['id']),
+                                    array('id' => $d['id']),
                                     $CFG_GLPI["root_doc"]."/pics/delete.png");
             }
             echo '<br>';
@@ -2119,35 +2257,38 @@ abstract class CommonITILObject extends CommonDBTM {
     *
     * @param $type      integer : user type
     * @param $canedit   boolean : can edit ?
+    * @param $options   array    options for default values ($options of showForm)
     *
     * @return nothing display
    **/
-   function showSuppliersAssociated($type, $canedit, array $options = array()) {
+   function showSuppliersAssociated($type, $canedit, array $options=array()) {
       global $CFG_GLPI;
 
       $showsupplierlink = 0;
-      if (Session::haveRight('contact_enterprise','r')) {
-         $showsupplierlink = 1;
+      if (Session::haveRight('contact_enterprise', READ)) {
+         $showsupplierlink = 2;
       }
 
       $suppliericon = self::getActorIcon('supplier',$type);
       $supplier     = new Supplier();
+      $linksupplier = new $this->supplierlinkclass();
 
-      $itemtype = $this->getType();
-      $typename = self::getActorFieldNameType($type);
-      
-      $candelete = true;
-      $mandatory = '';
+
+      $itemtype     = $this->getType();
+      $typename     = self::getActorFieldNameType($type);
+
+      $candelete    = true;
+      $mandatory    = '';
       // For ticket templates : mandatories
       if (($itemtype == 'Ticket')
           && isset($options['_tickettemplate'])) {
          $mandatory = $options['_tickettemplate']->getMandatoryMark("_suppliers_id_".$typename);
          if ($options['_tickettemplate']->isMandatoryField("_suppliers_id_".$typename)
-            && isset($this->suppliers[$type]) && (count($this->suppliers[$type])==1)) {
+             && isset($this->suppliers[$type]) && (count($this->suppliers[$type])==1)) {
             $candelete = false;
          }
       }
-      
+
       if (isset($this->suppliers[$type]) && count($this->suppliers[$type])) {
          foreach ($this->suppliers[$type] as $d) {
             $k = $d['suppliers_id'];
@@ -2157,13 +2298,33 @@ abstract class CommonITILObject extends CommonDBTM {
                echo "&nbsp;";
                $tmpname = Dropdown::getDropdownName($supplier->getTable(), $k, 1);
                Html::showToolTip($tmpname['comment']);
+
+               if ($CFG_GLPI['use_mailing']) {
+                  $text = __('Email followup')."&nbsp;".Dropdown::getYesNo($d['use_notification']).
+                  '<br>';
+
+                  if ($d['use_notification']) {
+                     $supemail = $d['alternative_email'];
+                     if (empty($supemail)) {
+                        $supemail = $supplier->fields['email'];
+                     }
+                     $text .= sprintf(__('%1$s: %2$s'),__('Email'), $supemail);
+                  }
+                  echo "&nbsp;";
+                  if ($canedit) {
+                     $opt = array('img'   => $CFG_GLPI['root_doc'].'/pics/edit.png',
+                                  'popup' => $linksupplier->getFormURL()."?id=".$d['id']);
+                     Html::showToolTip($text, $opt);
+                  }
+
+               }
+
             }
             if ($canedit && $candelete) {
                echo "&nbsp;";
-               Html::showSimpleForm($this->getFormURL(), 'delete_supplier',
+               Html::showSimpleForm($linksupplier->getFormURL(), 'delete',
                                     _x('button', 'Delete permanently'),
-                                    array('id'                        => $d['id'],
-                                          $this->getForeignKeyField() => $this->fields['id']),
+                                    array('id' => $d['id']),
                                     $CFG_GLPI["root_doc"]."/pics/delete.png");
             }
             echo '<br>';
@@ -2199,6 +2360,10 @@ abstract class CommonITILObject extends CommonDBTM {
 
          case 'priority':
             return self::getPriorityName($values[$field]);
+
+         case 'global_validation' :
+            return CommonITILValidation::getStatus($values[$field]);
+
       }
       return parent::getSpecificValueToDisplay($field, $values, $options);
    }
@@ -2239,27 +2404,35 @@ abstract class CommonITILObject extends CommonDBTM {
             $options['name']  = $name;
             $options['value'] = $values[$field];
             return self::dropdownPriority($options);
+
+         case 'global_validation' :
+            $options['global'] = true;
+            $options['value']  = $values[$field];
+            return CommonITILValidation::dropdownStatus($name, $options);
       }
       return parent::getSpecificValueToSelect($field, $name, $values, $options);
    }
 
 
    /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
+    * @since version 0.85
+    *
+    * @see CommonDBTM::showMassiveActionsSubForm()
    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
       global $CFG_GLPI;
 
-      switch ($input['action']) {
-         case "add_task" :
-            $tasktype = $input['itemtype']."Task";
+      switch ($ma->getAction()) {
+         case 'add_task' :
+            $itemtype = $ma->getItemtype(true);
+            $tasktype = $itemtype.'Task';
             if ($ttype = getItemForItemtype($tasktype)) {
                $ttype->showFormMassiveAction();
                return true;
             }
-            break;
+            return false;
 
-         case "add_actor" :
+         case 'add_actor' :
             $types            = array(0                          => Dropdown::EMPTY_VALUE,
                                       CommonITILActor::REQUESTER => __('Requester'),
                                       CommonITILActor::OBSERVER  => __('Watcher'),
@@ -2274,80 +2447,286 @@ abstract class CommonITILObject extends CommonDBTM {
                                           $paramsmassaction);
             echo "<span id='show_massiveaction_field'>&nbsp;</span>\n";
             return true;
+         case 'update_notif' :
 
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
+            Dropdown::showYesNo('use_notification');
+            echo "<br><br>";
+            echo Html::submit(_x('button','Post'), array('name' => 'massiveaction'));
+            return true;
+            return true;
       }
-      return false;
+      return parent::showMassiveActionsSubForm($ma);
    }
 
 
    /**
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @since version 0.85
+    *
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
+      global $DB;
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "add_actor" :
-            $item = new $input['itemtype']();
-            foreach ($input["item"] as $key => $val) {
-               if ($val == 1) {
-                  $input2 = array('id' => $key);
-                  if (isset($input['_itil_requester'])) {
-                     $input2['_itil_requester'] = $input['_itil_requester'];
-                  }
-                  if (isset($input['_itil_observer'])) {
-                     $input2['_itil_observer'] = $input['_itil_observer'];
-                  }
-                  if (isset($input['_itil_assign'])) {
-                     $input2['_itil_assign'] = $input['_itil_assign'];
-                  }
-                  if ($item->can($key,'w')) {
-                     if ($item->update($input2)) {
-                        $res['ok']++;
-                     } else {
-                        $res['ko']++;
-                     }
+      switch ($ma->getAction()) {
+         case 'add_actor' :
+            $input = $ma->getInput();
+            foreach ($ids as $id) {
+               $input2 = array('id' => $id);
+               if (isset($input['_itil_requester'])) {
+                  $input2['_itil_requester'] = $input['_itil_requester'];
+               }
+               if (isset($input['_itil_observer'])) {
+                  $input2['_itil_observer'] = $input['_itil_observer'];
+               }
+               if (isset($input['_itil_assign'])) {
+                  $input2['_itil_assign'] = $input['_itil_assign'];
+               }
+               if ($item->can($id, UPDATE)) {
+                  if ($item->update($input2)) {
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                   } else {
-                     $res['noright']++;
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                     $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
                   }
+               } else {
+                  $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                  $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
                }
             }
-            break;
+            return;
 
-         case "add_task" :
-            $taskitemtype = $_POST['itemtype'].'Task';
-            if (!($task = getItemForItemtype($taskitemtype))) {
-               return false;
+         case 'update_notif' :
+            $input = $ma->getInput();
+            foreach ($ids as $id) {
+               if ($item->can($id, UPDATE)) {
+                  $linkclass = new $item->userlinkclass();
+                  foreach ($linkclass->getActors($id) as $type => $users) {
+                    foreach ($users as $data) {
+                        $data['use_notification'] = $input['use_notification'];
+                        $linkclass->update($data);
+                    }
+                  }
+                  $linkclass = new $this->supplierlinkclass();
+                  foreach ($linkclass->getActors($id) as $type => $users) {
+                    foreach ($users as $data) {
+                        $data['use_notification'] = $input['use_notification'];
+                        $linkclass->update($data);
+                    }
+                  }
+
+                  $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
+               } else {
+                  $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                  $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
+               }
             }
-            $field = $this->getForeignKeyField();
+            return;
 
-            foreach ($input["item"] as $key => $val) {
-               if ($val == 1) {
-                  $input2 = array($field              => $key,
+         case 'add_task' :
+            if (!($task = getItemForItemtype($item->getType().'Task'))) {
+               $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
+               break;
+            }
+            $field = $item->getForeignKeyField();
+
+            $input = $ma->getInput();
+
+            foreach ($ids as $id) {
+               if ($item->getFromDB($id)) {
+                  $input2 = array($field              => $id,
                                   'taskcategories_id' => $input['taskcategories_id'],
                                   'content'           => $input['content']);
-                  if ($task->can(-1,'w',$input2)) {
+                  if ($task->can(-1, CREATE, $input2)) {
                      if ($task->add($input2)) {
-                        $res['ok']++;
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                      } else {
-                        $res['ko']++;
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                        $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
                      }
                   } else {
-                     $res['noright']++;
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                     $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
                   }
+               } else {
+                  $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                  $ma->addMessage($item->getErrorMessage(ERROR_NOT_FOUND));
                }
             }
-            break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
+            return;
       }
-      return $res;
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   function getSearchOptionsMain() {
+      global $CFG_GLPI;
+
+      $tab                            = array();
+      $tab['common']                  = __('Characteristics');
+
+      $tab[1]['table']                = $this->getTable();
+      $tab[1]['field']                = 'name';
+      $tab[1]['name']                 = __('Title');
+      $tab[1]['datatype']             = 'itemlink';
+      $tab[1]['searchtype']           = 'contains';
+      $tab[1]['massiveaction']        = false;
+      $tab[1]['additionalfields']     = array('id', 'content', 'status');
+
+      $tab[21]['table']               = $this->getTable();
+      $tab[21]['field']               = 'content';
+      $tab[21]['name']                = __('Description');
+      $tab[21]['massiveaction']       = false;
+      $tab[21]['datatype']            = 'text';
+      if ($this->getType() == 'Ticket'
+          && $CFG_GLPI["use_rich_text"]) {
+         $tab[21]['htmltext'] = true;
+      }
+
+      $tab[2]['table']                = $this->getTable();
+      $tab[2]['field']                = 'id';
+      $tab[2]['name']                 = __('ID');
+      $tab[2]['massiveaction']        = false;
+      $tab[2]['datatype']             = 'number';
+
+      $tab[12]['table']               = $this->getTable();
+      $tab[12]['field']               = 'status';
+      $tab[12]['name']                = __('Status');
+      $tab[12]['searchtype']          = 'equals';
+      $tab[12]['datatype']            = 'specific';
+
+      $tab[10]['table']               = $this->getTable();
+      $tab[10]['field']               = 'urgency';
+      $tab[10]['name']                = __('Urgency');
+      $tab[10]['searchtype']          = 'equals';
+      $tab[10]['datatype']            = 'specific';
+
+      $tab[11]['table']               = $this->getTable();
+      $tab[11]['field']               = 'impact';
+      $tab[11]['name']                = __('Impact');
+      $tab[11]['searchtype']          = 'equals';
+      $tab[11]['datatype']            = 'specific';
+
+      $tab[3]['table']                = $this->getTable();
+      $tab[3]['field']                = 'priority';
+      $tab[3]['name']                 = __('Priority');
+      $tab[3]['searchtype']           = 'equals';
+      $tab[3]['datatype']             = 'specific';
+
+
+      $tab[15]['table']               = $this->getTable();
+      $tab[15]['field']               = 'date';
+      $tab[15]['name']                = __('Opening date');
+      $tab[15]['datatype']            = 'datetime';
+      $tab[15]['massiveaction']       = false;
+
+      $tab[16]['table']               = $this->getTable();
+      $tab[16]['field']               = 'closedate';
+      $tab[16]['name']                = __('Closing date');
+      $tab[16]['datatype']            = 'datetime';
+      $tab[16]['massiveaction']       = false;
+
+      $tab[18]['table']               = $this->getTable();
+      $tab[18]['field']               = 'due_date';
+      $tab[18]['name']                = __('Due date');
+      $tab[18]['datatype']            = 'datetime';
+      $tab[18]['maybefuture']         = true;
+      $tab[18]['massiveaction']       = false;
+      $tab[18]['additionalfields']    = array('status');
+
+
+
+      $tab[151]['table']              = $this->getTable();
+      $tab[151]['field']              = 'due_date';
+      $tab[151]['name']               = __('Due date + Progress');
+      $tab[151]['massiveaction']      = false;
+      $tab[151]['nosearch']           = true;
+      $tab[151]['additionalfields']   = array('status');
+
+
+      $tab[82]['table']               = $this->getTable();
+      $tab[82]['field']               = 'is_late';
+      $tab[82]['name']                = __('Late');
+      $tab[82]['datatype']            = 'bool';
+      $tab[82]['massiveaction']       = false;
+      $tab[82]['computation']         = "IF(TABLE.`due_date` IS NOT NULL
+                                            AND TABLE.`status` <> ".self::WAITING."
+                                            AND (TABLE.`solvedate` > TABLE.`due_date`
+                                                 OR (TABLE.`solvedate` IS NULL
+                                                      AND TABLE.`due_date` < NOW())),
+                                            1, 0)";
+
+
+      $tab[17]['table']               = $this->getTable();
+      $tab[17]['field']               = 'solvedate';
+      $tab[17]['name']                = __('Resolution date');
+      $tab[17]['datatype']            = 'datetime';
+      $tab[17]['massiveaction']       = false;
+
+      $tab[19]['table']               = $this->getTable();
+      $tab[19]['field']               = 'date_mod';
+      $tab[19]['name']                = __('Last update');
+      $tab[19]['datatype']            = 'datetime';
+      $tab[19]['massiveaction']       = false;
+
+      $tab[7]['table']                = 'glpi_itilcategories';
+      $tab[7]['field']                = 'completename';
+      $tab[7]['name']                 = __('Category');
+      $tab[7]['datatype']             = 'dropdown';
+      if (!Session::isCron() // no filter for cron
+          && isset($_SESSION['glpiactiveprofile']['interface'])
+          && ($_SESSION['glpiactiveprofile']['interface'] == 'helpdesk')) {
+         $tab[7]['condition']         = "`is_helpdeskvisible`";
+      }
+
+      $tab[80]['table']               = 'glpi_entities';
+      $tab[80]['field']               = 'completename';
+      $tab[80]['name']                = __('Entity');
+      $tab[80]['massiveaction']       = false;
+      $tab[80]['datatype']            = 'dropdown';
+
+      $tab[45]['table']               = $this->getTable();
+      $tab[45]['field']               = 'actiontime';
+      $tab[45]['name']                = __('Total duration');
+      $tab[45]['datatype']            = 'timestamp';
+      $tab[45]['massiveaction']       = false;
+      $tab[45]['nosearch']            = true;
+
+      $tab[64]['table']               = 'glpi_users';
+      $tab[64]['field']               = 'name';
+      $tab[64]['linkfield']           = 'users_id_lastupdater';
+      $tab[64]['name']                = __('Last edit by');
+      $tab[64]['massiveaction']       = false;
+      $tab[64]['datatype']            = 'dropdown';
+      $tab[64]['right']               = 'all';
+
+      return $tab;
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   function getSearchOptionsSolution() {
+      $tab                       = array();
+      $tab['solution']           = _n('Solution', 'Solutions', 1);
+
+      $tab[23]['table']          = 'glpi_solutiontypes';
+      $tab[23]['field']          = 'name';
+      $tab[23]['name']           = __('Solution type');
+      $tab[23]['datatype']       = 'dropdown';
+
+      $tab[24]['table']          = $this->getTable();
+      $tab[24]['field']          = 'solution';
+      $tab[24]['name']           = _n('Solution', 'Solutions', 1);
+      $tab[24]['datatype']       = 'text';
+      $tab[24]['htmltext']       = true;
+      $tab[24]['massiveaction']  = false;
+
+      return $tab;
    }
 
 
@@ -2356,12 +2735,12 @@ abstract class CommonITILObject extends CommonDBTM {
       $tab                       = array();
       $tab['stats']              = __('Statistics');
 
-      $tab[151]['table']         = $this->getTable();
-      $tab[151]['field']         = 'solve_delay_stat';
-      $tab[151]['name']          = __('Resolution time');
-      $tab[151]['datatype']      = 'timestamp';
-      $tab[151]['forcegroupby']  = true;
-      $tab[151]['massiveaction'] = false;
+      $tab[154]['table']         = $this->getTable();
+      $tab[154]['field']         = 'solve_delay_stat';
+      $tab[154]['name']          = __('Resolution time');
+      $tab[154]['datatype']      = 'timestamp';
+      $tab[154]['forcegroupby']  = true;
+      $tab[154]['massiveaction'] = false;
 
       $tab[152]['table']         = $this->getTable();
       $tab[152]['field']         = 'close_delay_stat';
@@ -2428,7 +2807,7 @@ abstract class CommonITILObject extends CommonDBTM {
       if (!Session::isCron() // no filter for cron
           && isset($_SESSION['glpiactiveprofile']['interface'])
           && $_SESSION['glpiactiveprofile']['interface'] == 'helpdesk') {
-         $tab[71]['condition']       .= " AND `id` IN ('".implode("','",$_SESSION['glpigroups'])."')";
+         $tab[71]['condition']       .= " AND `id` IN (".implode(",",$_SESSION['glpigroups']).")";
       }
 
       $tab[22]['table']         = 'glpi_users';
@@ -2437,6 +2816,7 @@ abstract class CommonITILObject extends CommonDBTM {
       $tab[22]['right']         = 'all';
       $tab[22]['linkfield']     = 'users_id_recipient';
       $tab[22]['name']          = __('Writer');
+
       if (!Session::isCron() // no filter for cron
           && isset($_SESSION['glpiactiveprofile']['interface'])
           && $_SESSION['glpiactiveprofile']['interface'] == 'helpdesk') {
@@ -2498,6 +2878,7 @@ abstract class CommonITILObject extends CommonDBTM {
                                                              => 'AND NEWTABLE.`type`
                                                                   = '.CommonITILActor::ASSIGN)));
 
+
       $tab[6]['table']          = 'glpi_suppliers';
       $tab[6]['field']          = 'name';
       $tab[6]['datatype']       = 'dropdown';
@@ -2531,7 +2912,7 @@ abstract class CommonITILObject extends CommonDBTM {
                                                              => 'AND NEWTABLE.`type`
                                                                   = '.CommonITILActor::ASSIGN)));
 
-      $tab['notification']      = _n('Notification', 'Notifications',2);
+      $tab['notification']      = _n('Notification', 'Notifications', Session::getPluralNumber());
 
       $tab[35]['table']         = getTableForItemType($this->userlinkclass);
       $tab[35]['field']         = 'use_notification';
@@ -2677,18 +3058,19 @@ abstract class CommonITILObject extends CommonDBTM {
     *
     * @return nothing display
    **/
-   function showUsersAssociated($type, $canedit, array $options = array()) {
+   function showUsersAssociated($type, $canedit, array $options=array()) {
       global $CFG_GLPI;
 
       $showuserlink = 0;
-      if (Session::haveRight('user','r')) {
+      if (User::canView()) {
          $showuserlink = 2;
       }
-      $usericon = self::getActorIcon('user',$type);
-      $user     = new User();
+      $usericon  = self::getActorIcon('user',$type);
+      $user      = new User();
+      $linkuser  = new $this->userlinkclass();
 
-      $itemtype = $this->getType();
-      $typename = self::getActorFieldNameType($type);
+      $itemtype  = $this->getType();
+      $typename  = self::getActorFieldNameType($type);
 
       $candelete = true;
       $mandatory = '';
@@ -2697,14 +3079,15 @@ abstract class CommonITILObject extends CommonDBTM {
           && isset($options['_tickettemplate'])) {
          $mandatory = $options['_tickettemplate']->getMandatoryMark("_users_id_".$typename);
          if ($options['_tickettemplate']->isMandatoryField("_users_id_".$typename)
-            && isset($this->users[$type]) && (count($this->users[$type])==1)) {
+             && isset($this->users[$type]) && (count($this->users[$type])==1)) {
             $candelete = false;
          }
       }
-      
+
       if (isset($this->users[$type]) && count($this->users[$type])) {
          foreach ($this->users[$type] as $d) {
-            $k                 = $d['users_id'];
+            $k = $d['users_id'];
+
             echo "$mandatory$usericon&nbsp;";
 
             if ($k) {
@@ -2719,8 +3102,7 @@ abstract class CommonITILObject extends CommonDBTM {
                if ($showuserlink) {
                   $param['link'] = $userdata["link"];
                }
-               echo $userdata['name']."&nbsp;".Html::showToolTip($userdata["comment"],
-                                                                 $param);
+               echo $userdata['name']."&nbsp;".Html::showToolTip($userdata["comment"], $param);
             } else {
                echo $userdata;
             }
@@ -2743,22 +3125,20 @@ abstract class CommonITILObject extends CommonDBTM {
 
                if ($canedit
                    || ($d['users_id'] == Session::getLoginUserID())) {
-                  $opt = array('img'   => $CFG_GLPI['root_doc'].'/pics/edit.png',
-                               'popup' => 'edit_user_notification&amp;itemtype='.$this->getType().'&amp;id='.$d['id']);
+                  $opt      = array('img'   => $CFG_GLPI['root_doc'].'/pics/edit.png',
+                                    'popup' => $linkuser->getFormURL()."?id=".$d['id']);
                   Html::showToolTip($text, $opt);
                }
             }
 
             if ($canedit && $candelete) {
                echo "&nbsp;";
-               Html::showSimpleForm($this->getFormURL(), 'delete_user',
+               Html::showSimpleForm($linkuser->getFormURL(), 'delete',
                                     _x('button', 'Delete permanently'),
-                                    array('id'                        => $d['id'],
-                                          $this->getForeignKeyField() => $this->fields['id']),
+                                    array('id' => $d['id']),
                                     $CFG_GLPI["root_doc"]."/pics/delete.png");
             }
             echo "<br>";
-
          }
       }
    }
@@ -2773,8 +3153,7 @@ abstract class CommonITILObject extends CommonDBTM {
     * @param $is_hidden    array    of hidden fields (if empty consider as not hidden)
     * @param $withgroup    boolean  allow adding a group (true by default)
     * @param $withsupplier boolean  allow adding a supplier (only one possible in ASSIGN case)
-    *                           * @param $options   array    options for default values ($options of showForm)
-        (false by default)
+    *                               (false by default)
     * @param $inobject     boolean  display in ITIL object ? (true by default)
     *
     * @return nothing display
@@ -2783,10 +3162,11 @@ abstract class CommonITILObject extends CommonDBTM {
                              $withgroup=true, $withsupplier=false, $inobject=true) {
       global $CFG_GLPI;
 
+
       $types = array(''      => Dropdown::EMPTY_VALUE,
                      'user'  => __('User'));
 
-      if ($withgroup) {    
+      if ($withgroup) {
          $types['group'] = __('Group');
       }
 
@@ -2794,8 +3174,8 @@ abstract class CommonITILObject extends CommonDBTM {
           && ($type == CommonITILActor::ASSIGN)) {
          $types['supplier'] = __('Supplier');
       }
+
       $typename = self::getActorFieldNameType($type);
-      
       switch ($type) {
          case CommonITILActor::REQUESTER :
             if (isset($is_hidden['_users_id_requester']) && $is_hidden['_users_id_requester']) {
@@ -2839,7 +3219,8 @@ abstract class CommonITILObject extends CommonDBTM {
                       'itemtype'        => $this->getType(),
                       'allow_email'     => (($type == CommonITILActor::OBSERVER)
                                             || $type == CommonITILActor::REQUESTER),
-                      'entity_restrict' => $entities_id);
+                      'entity_restrict' => $entities_id,
+                      'use_notif'       => Entity::getUsedConfig('is_notif_enable_default', $entities_id, '', 1));
 
       Ajax::updateItemOnSelectEvent("dropdown__itil_".$typename."[_type]$rand",
                                     "showitilactor".$typename."_$rand",
@@ -2894,7 +3275,7 @@ abstract class CommonITILObject extends CommonDBTM {
 
       if ($this->userentity_oncreate
           && ($type == CommonITILActor::REQUESTER)) {
-         $params['on_change'] = 'submit()';
+         $params['on_change'] = 'this.form.submit()';
       } else { // Force entity search if needed
          $params['entity'] = $options['entities_id'];
       }
@@ -2913,7 +3294,6 @@ abstract class CommonITILObject extends CommonDBTM {
             $paramscomment['alternative_email']
                = $options["_users_id_".$typename."_notif"]['alternative_email'];
          }
-
          $params['toupdate'] = array('value_fieldname'
                                                   => 'value',
                                      'to_update'  => "notif_".$typename."_$rand",
@@ -2946,15 +3326,15 @@ abstract class CommonITILObject extends CommonDBTM {
              && ($options["_users_id_".$typename] > 0)
              && ($_SESSION["glpiactiveprofile"]["interface"] != "helpdesk")) {
 
-            $options2['field'][0]      = 4; // users_id
-            $options2['searchtype'][0] = 'equals';
-            $options2['contains'][0]   = $options["_users_id_".$typename];
-            $options2['link'][0]       = 'AND';
+            $options2['criteria'][0]['field']      = 4; // users_id
+            $options2['criteria'][0]['searchtype'] = 'equals';
+            $options2['criteria'][0]['value']      = $options["_users_id_".$typename];
+            $options2['criteria'][0]['link']       = 'AND';
 
-            $options2['field'][1]      = 12; // status
-            $options2['searchtype'][1] = 'equals';
-            $options2['contains'][1]   = 'notold';
-            $options2['link'][1]       = 'AND';
+            $options2['criteria'][1]['field']      = 12; // status
+            $options2['criteria'][1]['searchtype'] = 'equals';
+            $options2['criteria'][1]['value']      = 'notold';
+            $options2['criteria'][1]['link']       = 'AND';
 
             $options2['reset'] = 'reset';
 
@@ -2995,6 +3375,92 @@ abstract class CommonITILObject extends CommonDBTM {
 
 
    /**
+    * show supplier add div on creation
+    *
+    * @param $options   array    options for default values ($options of showForm)
+    *
+    * @return nothing display
+    **/
+   function showSupplierAddFormOnCreate(array $options) {
+      global $CFG_GLPI;
+
+      $itemtype = $this->getType();
+
+      echo self::getActorIcon('supplier', 'assign');
+      // For ticket templates : mandatories
+      if (($itemtype == 'Ticket')
+            && isset($options['_tickettemplate'])) {
+         echo $options['_tickettemplate']->getMandatoryMark("_suppliers_id_assign");
+      }
+      echo "&nbsp;";
+
+      $rand   = mt_rand();
+      $params = array('name'        => '_suppliers_id_assign',
+                      'value'       => $options["_suppliers_id_assign"],
+                      'rand'        => $rand);
+
+      if ($CFG_GLPI['use_mailing']) {
+         $paramscomment = array('value'       => '__VALUE__',
+                                'field'       => "_suppliers_id_assign_notif",
+                                'allow_email' => true,
+                                'typefield'   => 'supplier',
+                                'use_notification'
+                                    => $options["_suppliers_id_assign_notif"]['use_notification']);
+         if (isset($options["_suppliers_id_assign_notif"]['alternative_email'])) {
+            $paramscomment['alternative_email']
+            = $options["_suppliers_id_assign_notif"]['alternative_email'];
+         }
+         $params['toupdate'] = array('value_fieldname'
+                                                  => 'value',
+                                     'to_update'  => "notif_assign_$rand",
+                                     'url'        => $CFG_GLPI["root_doc"]."/ajax/uemailUpdate.php",
+                                     'moreparams' => $paramscomment);
+
+      }
+
+      if ($itemtype == 'Ticket') {
+         $toupdate = array();
+         if (isset($params['toupdate']) && is_array($params['toupdate'])) {
+            $toupdate[] = $params['toupdate'];
+         }
+         $toupdate[] = array('value_fieldname' => 'value',
+                             'to_update'       => "countassign_$rand",
+                             'url'             => $CFG_GLPI["root_doc"].
+                                                      "/ajax/ticketassigninformation.php",
+                             'moreparams'      => array('suppliers_id_assign' => '__VALUE__'));
+         $params['toupdate'] = $toupdate;
+      }
+
+      Supplier::dropdown($params);
+
+      if ($itemtype == 'Ticket') {
+         // Display active tickets for a tech
+         // Need to update information on dropdown changes
+         echo "<span id='countassign_$rand'>";
+         echo "</span>";
+         echo "<script type='text/javascript'>";
+         Ajax::updateItemJsCode("countassign_$rand",
+                                $CFG_GLPI["root_doc"]."/ajax/ticketassigninformation.php",
+                                array('suppliers_id_assign' => '__VALUE__'),
+                                "dropdown__suppliers_id_assign".$rand);
+         echo "</script>";
+      }
+
+      if ($CFG_GLPI['use_mailing']) {
+         echo "<div id='notif_assign_$rand'>";
+         echo "</div>";
+
+         echo "<script type='text/javascript'>";
+         Ajax::updateItemJsCode("notif_assign_$rand",
+                                $CFG_GLPI["root_doc"]."/ajax/uemailUpdate.php", $paramscomment,
+                                "dropdown__suppliers_id_assign".$rand);
+         echo "</script>";
+      }
+   }
+
+
+
+   /**
     * show actor part in ITIL object form
     *
     * @param $ID        integer  ITIL object ID
@@ -3006,8 +3472,13 @@ abstract class CommonITILObject extends CommonDBTM {
       global $CFG_GLPI;
 
       $showuserlink = 0;
-      if (Session::haveRight('user','r')) {
+      if (User::canView()) {
          $showuserlink = 1;
+      }
+      $options['_default_use_notification'] = 1;
+
+      if (isset($options['entities_id'])) {
+         $options['_default_use_notification'] = Entity::getUsedConfig('is_notif_enable_default', $options['entities_id'], '', 1);
       }
 
       // check is_hidden fields
@@ -3024,8 +3495,8 @@ abstract class CommonITILObject extends CommonDBTM {
       $can_admin      = $this->canAdminActors();
       $can_assign     = $this->canAssign();
       $can_assigntome = $this->canAssignToMe();
-      
-      if (isset($options['_noupdate']) && $options['_noupdate']) {
+
+      if (isset($options['_noupdate']) && !$options['_noupdate']) {
          $can_admin       = false;
          $can_assign      = false;
          $can_assigntome  = false;
@@ -3048,7 +3519,7 @@ abstract class CommonITILObject extends CommonDBTM {
          $rand_requester = mt_rand();
          echo "&nbsp;&nbsp;";
          echo "<img title=\"".__s('Add')."\" alt=\"".__s('Add')."\"
-                onClick=\"Ext.get('itilactor$rand_requester').setDisplayed('block')\"
+                onClick=\"".Html::jsShow("itilactor$rand_requester")."\"
                 class='pointer' src='".$CFG_GLPI["root_doc"]."/pics/add_dropdown.png'>";
          $candeleterequester = true;
       }
@@ -3068,7 +3539,7 @@ abstract class CommonITILObject extends CommonDBTM {
 
          echo "&nbsp;&nbsp;";
          echo "<img title=\"".__s('Add')."\" alt=\"".__s('Add')."\"
-                onClick=\"Ext.get('itilactor$rand_observer').setDisplayed('block')\"
+                onClick=\"".Html::jsShow("itilactor$rand_observer")."\"
                 class='pointer' src='".$CFG_GLPI["root_doc"]."/pics/add_dropdown.png'>";
 
          $candeleteobserver = true;
@@ -3080,8 +3551,9 @@ abstract class CommonITILObject extends CommonDBTM {
                  && !$this->isUser(CommonITILActor::REQUESTER, Session::getLoginUserID())) {
          echo "&nbsp;&nbsp;&nbsp;&nbsp;";
          Html::showSimpleForm($this->getFormURL(), 'addme_observer',
-                              __('Associate myself with this ticket'),
-                              array('tickets_id' => $this->fields['id']));
+                              __('Associate myself'),
+                              array($this->getForeignKeyField() => $this->fields['id']),
+                              $CFG_GLPI["root_doc"]."/pics/addme.png");
       }
 
       echo "</th>";
@@ -3098,15 +3570,25 @@ abstract class CommonITILObject extends CommonDBTM {
           && ($can_assign || $can_assigntome)
           && (!$is_hidden['_users_id_assign']
               || !$is_hidden['_groups_id_assign']
-              || !$is_hidden['_suppliers_id_assign'])) {
+              || !$is_hidden['_suppliers_id_assign'])
+          && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
          $rand_assign = mt_rand();
 
          echo "&nbsp;&nbsp;";
          echo "<img title=\"".__s('Add')."\" alt=\"".__s('Add')."\"
-                onClick=\"Ext.get('itilactor$rand_assign').setDisplayed('block')\"
+                onClick=\"".Html::jsShow("itilactor$rand_assign")."\"
                 class='pointer' src='".$CFG_GLPI["root_doc"]."/pics/add_dropdown.png'>";
       }
-
+      if ($ID
+          && $can_assigntome
+          && !in_array($this->fields['status'], $this->getClosedStatusArray())
+          && !$is_hidden['_users_id_assign']
+          && !$this->isUser(CommonITILActor::ASSIGN, Session::getLoginUserID())
+          && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
+         Html::showSimpleForm($this->getFormURL(), 'addme_assign', __('Associate myself'),
+                              array($this->getForeignKeyField() => $this->fields['id']),
+                              $CFG_GLPI["root_doc"]."/pics/addme.png");
+      }
       if ($ID
           && $can_assign) {
          $candeleteassign = true;
@@ -3115,7 +3597,6 @@ abstract class CommonITILObject extends CommonDBTM {
 
       echo "<tr class='tab_bg_1 top'>";
       echo "<td>";
-
       if ($rand_requester >= 0) {
          $this->showActorAddForm(CommonITILActor::REQUESTER, $rand_requester,
                                  $this->fields['entities_id'], $is_hidden);
@@ -3155,7 +3636,7 @@ abstract class CommonITILObject extends CommonDBTM {
             echo "<br>";
             $rand = Entity::dropdown(array('value'     => $this->fields["entities_id"],
                                            'entity'    => $this->userentities,
-                                           'on_change' => 'submit()'));
+                                           'on_change' => 'this.form.submit()'));
          } else {
             echo "<input type='hidden' name='entities_id' value='".$this->fields["entities_id"]."'>";
          }
@@ -3255,18 +3736,20 @@ abstract class CommonITILObject extends CommonDBTM {
       echo "<td>";
       if ($rand_assign >= 0) {
          $this->showActorAddForm(CommonITILActor::ASSIGN, $rand_assign, $this->fields['entities_id'],
-                                 $is_hidden, $can_assign, $can_assign);
+                                 $is_hidden, $this->canAssign(), $this->canAssign());
       }
 
       // Assign User
       if (!$ID) {
          if ($can_assign
-             && !$is_hidden['_users_id_assign']) {
+             && !$is_hidden['_users_id_assign']
+             && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
             $this->showActorAddFormOnCreate(CommonITILActor::ASSIGN, $options);
             echo '<hr>';
 
          } else if ($can_assigntome
-                    && !$is_hidden['_users_id_assign']) {
+                    && !$is_hidden['_users_id_assign']
+                    && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
             echo self::getActorIcon('user', CommonITILActor::ASSIGN)."&nbsp;";
             User::dropdown(array('name'        => '_users_id_assign',
                                  'value'       => $options["_users_id_assign"],
@@ -3275,7 +3758,8 @@ abstract class CommonITILObject extends CommonDBTM {
             echo '<hr>';
 
          } else { // predefined value
-            if (isset($options["_users_id_assign"]) && $options["_users_id_assign"]) {
+            if (isset($options["_users_id_assign"]) && $options["_users_id_assign"]
+                && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
                echo self::getActorIcon('user', CommonITILActor::ASSIGN)."&nbsp;";
                echo Dropdown::getDropdownName("glpi_users", $options["_users_id_assign"]);
                echo "<input type='hidden' name='_users_id_assign' value=\"".
@@ -3291,7 +3775,8 @@ abstract class CommonITILObject extends CommonDBTM {
       // Assign Groups
       if (!$ID) {
          if ($can_assign
-             && !$is_hidden['_groups_id_assign']) {
+             && !$is_hidden['_groups_id_assign']
+             && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
             echo self::getActorIcon('group', CommonITILActor::ASSIGN);
             /// For ticket templates : mandatories
             if (isset($options['_tickettemplate'])) {
@@ -3328,7 +3813,8 @@ abstract class CommonITILObject extends CommonDBTM {
             echo '<hr>';
          } else { // predefined value
             if (isset($options["_groups_id_assign"])
-                && $options["_groups_id_assign"]) {
+                && $options["_groups_id_assign"]
+                && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
                echo self::getActorIcon('group', CommonITILActor::ASSIGN)."&nbsp;";
                echo Dropdown::getDropdownName("glpi_groups", $options["_groups_id_assign"]);
                echo "<input type='hidden' name='_groups_id_assign' value=\"".
@@ -3344,23 +3830,13 @@ abstract class CommonITILObject extends CommonDBTM {
       // Assign Suppliers
       if (!$ID) {
          if ($can_assign
-             && !$is_hidden['_suppliers_id_assign']) {
-            echo self::getActorIcon('supplier', CommonITILActor::ASSIGN);
-            /// For ticket templates : mandatories
-            if (isset($options['_tickettemplate'])) {
-               echo $options['_tickettemplate']->getMandatoryMark('_suppliers_id_assign');
-            }
-            echo "&nbsp;";
-            $rand   = mt_rand();
-            $params = array('name'      => '_suppliers_id_assign',
-                            'value'     => $options["_suppliers_id_assign"],
-                            'entity'    => $this->fields["entities_id"],
-                            'rand'      => $rand);
-
-            Supplier::dropdown($params);
+             && !$is_hidden['_suppliers_id_assign']
+             && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
+            $this->showSupplierAddFormOnCreate($options);
          } else { // predefined value
             if (isset($options["_suppliers_id_assign"])
-                && $options["_suppliers_id_assign"]) {
+                && $options["_suppliers_id_assign"]
+                && $this->isAllowedStatus($this->fields['status'], CommonITILObject::ASSIGNED)) {
                echo self::getActorIcon('supplier', CommonITILActor::ASSIGN)."&nbsp;";
                echo Dropdown::getDropdownName("glpi_suppliers", $options["_suppliers_id_assign"]);
                echo "<input type='hidden' name='_suppliers_id_assign' value=\"".
@@ -3426,7 +3902,7 @@ abstract class CommonITILObject extends CommonDBTM {
    function showSolutionForm($knowbase_id_toload=0) {
       global $CFG_GLPI;
 
-      $this->check($this->getField('id'), 'r');
+      $this->check($this->getField('id'), READ);
 
       $canedit = $this->canSolve();
       $options = array();
@@ -3437,6 +3913,12 @@ abstract class CommonITILObject extends CommonDBTM {
          if ($kb->getFromDB($knowbase_id_toload)) {
             $this->fields['solution'] = $kb->getField('answer');
          }
+      }
+
+      // Alert if validation waiting
+      $validationtype = $this->getType().'Validation';
+      if (method_exists($validationtype, 'alertValidation')) {
+         $validationtype::alertValidation($this, 'solution');
       }
 
       $this->showFormHeader($options);
@@ -3470,9 +3952,8 @@ abstract class CommonITILObject extends CommonDBTM {
                                                                        $rand_type))));
 
          echo "</td><td colspan='2'>";
-         if (Session::haveRight('knowbase','r')
-             || Session::haveRight('faq','r')) {
-            echo "<a class='vsubmit' title\"".__s('Search a solution')."\"
+         if (Session::haveRightsOr('knowbase', array(READ, KnowbaseItem::READFAQ))) {
+            echo "<a class='vsubmit' title=\"".__s('Search a solution')."\"
                    href='".$CFG_GLPI['root_doc']."/front/knowbaseitem.php?item_itemtype=".
                    $this->getType()."&amp;item_items_id=".$this->getField('id').
                    "&amp;forcetab=Knowbase$1'>".__('Search a solution')."</a>";
@@ -3494,7 +3975,7 @@ abstract class CommonITILObject extends CommonDBTM {
                                         $this->getField('solutiontypes_id'));
       }
       echo "</td><td colspan='2'>&nbsp;</td></tr>";
-      if ($canedit && Session::haveRight('knowbase','w')) {
+      if ($canedit && Session::haveRight('knowbase', UPDATE)) {
          echo "<tr class='tab_bg_2'><td>".__('Save and add to the knowledge base')."</td><td>";
          Dropdown::showYesNo('_sol_to_kb', false);
          echo "</td><td colspan='2'>&nbsp;</td></tr>";
@@ -3643,14 +4124,14 @@ abstract class CommonITILObject extends CommonDBTM {
       /// TODO ticket_types -> itil_types
 
       $types = array();
-
+      $ptypes = array();
       //Types of the plugins (keep the plugin hook for right check)
       if (isset($PLUGIN_HOOKS['assign_to_ticket'])) {
          foreach ($PLUGIN_HOOKS['assign_to_ticket'] as $plugin => $value) {
-            $types = Plugin::doOneHook($plugin, 'AssignToTicket', $types);
+            $ptypes = Plugin::doOneHook($plugin, 'AssignToTicket', $ptypes);
          }
       }
-
+      asort($ptypes);
       //Types of the core (after the plugin for robustness)
       foreach ($CFG_GLPI["ticket_types"] as $itemtype) {
          if ($item = getItemForItemtype($itemtype)) {
@@ -3660,8 +4141,16 @@ abstract class CommonITILObject extends CommonDBTM {
             }
          }
       }
-      ksort($types); // core type first... asort could be better ?
+      asort($types); // core type first... asort could be better ?
 
+      // Drop not available plugins
+      foreach($ptypes as $itemtype => $itemtype_name) {
+         if (!in_array($itemtype,$_SESSION["glpiactiveprofile"]["helpdesk_item_type"])) {
+            unset($ptypes[$itemtype]);
+         }
+      }
+
+      $types = array_merge($types, $ptypes);
       return $types;
    }
 
@@ -3677,23 +4166,25 @@ abstract class CommonITILObject extends CommonDBTM {
       global $PLUGIN_HOOKS;
 
       /// TODO : assign_to_ticket to assign_to_itil
-      // Plugin case
-      if ($plug = isPluginItemType($itemtype)) {
-         //If it's not a core's type, then check plugins
-         $types = array();
-         if (isset($PLUGIN_HOOKS['assign_to_ticket'])) {
-            $types = Plugin::doOneHook($plug['plugin'], 'AssignToTicket', $types);
-            if (array_key_exists($itemtype,$types)) {
-               return true;
-            }
-         }
-      // standard case
-      } else {
-         if (in_array($itemtype, $_SESSION["glpiactiveprofile"]["helpdesk_item_type"])) {
-            return true;
-         }
+//       // Plugin case
+//       if ($plug = isPluginItemType($itemtype)) {
+//          //If it's not a core's type, then check plugins
+//          $types = array();
+//          if (isset($PLUGIN_HOOKS['assign_to_ticket'])) {
+//             $types = Plugin::doOneHook($plug['plugin'], 'AssignToTicket', $types);
+//             if (array_key_exists($itemtype,$types)) {
+//                return true;
+//             }
+//          }
+//       // standard case
+//       } else {
+//          if (in_array($itemtype, $_SESSION["glpiactiveprofile"]["helpdesk_item_type"])) {
+//             return true;
+//          }
+//       }
+      if (in_array($itemtype, $_SESSION["glpiactiveprofile"]["helpdesk_item_type"])) {
+         return true;
       }
-
       return false;
    }
 
@@ -3754,14 +4245,14 @@ abstract class CommonITILObject extends CommonDBTM {
 
    function showStats() {
 
-      if (!Session::haveRight('observe_ticket',1)
+      if (!$this->canUpdate()
           || !isset($this->fields['id'])) {
          return false;
       }
 
       echo "<div class='center'>";
       echo "<table class='tab_cadre_fixe'>";
-      echo "<tr><th colspan='2'>"._n('Date', 'Dates',2)."</th></tr>";
+      echo "<tr><th colspan='2'>"._n('Date', 'Dates', Session::getPluralNumber())."</th></tr>";
 
       echo "<tr class='tab_bg_2'><td>".__('Opening date')."</td>";
       echo "<td>".Html::convDateTime($this->fields['date'])."</td></tr>";
@@ -3769,18 +4260,18 @@ abstract class CommonITILObject extends CommonDBTM {
       echo "<tr class='tab_bg_2'><td>".__('Due date')."</td>";
       echo "<td>".Html::convDateTime($this->fields['due_date'])."</td></tr>";
 
-      if (($this->fields['status'] == self::SOLVED)
-          || ($this->fields['status'] == self::CLOSED)) {
+      if (in_array($this->fields['status'], array_merge($this->getSolvedStatusArray(),
+                                                        $this->getClosedStatusArray()))) {
          echo "<tr class='tab_bg_2'><td>".__('Resolution date')."</td>";
          echo "<td>".Html::convDateTime($this->fields['solvedate'])."</td></tr>";
       }
 
-      if ($this->fields['status']==self::CLOSED) {
+      if (in_array($this->fields['status'], $this->getClosedStatusArray())) {
          echo "<tr class='tab_bg_2'><td>".__('Closing date')."</td>";
          echo "<td>".Html::convDateTime($this->fields['closedate'])."</td></tr>";
       }
 
-      echo "<tr><th colspan='2'>"._n('Time', 'Times',2)."</th></tr>";
+      echo "<tr><th colspan='2'>"._n('Time', 'Times', Session::getPluralNumber())."</th></tr>";
 
       if (isset($this->fields['takeintoaccount_delay_stat'])) {
          echo "<tr class='tab_bg_2'><td>".__('Take into account')."</td><td>";
@@ -3792,8 +4283,8 @@ abstract class CommonITILObject extends CommonDBTM {
          echo "</td></tr>";
       }
 
-      if (($this->fields['status'] == self::SOLVED)
-          || ($this->fields['status'] == self::CLOSED)) {
+      if (in_array($this->fields['status'], array_merge($this->getSolvedStatusArray(),
+                                                        $this->getClosedStatusArray()))) {
          echo "<tr class='tab_bg_2'><td>".__('Resolution')."</td><td>";
 
          if ($this->fields['solve_delay_stat'] > 0) {
@@ -3804,7 +4295,7 @@ abstract class CommonITILObject extends CommonDBTM {
          echo "</td></tr>";
       }
 
-      if ($this->fields['status'] == self::CLOSED) {
+      if (in_array($this->fields['status'], $this->getClosedStatusArray())) {
          echo "<tr class='tab_bg_2'><td>".__('Closure')."</td><td>";
          if ($this->fields['close_delay_stat'] > 0) {
             echo Html::timestampToString($this->fields['close_delay_stat']);
@@ -4207,7 +4698,6 @@ abstract class CommonITILObject extends CommonDBTM {
 
       $linkclass = new $this->userlinkclass();
       $linktable = $linkclass->getTable();
-
       $showlink = User::canView();
 
       $query = "SELECT DISTINCT `glpi_users`.`id` AS users_id,
@@ -4259,7 +4749,6 @@ abstract class CommonITILObject extends CommonDBTM {
       $tasktable = getTableForItemType($this->getType().'Task');
       $showlink = User::canView();
 
-
       $query = "SELECT DISTINCT `glpi_users`.`id` AS users_id,
                                 `glpi_users`.`name` AS name,
                                 `glpi_users`.`realname` AS realname,
@@ -4272,6 +4761,8 @@ abstract class CommonITILObject extends CommonDBTM {
                   ON (`glpi_users`.`id` = `glpi_profiles_users`.`users_id`)
                 LEFT JOIN `glpi_profiles`
                   ON (`glpi_profiles`.`id` = `glpi_profiles_users`.`profiles_id`)
+                LEFT JOIN `glpi_profilerights`
+                  ON (`glpi_profiles`.`id` = `glpi_profilerights`.`profiles_id`)
                 WHERE NOT `".$this->getTable()."`.`is_deleted` ".
                       getEntitiesRestrictRequest("AND", $this->getTable());
 
@@ -4281,7 +4772,8 @@ abstract class CommonITILObject extends CommonDBTM {
                           OR ".getDateRequest("`".$this->getTable()."`.`closedate`",
                                               $date1, $date2).") ";
       }
-      $query .="     AND `glpi_profiles`.`own_ticket` = 1
+      $query .="     AND `glpi_profilerights`.`name` = 'ticket'
+                     AND (`glpi_profilerights`.`rights` & ". Ticket::OWN.")
                      AND `$tasktable`.`users_id` <> '0'
                      AND `$tasktable`.`users_id` IS NOT NULL
                ORDER BY realname, firstname, name";
@@ -4314,6 +4806,7 @@ abstract class CommonITILObject extends CommonDBTM {
 
       $linkclass = new $this->supplierlinkclass();
       $linktable = $linkclass->getTable();
+
 
       $query = "SELECT DISTINCT `glpi_suppliers`.`id` AS suppliers_id_assign,
                                 `glpi_suppliers`.`name` AS name
@@ -4389,5 +4882,347 @@ abstract class CommonITILObject extends CommonDBTM {
       return $tab;
    }
 
+
+   /**
+    * Display a line for an object
+    *
+    * @since version 0.85 (befor in each object with differents parameters)
+    *
+    * @param $id                 Integer  ID of the object
+    * @param $options            array of options
+    *      output_type            : Default output type (see Search class / default Search::HTML_OUTPUT)
+    *      row_num                : row num used for display
+    *      type_for_massiveaction : itemtype for massive action
+    *      id_for_massaction      : default 0 means no massive action
+    *      followups              : only for Tickets : show followup columns
+    */
+   static function showShort($id, $options=array()) {
+      global $CFG_GLPI, $DB;
+
+
+      $p['output_type']            = Search::HTML_OUTPUT;
+      $p['row_num']                = 0;
+      $p['type_for_massiveaction'] = 0;
+      $p['id_for_massiveaction']   = 0;
+      $p['followups']              = false;
+
+      if (count($options)) {
+         foreach ($options as $key => $val) {
+            $p[$key] = $val;
+         }
+      }
+
+      $rand = mt_rand();
+
+      /// TODO to be cleaned. Get datas and clean display links
+
+      // Prints a job in short form
+      // Should be called in a <table>-segment
+      // Print links or not in case of user view
+      // Make new job object and fill it from database, if success, print it
+      $item         = new static();
+
+      $candelete   = static::canDelete();
+      $canupdate   = Session::haveRight(static::$rightname, UPDATE);
+      $showprivate = Session::haveRight('followup', TicketFollowup::SEEPRIVATE);
+      $align       = "class='center";
+      $align_desc  = "class='left";
+
+      if ($p['followups']) {
+         $align      .= " top'";
+         $align_desc .= " top'";
+      } else {
+         $align      .= "'";
+         $align_desc .= "'";
+      }
+
+      if ($item->getFromDB($id)) {
+         $item_num = 1;
+         $bgcolor  = $_SESSION["glpipriority_".$item->fields["priority"]];
+
+         echo Search::showNewLine($p['output_type'],$p['row_num']%2);
+
+         $check_col = '';
+         if (($candelete || $canupdate)
+             && ($p['output_type'] == Search::HTML_OUTPUT)
+             && $p['id_for_massiveaction']) {
+
+            $check_col = Html::getMassiveActionCheckBox($p['type_for_massiveaction'], $p['id_for_massiveaction']);
+         }
+         echo Search::showItem($p['output_type'], $check_col, $item_num, $p['row_num'], $align);
+
+         // First column
+         $first_col = sprintf(__('%1$s: %2$s'), __('ID'), $item->fields["id"]);
+         if ($p['output_type'] == Search::HTML_OUTPUT) {
+            $first_col .= "<br><img src='".static::getStatusIconURL($item->fields["status"])."'
+                                alt=\"".static::getStatus($item->fields["status"])."\" title=\"".
+                                static::getStatus($item->fields["status"])."\">";
+         } else {
+            $first_col = sprintf(__('%1$s - %2$s'), $first_col,
+                                 static::getStatus($item->fields["status"]));
+         }
+
+         echo Search::showItem($p['output_type'], $first_col, $item_num, $p['row_num'], $align);
+
+         // Second column
+         if ($item->fields['status'] == static::CLOSED) {
+            $second_col = sprintf(__('Closed on %s'),
+                                  ($p['output_type'] == Search::HTML_OUTPUT?'<br>':'').
+                                    Html::convDateTime($item->fields['closedate']));
+         } else if ($item->fields['status'] == static::SOLVED) {
+            $second_col = sprintf(__('Solved on %s'),
+                                  ($p['output_type'] == Search::HTML_OUTPUT?'<br>':'').
+                                    Html::convDateTime($item->fields['solvedate']));
+         } else if ($item->fields['begin_waiting_date']) {
+            $second_col = sprintf(__('Put on hold on %s'),
+                                  ($p['output_type'] == Search::HTML_OUTPUT?'<br>':'').
+                                    Html::convDateTime($item->fields['begin_waiting_date']));
+         } else if ($item->fields['due_date']) {
+            $second_col = sprintf(__('%1$s: %2$s'), __('Due date'),
+                                  ($p['output_type'] == Search::HTML_OUTPUT?'<br>':'').
+                                    Html::convDateTime($item->fields['due_date']));
+         } else {
+            $second_col = sprintf(__('Opened on %s'),
+                                  ($p['output_type'] == Search::HTML_OUTPUT?'<br>':'').
+                                    Html::convDateTime($item->fields['date']));
+         }
+
+         echo Search::showItem($p['output_type'], $second_col, $item_num, $p['row_num'], $align." width=130");
+
+         // Second BIS column
+         $second_col = Html::convDateTime($item->fields["date_mod"]);
+         echo Search::showItem($p['output_type'], $second_col, $item_num, $p['row_num'], $align." width=90");
+
+         // Second TER column
+         if (count($_SESSION["glpiactiveentities"]) > 1) {
+            $second_col = Dropdown::getDropdownName('glpi_entities', $item->fields['entities_id']);
+            echo Search::showItem($p['output_type'], $second_col, $item_num, $p['row_num'],
+                                  $align." width=100");
+         }
+
+         // Third Column
+         echo Search::showItem($p['output_type'],
+                               "<span class='b'>".static::getPriorityName($item->fields["priority"]).
+                                 "</span>",
+                               $item_num, $p['row_num'], "$align bgcolor='$bgcolor'");
+
+         // Fourth Column
+         $fourth_col = "";
+
+         foreach ($item->getUsers(CommonITILActor::REQUESTER) as $d) {
+            $userdata    = getUserName($d["users_id"], 2);
+            $fourth_col .= sprintf(__('%1$s %2$s'),
+                                    "<span class='b'>".$userdata['name']."</span>",
+                                    Html::showToolTip($userdata["comment"],
+                                                      array('link'    => $userdata["link"],
+                                                            'display' => false)));
+            $fourth_col .= "<br>";
+         }
+
+         foreach ($item->getGroups(CommonITILActor::REQUESTER) as $d) {
+            $fourth_col .= Dropdown::getDropdownName("glpi_groups", $d["groups_id"]);
+            $fourth_col .= "<br>";
+         }
+
+         echo Search::showItem($p['output_type'], $fourth_col, $item_num, $p['row_num'], $align);
+
+         // Fifth column
+         $fifth_col = "";
+
+         foreach ($item->getUsers(CommonITILActor::ASSIGN) as $d) {
+            $userdata   = getUserName($d["users_id"], 2);
+            $fifth_col .= sprintf(__('%1$s %2$s'),
+                                    "<span class='b'>".$userdata['name']."</span>",
+                                    Html::showToolTip($userdata["comment"],
+                                                      array('link'    => $userdata["link"],
+                                                            'display' => false)));
+            $fifth_col .= "<br>";
+         }
+
+         foreach ($item->getGroups(CommonITILActor::ASSIGN) as $d) {
+            $fifth_col .= Dropdown::getDropdownName("glpi_groups", $d["groups_id"]);
+            $fifth_col .= "<br>";
+         }
+
+
+         foreach ($item->getSuppliers(CommonITILActor::ASSIGN) as $d) {
+            $fifth_col .= Dropdown::getDropdownName("glpi_suppliers", $d["suppliers_id"]);
+            $fifth_col .= "<br>";
+         }
+
+         echo Search::showItem($p['output_type'], $fifth_col, $item_num, $p['row_num'], $align);
+
+         // Sixth Colum
+         // Ticket : simple link to item
+         $sixth_col  = "";
+         $is_deleted = false;
+         $item_ticket = new Item_Ticket();
+         $data = $item_ticket->find("`tickets_id` = ".$item->fields['id']);
+
+         if ($item->getType() == 'Ticket') {
+            if (!empty($data)) {
+               foreach ($data as $val) {
+                  if (!empty($val["itemtype"]) && ($val["items_id"] > 0)) {
+                     if ($object = getItemForItemtype($val["itemtype"])) {
+                        if ($object->getFromDB($val["items_id"])) {
+                           $is_deleted = $object->isDeleted();
+
+                           $sixth_col .= $object->getTypeName();
+                           $sixth_col .= " - <span class='b'>";
+                           if ($item->canView()) {
+                              $sixth_col .= $object->getLink();
+                           } else {
+                              $sixth_col .= $object->getNameID();
+                           }
+                           $sixth_col .= "</span><br>";
+                        }
+                     }
+                  }
+               }
+            } else {
+               $sixth_col = __('General');
+            }
+
+            echo Search::showItem($p['output_type'], $sixth_col, $item_num, $p['row_num'], ($is_deleted ? " class='center deleted' " : $align));
+         }
+
+         // Seventh column
+         echo Search::showItem($p['output_type'],
+                               "<span class='b'>".
+                                 Dropdown::getDropdownName('glpi_itilcategories',
+                                                           $item->fields["itilcategories_id"]).
+                               "</span>",
+                               $item_num, $p['row_num'], $align);
+
+         // Eigth column
+         $eigth_column = "<span class='b'>".$item->getName()."</span>&nbsp;";
+
+         // Add link
+         if ($item->canViewItem()) {
+            $eigth_column = "<a id='".$item->getType().$item->fields["id"]."$rand' href=\"".$item->getLinkURL()
+                              ."\">$eigth_column</a>";
+
+            if ($p['followups']
+                && ($p['output_type'] == Search::HTML_OUTPUT)) {
+               $eigth_column .= TicketFollowup::showShortForTicket($item->fields["id"]);
+            } else {
+               if (method_exists($item, 'numberOfFollowups')) {
+                  $eigth_column  = sprintf(__('%1$s (%2$s)'), $eigth_column,
+                                          sprintf(__('%1$s - %2$s'),
+                                                   $item->numberOfFollowups($showprivate),
+                                                   $item->numberOfTasks($showprivate)));
+               } else {
+                  $eigth_column  = sprintf(__('%1$s (%2$s)'), $eigth_column,
+                                                   $item->numberOfTasks($showprivate));
+
+               }
+            }
+         }
+
+         if ($p['output_type'] == Search::HTML_OUTPUT) {
+            $eigth_column = sprintf(__('%1$s %2$s'), $eigth_column,
+                                    Html::showToolTip(Html::clean(Html::entity_decode_deep($item->fields["content"])),
+                                                      array('display' => false,
+                                                            'applyto' => $item->getType().$item->fields["id"].
+                                                                           $rand)));
+         }
+
+         echo Search::showItem($p['output_type'], $eigth_column, $item_num, $p['row_num'],
+                               $align_desc." width='200'");
+
+
+         //tenth column
+         $tenth_column  = '';
+         $planned_infos = '';
+
+         $tasktype      = $item->getType()."Task";
+         $plan          = new $tasktype();
+         $items         = array();
+
+         foreach ($DB->request($plan->getTable(),
+                               array($item->getForeignKeyField() => $item->fields['id'])) as $plan) {
+
+            if (isset($plan['begin']) && $plan['begin']) {
+               $items[$plan['id']] = $plan['id'];
+               $planned_infos .= sprintf(__('From %s').
+                                            ($p['output_type'] == Search::HTML_OUTPUT?'<br>':''),
+                                         Html::convDateTime($plan['begin']));
+               $planned_infos .= sprintf(__('To %s').
+                                            ($p['output_type'] == Search::HTML_OUTPUT?'<br>':''),
+                                         Html::convDateTime($plan['end']));
+               if ($plan['users_id_tech']) {
+                  $planned_infos .= sprintf(__('By %s').
+                                               ($p['output_type'] == Search::HTML_OUTPUT?'<br>':''),
+                                            getUserName($plan['users_id_tech']));
+               }
+               $planned_infos .= "<br>";
+            }
+
+         }
+         unset($i, $j);
+
+         $tenth_column = count($items);
+         if ($tenth_column) {
+            $tenth_column = "<span class='pointer'
+                              id='".$item->getType().$item->fields["id"]."planning$rand'>".
+                              $tenth_column.'</span>';
+            $tenth_column = sprintf(__('%1$s %2$s'), $tenth_column,
+                                    Html::showToolTip($planned_infos,
+                                                      array('display' => false,
+                                                            'applyto' => $item->getType().
+                                                                           $item->fields["id"].
+                                                                           "planning".$rand)));
+         }
+         echo Search::showItem($p['output_type'], $tenth_column, $item_num, $p['row_num'],
+                               $align_desc." width='150'");
+
+         // Finish Line
+         echo Search::showEndLine($p['output_type']);
+      } else {
+         echo "<tr class='tab_bg_2'>";
+         echo "<td colspan='6' ><i>".__('No item in progress.')."</i></td></tr>";
+      }
+   }
+
+   /**
+    * @param $output_type     (default 'Search::HTML_OUTPUT')
+    * @param $mass_id         id of the form to check all (default '')
+    */
+   static function commonListHeader($output_type=Search::HTML_OUTPUT, $mass_id='') {
+
+      // New Line for Header Items Line
+      echo Search::showNewLine($output_type);
+      // $show_sort if
+      $header_num                      = 1;
+
+      $items                           = array();
+      $items[(empty($mass_id)?'&nbsp':Html::getCheckAllAsCheckbox($mass_id))] = '';
+      $items[__('Status')]             = "status";
+      $items[__('Date')]               = "date";
+      $items[__('Last update')]        = "date_mod";
+
+      if (count($_SESSION["glpiactiveentities"]) > 1) {
+         $items[_n('Entity', 'Entities', Session::getPluralNumber())] = "glpi_entities.completename";
+      }
+
+      $items[__('Priority')]           = "priority";
+      $items[__('Requester')]          = "users_id";
+      $items[__('Assigned')]           = "users_id_assign";
+      if (static::getType() == 'Ticket') {
+         $items[_n('Associated element', 'Associated elements', Session::getPluralNumber())] = "";
+      }
+      $items[__('Category')]           = "glpi_itilcategories.completename";
+      $items[__('Title')]              = "name";
+      $items[__('Planification')]      = "glpi_tickettasks.begin";
+
+      foreach ($items as $key => $val) {
+         $issort = 0;
+         $link   = "";
+         echo Search::showHeaderItem($output_type,$key,$header_num,$link);
+      }
+
+      // End Line for column headers
+      echo Search::showEndLine($output_type);
+   }
 }
 ?>

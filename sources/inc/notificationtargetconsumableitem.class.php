@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: notificationtargetconsumableitem.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: notificationtargetconsumableitem.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,12 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Class NotificationTarget
+
+/**
+ * NotificationTargetConsumableItem Class
+ *
+ * @since version 0.84
+**/
 class NotificationTargetConsumableItem extends NotificationTarget {
 
 
@@ -51,7 +56,6 @@ class NotificationTargetConsumableItem extends NotificationTarget {
     * @param $options   array
    **/
    function getDatasForTemplate($event, $options=array()) {
-      global $CFG_GLPI;
 
       $events                                    = $this->getAllEvents();
 
@@ -65,8 +69,8 @@ class NotificationTargetConsumableItem extends NotificationTarget {
          $tmp['##consumable.item##']      = $consumable['name'];
          $tmp['##consumable.reference##'] = $consumable['ref'];
          $tmp['##consumable.remaining##'] = Consumable::getUnusedNumber($id);
-         $tmp['##consumable.url##']       = urldecode($CFG_GLPI["url_base"].
-                                                      "/index.php?redirect=consumableitem_".$id);
+         $tmp['##consumable.url##']       = $this->formatURL($options['additionnaloption']['usertype'],
+                                                             "ConsumableItem_".$id);
          $this->datas['consumables'][] = $tmp;
       }
 

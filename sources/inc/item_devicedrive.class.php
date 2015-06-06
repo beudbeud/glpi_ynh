@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: item_devicedrive.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: item_devicedrive.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -45,5 +45,14 @@ class Item_DeviceDrive extends Item_Devices {
 
    static protected $notable = false;
 
+
+   /**
+    * @since version 0.85
+   **/
+   static function getSpecificities($specif='') {
+
+      return array('serial' => parent::getSpecificities('serial'),
+                   'busID'  => parent::getSpecificities('busID'));
+   }
 }
 ?>

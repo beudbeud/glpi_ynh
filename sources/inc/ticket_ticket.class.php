@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ticket_ticket.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ticket_ticket.class.php 23468 2015-04-30 12:29:26Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -46,11 +46,73 @@ class Ticket_Ticket extends CommonDBRelation {
    static public $items_id_2     = 'tickets_id_2';
 
    static public $check_entity_coherency = false;
-   static public $checkItem_2_Rights     = self::HAVE_VIEW_RIGHT_ON_ITEM ;
 
    // Ticket links
    const LINK_TO        = 1;
    const DUPLICATE_WITH = 2;
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::showMassiveActionsSubForm()
+   **/
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
+
+      switch ($ma->getAction()) {
+         case 'add' :
+            $rand = Ticket_Ticket::dropdownLinks('link');
+            printf(__('%1$s: %2$s'), __('Ticket'), __('ID'));
+            echo "&nbsp;<input type='text' name='tickets_id_1' value='' size='10'>\n";
+            echo "<br><br>";
+            echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
+                           _sx('button','Post')."'>";
+            return true;
+      }
+      return parent::showMassiveActionsSubForm($ma);
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
+   **/
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
+
+      switch ($ma->getAction()) {
+         case 'add' :
+            $input = $ma->getInput();
+            $ticket = new Ticket();
+            if (isset($input['link'])
+                && isset($input['tickets_id_1'])) {
+               if ($item->getFromDB($input['tickets_id_1'])) {
+                  foreach ($ids as $id) {
+                     $input2                          = array();
+                     $input2['id']                    = $input['tickets_id_1'];
+                     $input2['_link']['tickets_id_1'] = $input['tickets_id_1'];
+                     $input2['_link']['link']         = $input['link'];
+                     $input2['_link']['tickets_id_2'] = $id;
+                     if ($item->can($input['tickets_id_1'], UPDATE)) {
+                        if ($ticket->update($input2)) {
+                           $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
+                        } else {
+                           $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                           $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
+                        }
+                     } else {
+                      $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                      $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
+                     }
+                  }
+               }
+            }
+            return;
+      }
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
+   }
+
 
    /**
     * Get linked tickets to a ticket
@@ -100,7 +162,7 @@ class Ticket_Ticket extends CommonDBRelation {
       global $DB, $CFG_GLPI;
 
       $tickets   = self::getLinkedTicketsTo($ID);
-      $canupdate = Session::haveRight('update_ticket', '1');
+      $canupdate = Session::haveRight('ticket', UPDATE);
 
       $ticket    = new Ticket();
       if (is_array($tickets) && count($tickets)) {
@@ -110,7 +172,7 @@ class Ticket_Ticket extends CommonDBRelation {
                              "' alt=\"".Ticket::getStatus($ticket->fields["status"])."\"
                              title=\"". Ticket::getStatus($ticket->fields["status"])."\">";
                if ($canupdate) {
-                  $icons .= '&nbsp;'.Html::getSimpleForm(static::getFormURL(), 'delete',
+                  $icons .= '&nbsp;'.Html::getSimpleForm(static::getFormURL(), 'purge',
                                                          _x('button', 'Delete permanently'),
                                                          array('id'         => $linkID,
                                                                'tickets_id' => $ID),
@@ -194,20 +256,39 @@ class Ticket_Ticket extends CommonDBRelation {
 
 
    function post_deleteFromDB() {
-
+      global $CFG_GLPI;
+      
       $t = new Ticket();
       $t->updateDateMod($this->fields['tickets_id_1']);
       $t->updateDateMod($this->fields['tickets_id_2']);
       parent::post_deleteFromDB();
+
+      $donotif = $CFG_GLPI["use_mailing"];
+      if ($donotif) {
+         $t->getFromDB($this->fields['tickets_id_1']);
+         NotificationEvent::raiseEvent("update", $t);
+         $t->getFromDB($this->fields['tickets_id_2']);
+         NotificationEvent::raiseEvent("update", $t);
+      }
    }
 
 
    function post_addItem() {
-
+      global $CFG_GLPI;
+      
       $t = new Ticket();
       $t->updateDateMod($this->fields['tickets_id_1']);
       $t->updateDateMod($this->fields['tickets_id_2']);
       parent::post_addItem();
+      
+      $donotif = $CFG_GLPI["use_mailing"];
+      if ($donotif) {
+         $t->getFromDB($this->fields['tickets_id_1']);
+         NotificationEvent::raiseEvent("update", $t);
+         $t->getFromDB($this->fields['tickets_id_2']);
+         NotificationEvent::raiseEvent("update", $t);
+      }
+      
    }
 
 
@@ -230,7 +311,7 @@ class Ticket_Ticket extends CommonDBRelation {
          if (count($tickets)) {
             foreach ($tickets as $data) {
                $input['id'] = $data['tickets_id'];
-               if ($ticket->can($input['id'],'w')
+               if ($ticket->can($input['id'], UPDATE)
                    && ($data['link'] == self::DUPLICATE_WITH)
                    && ($ticket->fields['status'] != CommonITILObject::SOLVED)
                    && ($ticket->fields['status'] != CommonITILObject::CLOSED)) {

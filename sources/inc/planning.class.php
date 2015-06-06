@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: planning.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: planning.class.php 23304 2015-01-21 14:46:37Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,9 +35,49 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// CLASS Planning
-
+/**
+ * Planning Class
+**/
 class Planning extends CommonGLPI {
+
+   static $rightname = 'planning';
+
+   const READMY    =    1;
+   const READGROUP = 1024;
+   const READALL   = 2048;
+
+   const INFO = 0;
+   const TODO = 1;
+   const DONE = 2;
+
+   /**
+    * @since version 0.85
+    *
+    * @param $nb
+   **/
+   static function getTypeName($nb=0) {
+      return __('Planning');
+   }
+
+
+   /**
+    * @see CommonGLPI::getMenuShorcut()
+    *
+    * @since version 0.85
+   **/
+   static function getMenuShorcut() {
+      return 'p';
+   }
+
+
+   /**
+    * @since version 0.85
+   **/
+   static function canView() {
+
+      return Session::haveRightsOr(self::$rightname, array(self::READMY, self::READGROUP,
+                                                           self::READALL));
+   }
 
 
    function defineTabs($options=array()) {
@@ -55,12 +95,12 @@ class Planning extends CommonGLPI {
 
       if ($item->getType() == __CLASS__) {
          $tabs[1] = __('Personal View');
-         if (Session::haveRight("show_group_planning","1")) {
+         if (Session::haveRight(self::$rightname, self::READGROUP)) {
             $tabs[2] = __('Group View');
          }
-         if (Session::haveRight("show_all_planning","1")) {
-            $tabs[3] = _n('User', 'Users', 2);
-            $tabs[4] = _n('Group', 'Groups', 2);
+         if (Session::haveRight(self::$rightname, self::READALL)) {
+            $tabs[3] = _n('User', 'Users', Session::getPluralNumber());
+            $tabs[4] = _n('Group', 'Groups', Session::getPluralNumber());
          }
 
          return $tabs;
@@ -74,31 +114,31 @@ class Planning extends CommonGLPI {
       if ($item->getType() == __CLASS__) {
          switch ($tabnum) {
             case 1 : // all
-               Planning::showSelectionForm($_POST['type'], $_POST['date'], 'my', 0,
-                                           $_POST["limititemtype"]);
-               Planning::showPlanning($_SESSION['glpiID'], $_POST["gID"], $_POST["date"],
-                                      $_POST["type"], $_POST["limititemtype"]);
+               Planning::showSelectionForm($_GET['type'], $_GET['date'], 'my', 0,
+                                           $_GET["limititemtype"]);
+               Planning::showPlanning($_SESSION['glpiID'], $_GET["gID"], $_GET["date"],
+                                      $_GET["type"], $_GET["limititemtype"]);
                break;
 
             case 2 :
-               Planning::showSelectionForm($_POST['type'], $_POST['date'], 'mygroups', 0,
-                                           $_POST["limititemtype"]);
-               Planning::showPlanning($_SESSION['glpiID'], 'mine', $_POST["date"],
-                                      $_POST["type"], $_POST["limititemtype"]);
+               Planning::showSelectionForm($_GET['type'], $_GET['date'], 'mygroups', 0,
+                                           $_GET["limititemtype"]);
+               Planning::showPlanning($_SESSION['glpiID'], 'mine', $_GET["date"],
+                                      $_GET["type"], $_GET["limititemtype"]);
                break;
 
             case 3 :
-               Planning::showSelectionForm($_POST['type'], $_POST['date'], 'users',
-                                           $_POST["uID"], $_POST["limititemtype"]);
-               Planning::showPlanning($_POST['uID'], 0, $_POST["date"], $_POST["type"],
-                                      $_POST["limititemtype"]);
+               Planning::showSelectionForm($_GET['type'], $_GET['date'], 'users',
+                                           $_GET["uID"], $_GET["limititemtype"]);
+               Planning::showPlanning($_GET['uID'], 0, $_GET["date"], $_GET["type"],
+                                      $_GET["limititemtype"]);
                break;
 
             case 4 :
-               Planning::showSelectionForm($_POST['type'], $_POST['date'], 'groups',
-                                           $_POST["gID"], $_POST["limititemtype"]);
-               Planning::showPlanning(0, $_POST['gID'], $_POST["date"], $_POST["type"],
-                                      $_POST["limititemtype"]);
+               Planning::showSelectionForm($_GET['type'], $_GET['date'], 'groups',
+                                           $_GET["gID"], $_GET["limititemtype"]);
+               Planning::showPlanning(0, $_GET['gID'], $_GET["date"], $_GET["type"],
+                                      $_GET["limititemtype"]);
                break;
          }
       }
@@ -114,13 +154,13 @@ class Planning extends CommonGLPI {
    static function getState($value) {
 
       switch ($value) {
-         case 0 :
+         case static::INFO :
             return _n('Information', 'Information', 1);
 
-         case 1 :
+         case static::TODO :
             return __('To do');
 
-         case 2 :
+         case static::DONE :
             return __('Done');
       }
    }
@@ -135,18 +175,12 @@ class Planning extends CommonGLPI {
    **/
    static function dropdownState($name, $value='', $display=true) {
 
-      $output  = "<select name='$name' id='$name'>";
-      $output .= "<option value='0'".(($value == 0)?" selected ":"").">".
-                   _n('Information', 'Information', 1)."</option>";
-      $output .= "<option value='1'".(($value == 1)?" selected ":"").">".__('To do')."</option>";
-      $output .= "<option value='2'".(($value == 2)?" selected ":"").">".__('Done')."</option>";
-      $output .= "</select>";
+      $values = array(static::INFO => _n('Information', 'Information', 1),
+                      static::TODO => __('To do'),
+                      static::DONE => __('Done'));
 
-      if ($display) {
-         echo  $output;
-      } else {
-         return $output;
-      }
+      return Dropdown::showFromArray($name, $values, array('value'   => $value,
+                                                           'display' => $display));
    }
 
 
@@ -261,21 +295,21 @@ class Planning extends CommonGLPI {
             break;
 
          case 'mygroups' :
-            if (!Session::haveRight("show_group_planning","1")) {
+            if (!Session::haveRight(self::$rightname, self::READGROUP)) {
                exit();
             }
             $gID = 'mine';
             break;
 
          case 'users' :
-            if (!Session::haveRight("show_all_planning","1")) {
+            if (!Session::haveRight(self::$rightname, self::READALL)) {
                exit();
             }
             $uID = $value;
             break;
 
          case 'groups' :
-            if (!Session::haveRight("show_all_planning","1")) {
+            if (!Session::haveRight(self::$rightname, self::READALL)) {
                exit();
             }
             $gID = $value;
@@ -312,7 +346,6 @@ class Planning extends CommonGLPI {
             break;
       }
 
-      echo "</td>";
 
       echo "<td>";
       Dropdown::showItemTypes('limititemtype', $CFG_GLPI['planning_types'],
@@ -320,14 +353,16 @@ class Planning extends CommonGLPI {
       echo "</td>";
 
       echo "<td>";
-      Html::showDateFormItem("date", $date, false);
-      echo '</td><td>';
+      Html::showDateField("date", array('value'      => $date,
+                                        'maybeempty' => false));
+      echo '</td>';
+      echo "<td>";
 
-      echo "<select name='type'>";
-      echo "<option value='day' ".(($type == "day")?" selected ":"").">".__('Day')."</option>";
-      echo "<option value='week' ".(($type == "week")?" selected ":"").">".__('Week')."</option>";
-      echo "<option value='month' ".(($type == "month")?" selected ":"").">".__('Month')."</option>";
-      echo "</select></td>\n";
+      $values = array('day'   => __('Day'),
+                      'week'  => __('Week'),
+                      'month' => __('Month'));
+      Dropdown::showFromArray('type', $values, array('value' => $type));
+      echo "</td>\n";
 
       echo "<td rowspan='2' class='center'>";
       echo "<input type='submit' class='submit' name='submit' value=\""._sx('button', 'Show')."\">";
@@ -382,48 +417,108 @@ class Planning extends CommonGLPI {
     *
     * @since version 0.83
     *
-    * @param $who    ID of the user
-    * @param $begin  begin date to check (default '')
-    * @param $end    end date to check (default '')
+    * @param $params   array of params
+    *    must contain :
+    *          - begin: begin date to check (default '')
+    *          - end: end date to check (default '')
+    *          - itemtype : User or Object type (Ticket...)
+    *          - foreign key field of the itemtype to define which item to used
+    *    optional :
+    *          - limitto : limit display to a specific user
     *
     * @return Nothing (display function)
    **/
-   static function checkAvailability($who, $begin='', $end='') {
+   static function checkAvailability($params=array()) {
       global $CFG_GLPI, $DB;
 
-      if (empty($who)) {
+
+      if (!isset($params['itemtype'])) {
          return false;
       }
-      if (empty($begin)) {
+      if (!($item = getItemForItemtype($params['itemtype']))) {
+         return false;
+      }
+      if (!isset($params[$item->getForeignKeyField()])
+          || !$item->getFromDB($params[$item->getForeignKeyField()])) {
+         return false;
+      }
+      // No limit by default
+      if (!isset($params['limitto'])) {
+         $params['limitto'] = 0;
+      }
+      if (isset($params['begin']) && !empty($params['begin'])) {
+         $begin = $params['begin'];
+      } else {
          $begin = date("Y-m-d");
       }
-      if (empty($end)) {
+      if (isset($params['end']) && !empty($params['end'])) {
+         $end = $params['end'];
+      } else {
          $end = date("Y-m-d");
       }
+
       if ($end < $begin) {
          $end = $begin;
       }
       $realbegin = $begin." ".$CFG_GLPI["planning_begin"];
       $realend   = $end." ".$CFG_GLPI["planning_end"];
 
+      $users = array();
+
+      switch ($item->getType()) {
+         case 'User' :
+            $users[$item->getID()] = $item->getName();
+            break;
+
+         default :
+            if (Toolbox::is_a($item, 'CommonITILObject')) {
+               foreach ($item->getUsers(CommonITILActor::ASSIGN) as $data) {
+                  $users[$data['users_id']] = getUserName($data['users_id']);
+               }
+               foreach ($item->getGroups(CommonITILActor::ASSIGN) as $data) {
+                  foreach (Group_User::getGroupUsers($data['groups_id']) as $data2) {
+                  $users[$data2['id']] = formatUserName($data2["id"], $data2["name"],
+                                                        $data2["realname"], $data2["firstname"]);
+                  }
+               }
+            }
+
+            break;
+      }
+      asort($users);
       // Use get method to check availability
       echo "<div class='center'><form method='GET' name='form' action='planning.php'>\n";
-      echo "<table class='tab_cadre'>";
-      echo "<tr class='tab_bg_1'><th colspan='2'>".__('Availability')."</th>";
-      echo "<th colspan='3'>".getUserName($who)."</th></tr>";
+      echo "<table class='tab_cadre_fixe'>";
+      $colspan = 5;
+      if (count($users) > 1) {
+         $colspan++;
+      }
+      echo "<tr class='tab_bg_1'><th colspan='$colspan'>".__('Availability')."</th>";
+      echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
       echo "<td>".__('Start')."</td>\n";
       echo "<td>";
-      Html::showDateFormItem("begin", $begin, false);
+      Html::showDateField("begin", array('value'      => $begin,
+                                         'maybeempty' => false));
       echo "</td>\n";
       echo "<td>".__('End')."</td>\n";
       echo "<td>";
-      Html::showDateFormItem("end", $end, false);
+      Html::showDateField("end", array('value'      => $end,
+                                       'maybeempty' => false));
       echo "</td>\n";
+      if (count($users) > 1) {
+         echo "<td width='40%'>";
+         $data = array(0 => __('All'));
+         $data += $users;
+         Dropdown::showFromArray('limitto', $data, array('width' => '100%',
+                                                         'value' => $params['limitto']));
+         echo "</td>";
+      }
 
-      echo "<td rowspan='2' class='center'>";
-      echo "<input type='hidden' name='users_id' value=\"$who\">";
+      echo "<td class='center'>";
+      echo "<input type='hidden' name='".$item->getForeignKeyField()."' value=\"".$item->getID()."\">";
+      echo "<input type='hidden' name='itemtype' value=\"".$item->getType()."\">";
       echo "<input type='submit' class='submit' name='checkavailability' value=\"".
              _sx('button', 'Search') ."\">";
       echo "</td>\n";
@@ -433,124 +528,139 @@ class Planning extends CommonGLPI {
       Html::closeForm();
       echo "</div>\n";
 
-      $params = array('who'       => $who,
-                      'who_group' => 0,
-                      'begin'     => $realbegin,
-                      'end'       => $realend);
-
-      $interv = array();
-      foreach ($CFG_GLPI['planning_types'] as $itemtype) {
-         $interv = array_merge($interv, $itemtype::populatePlanning($params));
+      if (($params['limitto'] > 0) && isset($users[$params['limitto']])) {
+         $displayuser[$params['limitto']] = $users[$params['limitto']];
+      } else {
+         $displayuser = $users;
       }
 
-      // Print Headers
-      echo "<br><div class='center'><table class='tab_cadre_fixe'>";
-      $colnumber  = 1;
-      $plan_begin = explode(":",$CFG_GLPI["planning_begin"]);
-      $plan_end   = explode(":",$CFG_GLPI["planning_end"]);
-      $begin_hour = intval($plan_begin[0]);
-      $end_hour   = intval($plan_end[0]);
-      if ($plan_end[1] != 0) {
-         $end_hour++;
-      }
-      $colsize = floor((100-15)/($end_hour-$begin_hour));
+      if (count($displayuser)) {
+         foreach ($displayuser as $who => $whoname) {
+            $params = array('who'       => $who,
+                            'who_group' => 0,
+                            'begin'     => $realbegin,
+                            'end'       => $realend);
 
-      // Print Headers
-      echo "<tr class='tab_bg_1'><th width='15%'>&nbsp;</th>";
-
-      for ($i=$begin_hour ; $i<$end_hour ; $i++) {
-         $from = ($i<10?'0':'').$i;
-//          $to   = ((($i+1) < 10)?'0':'').($i+1);
-         echo "<th width='$colsize%' colspan='4'>".$from.":00</th>";
-         $colnumber += 4;
-      }
-      echo "</tr>";
-
-      $day_begin = strtotime($realbegin);
-      $day_end   = strtotime($realend);
-
-
-      for ($time=$day_begin ; $time<$day_end ; $time+=DAY_TIMESTAMP) {
-         $current_day = date('Y-m-d', $time);
-         echo "<tr><th>".Html::convDate($current_day)."</th>";
-         $begin_quarter = $begin_hour*4;
-         $end_quarter   = $end_hour*4;
-         for ($i=$begin_quarter ; $i<$end_quarter ; $i++) {
-
-            $begin_time = date("Y-m-d H:i:s", strtotime($current_day)+($i)*HOUR_TIMESTAMP/4);
-            $end_time   = date("Y-m-d H:i:s", strtotime($current_day)+($i+1)*HOUR_TIMESTAMP/4);
-            // Init activity interval
-            $begin_act  = $end_time;
-            $end_act    = $begin_time;
-
-            reset($interv);
-            while ($data = current($interv)) {
-               if (($data["begin"] >= $begin_time)
-                   && ($data["end"] <= $end_time)) {
-                  // In
-                  if ($begin_act > $data["begin"]) {
-                     $begin_act = $data["begin"];
-                  }
-                  if ($end_act < $data["end"]) {
-                     $end_act = $data["end"];
-                  }
-
-                  unset($interv[key($interv)]);
-               } else if (($data["begin"] < $begin_time)
-                          && ($data["end"] > $end_time)) {
-                  // Through
-                  $begin_act = $begin_time;
-                  $end_act   = $end_time;
-
-                  next($interv);
-               } else if (($data["begin"] >= $begin_time)
-                          && ($data["begin"] < $end_time)) {
-                  // Begin
-                  if ($begin_act > $data["begin"]) {
-                     $begin_act = $data["begin"];
-                  }
-                  $end_act = $end_time;
-
-                  next($interv);
-               } else if (($data["end"] > $begin_time)
-                          && ($data["end"] <= $end_time)) {
-                  //End
-                  $begin_act = $begin_time;
-                  if ($end_act < $data["end"]) {
-                     $end_act = $data["end"];
-                  }
-                  unset($interv[key($interv)]);
-               } else { // Defautl case
-                  next($interv);
-               }
+            $interv = array();
+            foreach ($CFG_GLPI['planning_types'] as $itemtype) {
+               $interv = array_merge($interv, $itemtype::populatePlanning($params));
             }
-            if ($begin_act < $end_act) {
-               if (($begin_act <= $begin_time)
-                   && ($end_act >= $end_time)) {
-                  // Activity in quarter
-                  echo "<td class='notavailable'>&nbsp;</td>";
-               } else {
-                  // Not all the quarter
-                  if ($begin_act <= $begin_time) {
-                     echo "<td class='partialavailableend'>&nbsp;</td>";
+
+            // Print Headers
+            echo "<br><div class='center'><table class='tab_cadre_fixe'>";
+            $colnumber  = 1;
+            $plan_begin = explode(":",$CFG_GLPI["planning_begin"]);
+            $plan_end   = explode(":",$CFG_GLPI["planning_end"]);
+            $begin_hour = intval($plan_begin[0]);
+            $end_hour   = intval($plan_end[0]);
+            if ($plan_end[1] != 0) {
+               $end_hour++;
+            }
+            $colsize    = floor((100-15)/($end_hour-$begin_hour));
+            $timeheader = '';
+            for ($i=$begin_hour ; $i<$end_hour ; $i++) {
+               $from       = ($i<10?'0':'').$i;
+               $timeheader.= "<th width='$colsize%' colspan='4'>".$from.":00</th>";
+               $colnumber += 4;
+            }
+
+            // Print Headers
+            echo "<tr class='tab_bg_1'><th colspan='$colnumber'>";
+            echo $whoname;
+            echo "</th></tr>";
+            echo "<tr class='tab_bg_1'><th width='15%'>&nbsp;</th>";
+            echo $timeheader;
+            echo "</tr>";
+
+
+            $day_begin = strtotime($realbegin);
+            $day_end   = strtotime($realend);
+
+
+            for ($time=$day_begin ; $time<$day_end ; $time+=DAY_TIMESTAMP) {
+               $current_day   = date('Y-m-d', $time);
+               echo "<tr><th>".Html::convDate($current_day)."</th>";
+               $begin_quarter = $begin_hour*4;
+               $end_quarter   = $end_hour*4;
+               for ($i=$begin_quarter ; $i<$end_quarter ; $i++) {
+                  $begin_time = date("Y-m-d H:i:s", strtotime($current_day)+($i)*HOUR_TIMESTAMP/4);
+                  $end_time   = date("Y-m-d H:i:s", strtotime($current_day)+($i+1)*HOUR_TIMESTAMP/4);
+                  // Init activity interval
+                  $begin_act  = $end_time;
+                  $end_act    = $begin_time;
+
+                  reset($interv);
+                  while ($data = current($interv)) {
+                     if (($data["begin"] >= $begin_time)
+                         && ($data["end"] <= $end_time)) {
+                        // In
+                        if ($begin_act > $data["begin"]) {
+                           $begin_act = $data["begin"];
+                        }
+                        if ($end_act < $data["end"]) {
+                           $end_act = $data["end"];
+                        }
+                        unset($interv[key($interv)]);
+
+                     } else if (($data["begin"] < $begin_time)
+                                && ($data["end"] > $end_time)) {
+                        // Through
+                        $begin_act = $begin_time;
+                        $end_act   = $end_time;
+                        next($interv);
+
+                     } else if (($data["begin"] >= $begin_time)
+                                && ($data["begin"] < $end_time)) {
+                        // Begin
+                        if ($begin_act > $data["begin"]) {
+                           $begin_act = $data["begin"];
+                        }
+                        $end_act = $end_time;
+                        next($interv);
+
+                     } else if (($data["end"] > $begin_time)
+                                && ($data["end"] <= $end_time)) {
+                        //End
+                        $begin_act = $begin_time;
+                        if ($end_act < $data["end"]) {
+                           $end_act = $data["end"];
+                        }
+                        unset($interv[key($interv)]);
+
+                     } else { // Defautl case
+                        next($interv);
+                     }
+                  }
+                  if ($begin_act < $end_act) {
+                     if (($begin_act <= $begin_time)
+                         && ($end_act >= $end_time)) {
+                        // Activity in quarter
+                        echo "<td class='notavailable'>&nbsp;</td>";
+                     } else {
+                        // Not all the quarter
+                        if ($begin_act <= $begin_time) {
+                           echo "<td class='partialavailableend'>&nbsp;</td>";
+                        } else {
+                           echo "<td class='partialavailablebegin'>&nbsp;</td>";
+                        }
+                     }
                   } else {
-                     echo "<td class='partialavailablebegin'>&nbsp;</td>";
+                     // No activity
+                     echo "<td class='available'>&nbsp;</td>";
                   }
                }
-            } else {
-               // No activity
-               echo "<td class='available'>&nbsp;</td>";
+               echo "</tr>";
             }
+            echo "<tr class='tab_bg_1'><td colspan='$colnumber'>&nbsp;</td></tr>";
+            echo "</table></div>";
          }
-         echo "</tr>";
       }
-      echo "<tr class='tab_bg_1'><td colspan='$colnumber'>&nbsp;</td></tr>";
-
+      echo "<div><table class='tab_cadre'>";
       echo "<tr class='tab_bg_1'>";
       echo "<th>".__('Caption')."</th>";
       echo "<td class='available' colspan=8>".__('Available')."</td>";
       echo "<td class='notavailable' colspan=8>".__('Unavailable')."</td>";
-      echo "<td colspan='".($colnumber-17)."'>&nbsp;</td></tr>";
+      echo "</tr>";
       echo "</table></div>";
 
    }
@@ -572,8 +682,7 @@ class Planning extends CommonGLPI {
    static function showPlanning($who, $who_group, $when, $type, $limititemtype='') {
       global $CFG_GLPI, $DB;
 
-      if (!Session::haveRight("show_planning","1")
-          && !Session::haveRight("show_all_planning","1")) {
+      if (!static::canView()) {
          return false;
       }
 
@@ -920,7 +1029,7 @@ class Planning extends CommonGLPI {
    static function showCentral($who) {
       global $CFG_GLPI;
 
-      if (!Session::haveRight("show_planning","1")
+      if (!Session::haveRight(self::$rightname, self::READMY)
           || ($who <= 0)) {
          return false;
       }
@@ -947,7 +1056,7 @@ class Planning extends CommonGLPI {
 
       ksort($interv);
 
-      echo "<table class='tab_cadrehov'><tr><th>";
+      echo "<table class='tab_cadrehov'><tr class='noHover'><th>";
       echo "<a href='".$CFG_GLPI["root_doc"]."/front/planning.php?uID=$who'>".__('Your planning').
            "</a>";
       echo "</th></tr>";
@@ -1087,5 +1196,16 @@ class Planning extends CommonGLPI {
       return $v->returnCalendar();
    }
 
+   /**
+    * @since version 0.85
+   **/
+   function getRights($interface='central') {
+
+      $values[self::READMY]    = __('See personnal planning');
+      $values[self::READGROUP] = __('See schedule of people in my groups');
+      $values[self::READALL]   = __('See all plannings');
+
+      return $values;
+   }
 }
 ?>

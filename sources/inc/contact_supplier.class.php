@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: contact_supplier.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: contact_supplier.class.php 23303 2015-01-21 14:24:35Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -67,92 +67,23 @@ class Contact_Supplier extends CommonDBRelation{
    }
 
 
-   /**
-    * @see CommonDBTM::doSpecificMassiveActions()
-   **/
-   function doSpecificMassiveActions($input=array()) {
-
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-      switch ($input['action']) {
-         case "add_contact_supplier" :
-            $contactsupplier = new Contact_Supplier();
-            foreach ($input["item"] as $key => $val) {
-               if (isset($input['contacts_id'])) {
-                  $input = array('suppliers_id' => $key,
-                                 'contacts_id'  => $input['contacts_id']);
-               } else if (isset($input['suppliers_id'])) {
-                  $input = array('suppliers_id' => $input['suppliers_id'],
-                                 'contacts_id'  => $key);
-               } else {
-                  return false;
-               }
-               if ($contactsupplier->can(-1, 'w', $input)) {
-                  if ($contactsupplier->add($input)) {
-                     $res['ok']++;
-                  } else {
-                     $res['ko']++;
-                  }
-               } else {
-                  $res['noright']++;
-               }
-            }
-            break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
-      }
-      return $res;
-   }
-
-
-   /**
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
-   **/
-   function showSpecificMassiveActionsParameters($input=array()) {
-
-      switch ($input['action']) {
-         case "add_contact_supplier" :
-            if ($input['itemtype'] == 'Supplier') {
-               Contact::dropdown(array('name' => "contacts_id"));
-               echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                              _sx('button', 'Add')."'>";
-               return true;
-            }
-            if ($input['itemtype'] == 'Contact') {
-               Supplier::dropdown(array('name' => "suppliers_id"));
-               echo "<br><br><input type='submit' name='massiveaction' class='submit' value='".
-                              _sx('button', 'Add')."'>";
-               return true;
-            }
-            break;
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
-      }
-      return false;
-   }
-
-
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
-      if (!$withtemplate && Session::haveRight("contact_enterprise","r")) {
+      if (!$withtemplate && Session::haveRight("contact_enterprise", READ)) {
          switch ($item->getType()) {
             case 'Supplier' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  return self::createTabEntry(_n('Contact', 'Contacts', 2),
+                  return self::createTabEntry(_n('Contact', 'Contacts', Session::getPluralNumber()),
                                               self::countForSupplier($item));
                }
-               return _n('Contact', 'Contacts', 2);
+               return _n('Contact', 'Contacts', Session::getPluralNumber());
 
             case 'Contact' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  return self::createTabEntry(_n('Supplier', 'Suppliers', 2),
+                  return self::createTabEntry(_n('Supplier', 'Suppliers', Session::getPluralNumber()),
                                               self::countForContact($item));
                }
-               return _n('Supplier', 'Suppliers', 2);
+               return _n('Supplier', 'Suppliers', Session::getPluralNumber());
          }
       }
       return '';
@@ -212,11 +143,11 @@ class Contact_Supplier extends CommonDBRelation{
 
       $instID = $contact->fields['id'];
 
-      if (!$contact->can($instID,'r')) {
+      if (!$contact->can($instID, READ)) {
          return false;
       }
 
-      $canedit = $contact->can($instID,'w');
+      $canedit = $contact->can($instID, UPDATE);
       $rand = mt_rand();
 
       $query = "SELECT `glpi_contacts_suppliers`.`id`,
@@ -248,7 +179,8 @@ class Contact_Supplier extends CommonDBRelation{
 
       if ($canedit) {
          echo "<div class='firstbloc'>";
-         echo "<form name='contactsupplier_form$rand' id='contactsupplier_form$rand' method='post' action='";
+         echo "<form name='contactsupplier_form$rand' id='contactsupplier_form$rand'
+                method='post' action='";
          echo Toolbox::getItemTypeFormURL(__CLASS__)."'>";
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr class='tab_bg_1'><th colspan='2'>".__('Add a supplier')."</tr>";
@@ -270,21 +202,29 @@ class Contact_Supplier extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'  => $number);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed' => $number,
+                                      'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
-      echo "<table class='tab_cadre_fixe'>";
-      echo "<tr>";
+      echo "<table class='tab_cadre_fixehov'>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $number) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_top    .= "</th>";
+         $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= "</th>";
       }
-      echo "<th>".__('Supplier')."</th>";
-      echo "<th>".__('Entity')."</th>";
-      echo "<th>".__('Third party type')."</th>";
-      echo "<th>". __('Phone')."</th>";
-      echo "<th>".__('Fax')."</th>";
-      echo "<th>".__('Website')."</th>";
-      echo "</tr>";
+      $header_end .= "<th>".__('Supplier')."</th>";
+      $header_end .= "<th>".__('Entity')."</th>";
+      $header_end .= "<th>".__('Third party type')."</th>";
+      $header_end .= "<th>". __('Phone')."</th>";
+      $header_end .= "<th>".__('Fax')."</th>";
+      $header_end .= "<th>".__('Website')."</th>";
+      $header_end .= "</tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $used = array();
       if ($number > 0) {
@@ -326,13 +266,14 @@ class Contact_Supplier extends CommonDBRelation{
             echo "</tr>";
 
          }
+         echo $header_begin.$header_bottom.$header_end;
       }
 
 
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -345,10 +286,10 @@ class Contact_Supplier extends CommonDBRelation{
       global $DB,$CFG_GLPI;
 
       $instID = $supplier->fields['id'];
-      if (!$supplier->can($instID,'r')) {
+      if (!$supplier->can($instID, READ)) {
          return false;
       }
-      $canedit = $supplier->can($instID,'w');
+      $canedit = $supplier->can($instID, UPDATE);
       $rand = mt_rand();
 
       $query = "SELECT `glpi_contacts`.*,
@@ -373,7 +314,8 @@ class Contact_Supplier extends CommonDBRelation{
       }
       if ($canedit) {
          echo "<div class='firstbloc'>";
-         echo "<form name='contactsupplier_form$rand' id='contactsupplier_form$rand' method='post' action='";
+         echo "<form name='contactsupplier_form$rand' id='contactsupplier_form$rand'
+                method='post' action='";
          echo Toolbox::getItemTypeFormURL(__CLASS__)."'>";
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr class='tab_bg_1'><th colspan='2'>".__('Add a contact')."</tr>";
@@ -397,24 +339,32 @@ class Contact_Supplier extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed'  => $number);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed' => $number,
+                                      'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
-      echo "<table class='tab_cadre_fixe'>";
+      echo "<table class='tab_cadre_fixehov'>";
 
-      echo "<tr>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $number) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_top    .= "</th>";
+         $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= "</th>";
       }
-      echo "<th>".__('Name')."</th>";
-      echo "<th>".__('Entity')."</th>";
-      echo "<th>". __('Phone')."</th>";
-      echo "<th>". __('Phone 2')."</th>";
-      echo "<th>".__('Mobile phone')."</th>";
-      echo "<th>".__('Fax')."</th>";
-      echo "<th>"._n('Email', 'Emails', 1)."</th>";
-      echo "<th>".__('Type')."</th>";
-      echo "</tr>";
+      $header_end .= "<th>".__('Name')."</th>";
+      $header_end .= "<th>".__('Entity')."</th>";
+      $header_end .= "<th>". __('Phone')."</th>";
+      $header_end .= "<th>". __('Phone 2')."</th>";
+      $header_end .= "<th>".__('Mobile phone')."</th>";
+      $header_end .= "<th>".__('Fax')."</th>";
+      $header_end .= "<th>"._n('Email', 'Emails', 1)."</th>";
+      $header_end .= "<th>".__('Type')."</th>";
+      $header_end .= "</tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $used = array();
       if ($number) {
@@ -436,7 +386,8 @@ class Contact_Supplier extends CommonDBRelation{
             echo "<a href='".$CFG_GLPI["root_doc"]."/front/contact.form.php?id=".$data["id"]."'>".
                    sprintf(__('%1$s %2$s'), $data["name"], $data["firstname"])."</a></td>";
             echo "<td class='center' width='100'>".Dropdown::getDropdownName("glpi_entities",
-                                                                             $data["entity"])."</td>";
+                                                                             $data["entity"]);
+            echo "</td>";
             echo "<td class='center' width='100'>".$data["phone"]."</td>";
             echo "<td class='center' width='100'>".$data["phone2"]."</td>";
             echo "<td class='center' width='100'>".$data["mobile"]."</td>";
@@ -447,12 +398,13 @@ class Contact_Supplier extends CommonDBRelation{
                                                                  $data["contacttypes_id"])."</td>";
             echo "</tr>";
          }
+         echo $header_begin.$header_bottom.$header_end;
       }
 
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";

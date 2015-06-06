@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ticketsatisfaction.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ticketsatisfaction.class.php 23253 2014-11-27 20:31:31Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,7 +28,7 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
@@ -60,7 +60,7 @@ class TicketSatisfaction extends CommonDBTM {
 
 
    static function canUpdate() {
-      return (Session::haveRight('create_ticket', 1));
+      return (Session::haveRight('ticket', READ));
    }
 
 
@@ -97,7 +97,7 @@ class TicketSatisfaction extends CommonDBTM {
     *
     * @param $ticket Object : the ticket
    **/
-   function showSatisfactionForm($ticket) {
+   function showForm($ticket) {
 
       $tid                 = $ticket->fields['id'];
       $options             = array();
@@ -121,22 +121,24 @@ class TicketSatisfaction extends CommonDBTM {
          echo "<td>".__('Satisfaction with the resolution of the ticket')."</td>";
          echo "<td>";
          echo "<input type='hidden' name='tickets_id' value='$tid'>";
-         echo "<input type='hidden' id='satisfaction' name='satisfaction' value='".
-                $this->fields["satisfaction"]."'>";
 
-         echo  "<script type='text/javascript'>\n
-            Ext.onReady(function() {
-            var md = new Ext.form.StarRate({
-                       hiddenName: 'satisfaction',
-                       starConfig: {
-                       	minValue: 0,
-                       	maxValue: 5,
-                        value:".$this->fields["satisfaction"]."
-                       },
-                       applyTo : 'satisfaction'
-            });
-            })
-            </script>";
+         echo "<select id='satisfaction_data' name='satisfaction'>";
+
+         for ($i=0 ; $i<=5 ; $i++) {
+            echo "<option value='$i' ".(($i == $this->fields["satisfaction"])?'selected':'').
+                  ">$i</option>";
+         }
+         echo "</select>";
+         echo "<div class='rateit' id='stars'></div>";
+         echo  "<script type='text/javascript'>\n";
+         echo "$('#stars').rateit({value: ".$this->fields["satisfaction"].",
+                                   min : 0,
+                                   max : 5,
+                                   step: 1,
+                                   backingfld: '#satisfaction_data',
+                                   ispreset: true,
+                                   resetable: false});";
+         echo "</script>";
 
          echo "</td></tr>";
 
@@ -194,13 +196,10 @@ class TicketSatisfaction extends CommonDBTM {
       if ($value > 5) {
          $value = 5;
       }
-      $out = '<div style="width: 81px;"  class="x-starslider-horz">';
-      $out .= '<div  class="x-starslider-end">';
-      $out .= '<div style="width: 81px;" class="x-starslider-inner">';
-      $out .= "<div style='width: ".intval($value*16)."px;' class='x-starslider-thumb'>";
-      // display for export
-      $out .= '<span class="invisible">'.$value.'</span>';
-      $out .= '</div></div></div></div>';
+
+      $out = "<div class='rateit' data-rateit-value='$value' data-rateit-ispreset='true'
+               data-rateit-readonly='true'></div>";
+
       return $out;
    }
 

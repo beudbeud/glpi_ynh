@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -47,6 +47,12 @@ if (!defined('GLPI_ROOT')) {
 class PluginFusioninventoryIPRange extends CommonDBTM {
 
    public $dohistory = TRUE;
+
+   static $rightname = 'plugin_fusioninventory_iprange';
+
+   static function canCreate() {
+      return true;
+   }
 
    static function getTypeName($nb=0) {
 
@@ -74,16 +80,6 @@ class PluginFusioninventoryIPRange extends CommonDBTM {
    function getComments() {
       $comment = $this->fields['ip_start']." -> ".$this->fields['ip_end'];
       return Html::showToolTip($comment, array('display' => FALSE));
-   }
-
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("iprange", "w");
-   }
-
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("iprange", "r");
    }
 
 
@@ -128,25 +124,32 @@ class PluginFusioninventoryIPRange extends CommonDBTM {
    function defineTabs($options=array()){
 
       $ong = array();
-      if ((isset($this->fields['id'])) AND ($this->fields['id'] > 0)){
-         $ong[1] = _n('Task', 'Tasks', 2);
-         //$pfTaskjob->manageTasksByObject("PluginFusioninventoryIPRange", $_POST['id']);
-      }
+      $this->addDefaultFormTab($ong);
+      $ong[$this->getType().'$task'] = _n('Task', 'Tasks', 2);
       $this->addStandardTab('Log', $ong, $options);
       return $ong;
    }
 
 
 
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+      if ($tabnum == 'task') {
+         $pfTask = new PluginFusioninventoryTask();
+            $pfTask->showJobLogs();
+         $pfTaskjob = new PluginFusioninventoryTaskjob();
+         $a_taskjobs = $pfTaskjob->find('`targets` LIKE \'%"PluginFusioninventoryIPRange":"'.$item->getID().'"%\'');
+         foreach ($a_taskjobs as $data) {
+            //$pfTask->getFromDB($data['plugin_fusioninventory_tasks_id']);
+         }
+      }
+   }
+
+
+
+
    function showForm($id, $options=array()) {
 
-      if ($id!='') {
-         $this->getFromDB($id);
-      } else {
-         $this->getEmpty();
-      }
-
-      $this->showTabs($options);
+      $this->initForm($id, $options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
@@ -235,7 +238,8 @@ class PluginFusioninventoryIPRange extends CommonDBTM {
       echo "</tr>";
 
       $this->showFormButtons($options);
-      $this->addDivForTabs();
+
+      return true;
    }
 
 
@@ -290,6 +294,22 @@ class PluginFusioninventoryIPRange extends CommonDBTM {
       }
       return $int;
    }
+
+
+
+   function post_deleteItem() {
+
+      $pfIPRange_ConfigSecurity = new PluginFusioninventoryIPRange_ConfigSecurity();
+      $a_data = getAllDatasFromTable('glpi_plugin_fusioninventory_ipranges_configsecurities',
+                                     "`plugin_fusioninventory_ipranges_id`='".$this->fields['id']."'");
+      foreach ($a_data as $data) {
+         $pfIPRange_ConfigSecurity->delete($data);
+      }
+
+      parent::post_deleteItem();
+   }
+
+
 }
 
 ?>

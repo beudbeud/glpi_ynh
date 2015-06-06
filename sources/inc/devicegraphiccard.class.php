@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: devicegraphiccard.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: devicegraphiccard.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -38,6 +38,8 @@ if (!defined('GLPI_ROOT')) {
 /// Class DeviceGraphicCard
 class DeviceGraphicCard extends CommonDevice {
 
+   static protected $forward_entity_to = array('Item_DeviceGraphicCard', 'Infocom');
+
    static function getTypeName($nb=0) {
       return _n('Graphics card', 'Graphics cards', $nb);
    }
@@ -46,13 +48,22 @@ class DeviceGraphicCard extends CommonDevice {
    function getAdditionalFields() {
 
       return array_merge(parent::getAdditionalFields(),
-                         array(array('name'  => 'memory_default',
+                         array(array('name'  => 'chipset',
+                                     'label' => __('Chipset'),
+                                     'type'  => 'text'),
+                               array('name'  => 'memory_default',
                                      'label' => __('Memory by default'),
                                      'type'  => 'text',
                                      'unit'  => __('Mio')),
                                array('name'  => 'interfacetypes_id',
                                      'label' => __('Interface'),
-                                     'type'  => 'dropdownValue')));
+                                     'type'  => 'dropdownValue'),
+                               array('name'  => 'none',
+                                     'label' => RegisteredID::getTypeName(Session::getPluralNumber()).
+                                        RegisteredID::showAddChildButtonForItemForm($this,
+                                                                                    '_registeredID',
+                                                                                    NULL, false),
+                                     'type'  => 'registeredIDChooser')));
    }
 
 
@@ -75,6 +86,41 @@ class DeviceGraphicCard extends CommonDevice {
 
 
    /**
+    * @since version 0.85
+    * @param  $input
+    *
+    * @return number
+   **/
+   function prepareInputForAddOrUpdate($input) {
+
+      foreach (array('memory_default') as $field) {
+         if (isset($input[$field]) && !is_numeric($input[$field])) {
+            $input[$field] = 0;
+         }
+      }
+      return $input;
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDropdown::prepareInputForAdd()
+   **/
+   function prepareInputForAdd($input) {
+      return self::prepareInputForAddOrUpdate($input);
+   }
+
+
+   /**
+    * @since version 0.85
+    * @see CommonDropdown::prepareInputForUpdate()
+   **/
+   function prepareInputForUpdate($input) {
+      return self::prepareInputForAddOrUpdate($input);
+   }
+
+
+   /**
     * @since version 0.84
     *
     * @see CommonDevice::getHTMLTableHeader()
@@ -93,6 +139,7 @@ class DeviceGraphicCard extends CommonDevice {
          case 'Computer' :
             Manufacturer::getHTMLTableHeader(__CLASS__, $base, $super, $father, $options);
             InterfaceType::getHTMLTableHeader(__CLASS__, $base, $super, $father, $options);
+            $base->addHeader('devicegraphiccard_chipset', __('Chipset'), $super, $father);
             break;
       }
    }
@@ -116,6 +163,11 @@ class DeviceGraphicCard extends CommonDevice {
          case 'Computer' :
             Manufacturer::getHTMLTableCellsForItem($row, $this, NULL, $options);
             InterfaceType::getHTMLTableCellsForItem($row, $this, NULL, $options);
+
+            if (!empty($this->fields["chipset"])) {
+               $row->addCell($row->getHeaderByName('devicegraphiccard_chipset'),
+                             $this->fields["chipset"], $father);
+            }
             break;
       }
    }
@@ -129,6 +181,7 @@ class DeviceGraphicCard extends CommonDevice {
     * @since version 0.84
    **/
    function getImportCriteria() {
+
       return array('designation'       => 'equal',
                    'manufacturers_id'  => 'equal',
                    'interfacetypes_id' => 'equal');

@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -88,14 +88,14 @@ class PluginFusioninventoryConfigLogField extends CommonDBTM {
                   $this->add($input);
                } else {
                   // On old version, can have many times same value in DB
-                  $query = "SELECT *  FROM `glpi_plugin_fusioninventory_configlogfields` 
+                  $query = "SELECT *  FROM `glpi_plugin_fusioninventory_configlogfields`
                      WHERE `plugin_fusioninventory_mappings_id` = '".$mapfields['id']."'
                      LIMIT 1,1000";
                   $result=$DB->query($query);
                   while ($data=$DB->fetch_array($result)) {
                      $DB->query("DELETE FROM `glpi_plugin_fusioninventory_configlogfields`"
                              ." WHERE `id`='".$data['id']."'");
-                  }                  
+                  }
                }
             }
          }
@@ -188,7 +188,7 @@ class PluginFusioninventoryConfigLogField extends CommonDBTM {
          }
       }
 
-      if (PluginFusioninventoryProfile::haveRight("configuration", "w")) {
+      if (Session::haveRight('plugin_fusioninventory_configuration', UPDATE)) {
          echo "<tr class='tab_bg_2'><td align='center' colspan='4'>
                <input type='hidden' name='tabs' value='history'/>
                <input class='submit' type='submit' name='update'
@@ -200,7 +200,7 @@ class PluginFusioninventoryConfigLogField extends CommonDBTM {
       echo "<table class='tab_cadre_fixe' cellpadding='2'>";
       echo "<tr class='tab_bg_2'>";
       echo "<td colspan='1' class='center' height='30'>";
-      if (PluginFusioninventoryProfile::haveRight("configuration", "w")) {
+      if (Session::haveRight('plugin_fusioninventory_configuration', UPDATE)) {
          echo "<input type='submit' class=\"submit\" name='Clean_history' ".
                  "value='".__('Clean')."' >";
       }

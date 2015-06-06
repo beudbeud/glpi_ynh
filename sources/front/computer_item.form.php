@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: computer_item.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: computer_item.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -39,8 +39,8 @@ Session::checkCentralAccess();
 $conn = new Computer_Item();
 
 if (isset($_POST["disconnect"])) {
-   $conn->check($_POST["id"], 'd');
-   $conn->delete($_POST);
+   $conn->check($_POST["id"], PURGE);
+   $conn->delete($_POST, 1);
    Event::log($_POST["computers_id"], "computers", 5, "inventory",
               //TRANS: %s is the user login
               sprintf(__('%s disconnects an item'), $_SESSION["glpiname"]));
@@ -49,11 +49,12 @@ if (isset($_POST["disconnect"])) {
 // Connect a computer to a printer/monitor/phone/peripheral
 } else if (isset($_POST["add"])) {
    if (isset($_POST["items_id"]) && ($_POST["items_id"] > 0)) {
-      $conn->check(-1, 'w', $_POST);
-      $conn->add($_POST);
-      Event::log($_POST["computers_id"], "computers", 5, "inventory",
-                 //TRANS: %s is the user login
-                 sprintf(__('%s connects an item'), $_SESSION["glpiname"]));
+      $conn->check(-1, CREATE, $_POST);
+      if ($newID = $conn->add($_POST)) {
+         Event::log($_POST["computers_id"], "computers", 5, "inventory",
+                    //TRANS: %s is the user login
+                    sprintf(__('%s connects an item'), $_SESSION["glpiname"]));
+      }
    }
    Html::back();
 

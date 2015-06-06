@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: migration.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: migration.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -36,6 +36,11 @@ if (!defined('GLPI_ROOT')) {
 }
 
 // class Central
+/**
+ * Migration Class
+ *
+ * @since version 0.80
+**/
 class Migration {
 
    private   $change     = array();
@@ -662,5 +667,82 @@ class Migration {
          $DB->queryOrDie($sql);
       }
    }
+
+
+   /**
+    * Update display preferences
+    *
+    * @since version 0.85
+    *
+    * @param $toadd   array   items to add : itemtype => array of values
+    * @param $todel   array   items to del : itemtype => array of values
+   **/
+   function updateDisplayPrefs($toadd=array(), $todel=array()) {
+      global $DB;
+
+      //TRANS: %s is the table or item to migrate
+      $this->displayMessage(sprintf(__('Data migration - %s'), 'glpi_displaypreferences'));
+      if (count($toadd)) {
+         foreach ($toadd as $type => $tab) {
+            $query = "SELECT DISTINCT `users_id`
+                      FROM `glpi_displaypreferences`
+                      WHERE `itemtype` = '$type'";
+
+            if ($result = $DB->query($query)) {
+               if ($DB->numrows($result) > 0) {
+                  while ($data = $DB->fetch_assoc($result)) {
+                     $query = "SELECT MAX(`rank`)
+                               FROM `glpi_displaypreferences`
+                               WHERE `users_id` = '".$data['users_id']."'
+                                     AND `itemtype` = '$type'";
+                     $result = $DB->query($query);
+                     $rank   = $DB->result($result,0,0);
+                     $rank++;
+
+                     foreach ($tab as $newval) {
+                        $query = "SELECT *
+                                  FROM `glpi_displaypreferences`
+                                  WHERE `users_id` = '".$data['users_id']."'
+                                        AND `num` = '$newval'
+                                        AND `itemtype` = '$type'";
+                        if ($result2 = $DB->query($query)) {
+                           if ($DB->numrows($result2) == 0) {
+                              $query = "INSERT INTO `glpi_displaypreferences`
+                                               (`itemtype` ,`num` ,`rank` ,`users_id`)
+                                        VALUES ('$type', '$newval', '".$rank++."',
+                                                '".$data['users_id']."')";
+                              $DB->query($query);
+                           }
+                        }
+                     }
+                  }
+
+               } else { // Add for default user
+                  $rank = 1;
+                  foreach ($tab as $newval) {
+                     $query = "INSERT INTO `glpi_displaypreferences`
+                                      (`itemtype` ,`num` ,`rank` ,`users_id`)
+                               VALUES ('$type', '$newval', '".$rank++."', '0')";
+                     $DB->query($query);
+                  }
+               }
+            }
+         }
+      }
+
+      if (count($todel)) {
+         // delete display preferences
+         foreach ($todel as $type => $tab) {
+            if (count($tab)) {
+               $query = "DELETE
+                         FROM `glpi_displaypreferences`
+                         WHERE `itemtype` = '$type'
+                               AND `num` IN (".implode(',', $tab).")";
+               $DB->query($query);
+            }
+         }
+      }
+   }
+
 }
 ?>

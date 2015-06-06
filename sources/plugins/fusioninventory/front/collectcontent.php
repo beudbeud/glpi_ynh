@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -28,9 +28,9 @@
    ------------------------------------------------------------------------
 
    @package   FusionInventory
-   @author    
+   @author
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -56,12 +56,12 @@ if (isset($_POST["add"])) {
 
    $data = array(
        'plugin_fusioninventory_inventorycomputercollects_id' => $_POST['plugin_fusioninventory_inventorycomputercollects_id'],
-       'plugin_fusioninventory_inventorycomputercollecttypes_id' => 
+       'plugin_fusioninventory_inventorycomputercollecttypes_id' =>
               $_POST['plugin_fusioninventory_inventorycomputercollecttypes_id'],
        'name' => $_POST['name']);
 
    switch ($_POST['plugin_fusioninventory_inventorycomputercollecttypes_id']) {
-      
+
       case 1:
          $data['details'] = serialize(array( 'hives_id' => $_POST['hives_id'],
                                              'path'     => $_POST['path'],
@@ -79,13 +79,13 @@ if (isset($_POST["add"])) {
       case 3:
          $data['details'] = serialize(array( 'path'         => $_POST['path'],
                                              'filename'     => $_POST['filename'],
-                                             'getcontent'   => $_POST['getcontent']));        
+                                             'getcontent'   => $_POST['getcontent']));
          break;
-      
+
       //runCommand
       case 4:
          $data['details'] = serialize(array( 'path'         => $_POST['path'],
-                                             'command'     => $_POST['command']));        
+                                             'command'     => $_POST['command']));
          break;
    }
 

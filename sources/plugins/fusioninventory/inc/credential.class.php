@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -47,18 +47,13 @@ if (!defined('GLPI_ROOT')) {
 class PluginFusioninventoryCredential extends CommonDropdown {
 
    public $first_level_menu  = "plugins";
-   public $second_level_menu = "fusioninventory";
+   public $second_level_menu = "pluginfusioninventorymenu";
+   public $third_level_menu  = "credential";
+
+   static $rightname = 'plugin_fusioninventory_credential';
 
    static function getTypeName($nb=0) {
       return __('Authentication for remote devices (VMware)', 'fusioninventory');
-   }
-
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight('credential', 'w');
-   }
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight('credential', 'r');
    }
 
 
@@ -349,7 +344,7 @@ class PluginFusioninventoryCredential extends CommonDropdown {
    function title() {
 
       $buttons = array();
-      if (PluginFusioninventoryProfile::haveRight('credential', 'r')) {
+      if (Session::haveRight('plugin_fusioninventory_credential', READ)) {
          $buttons["credentialip.php"] =
                   __('Remote devices to inventory (VMware)', 'fusioninventory');
 

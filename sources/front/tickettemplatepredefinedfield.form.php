@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: tickettemplatepredefinedfield.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: tickettemplatepredefinedfield.form.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,13 +33,13 @@
 
 include ('../inc/includes.php');
 
-Session ::checkRight('tickettemplate','w');
+Session ::checkRight('tickettemplate', UPDATE);
 
 $item = new TicketTemplatePredefinedField();
 
 // Use masiveaction system to manage add value
 if (isset($_POST["massiveaction"])) {
-   $item->check(-1, 'w', $_POST);
+   $item->check(-1, UPDATE, $_POST);
 
    if ($item->add($_POST)) {
       Event::log($_POST["tickettemplates_id"], "tickettemplate", 4, "maintain",

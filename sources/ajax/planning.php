@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: planning.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: planning.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -63,35 +63,22 @@ if (isset($_POST["end"]) && !empty($_POST["end"])) {
 
 echo "<table class='tab_cadre'>";
 
-$rand_user = mt_rand();
-
-if (isset($_POST["users_id"]) && isset($_POST["entity"])) {
-   echo "<tr class='tab_bg_2'><td>".__('By')."</td>";
-   echo "<td class='center'>";
-   $params = array('name'   => "plan[users_id]",
-                   'value'  => $_POST["users_id"],
-                   'right'  => "own_ticket",
-                   'rand'   => $rand_user,
-                   'entity' => $_POST["entity"]);
-
-   $params['toupdate'] = array('value_fieldname' => 'users_id',
-                              'to_update'        => "user_available$rand_user",
-                              'url'              => $CFG_GLPI["root_doc"]."/ajax/planningcheck.php");
-
-
-   User::dropdown($params);
-   echo "</td></tr>\n";
-}
-
 echo "<tr class='tab_bg_2'><td>".__('Start date')."</td><td>";
-$rand_begin = Html::showDateTimeFormItem("plan[begin]", $begin, -1, false, true, '', '',
-                                         $CFG_GLPI["planning_begin"], $CFG_GLPI["planning_end"]);
+$rand_begin = Html::showDateTimeField("plan[begin]",
+                                      array('value'      => $begin,
+                                            'timestep'   => -1,
+                                            'maybeempty' => false,
+                                            'canedit'    => true,
+                                            'mindate'    => '',
+                                            'maxdate'    => '',
+                                            'mintime'    => $CFG_GLPI["planning_begin"],
+                                            'maxtime'    => $CFG_GLPI["planning_end"]));
 echo "</td></tr>\n";
 
 echo "<tr class='tab_bg_2'><td>".__('Period')."&nbsp;";
 
-if (isset($_POST["users_id"])) {
-   echo "<span id='user_available$rand_user'>";
+if (isset($_POST["rand_user"])) {
+   echo "<span id='user_available".$_POST["rand_user"]."'>";
    include_once(GLPI_ROOT.'/ajax/planningcheck.php');
    echo "</span>";
 }

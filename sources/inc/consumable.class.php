@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: consumable.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: consumable.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -45,9 +45,10 @@ class Consumable extends CommonDBChild {
 
    // From CommonDBTM
    static protected $forward_entity_to = array('Infocom');
-
    var $no_form_page                   = true;
-   
+
+   static $rightname                   = 'consumable';
+
    // From CommonDBChild
    static public $itemtype             = 'ConsumableItem';
    static public $items_id             = 'consumableitems_id';
@@ -63,21 +64,17 @@ class Consumable extends CommonDBChild {
    }
 
 
-   static function getTypeName($nb=0) {
-      return _n('Consumable', 'Consumables', $nb);
-   }
-
+   /**
+    * since version 0.84
+    *
+    * @see CommonDBTM::getNameField()
+   **/
    static function getNameField() {
       return 'id';
    }
-   
-   static function canCreate() {
-      return Session::haveRight('consumable', 'w');
-   }
 
-
-   static function canView() {
-      return Session::haveRight('consumable', 'r');
+   static function getTypeName($nb=0) {
+      return _n('Consumable', 'Consumables', $nb);
    }
 
 
@@ -112,9 +109,9 @@ class Consumable extends CommonDBChild {
 
 
    /**
-    * @see CommonDBTM::restore()
+    * send back to stock
    **/
-   function restore(array $input, $history=1) {
+   function backToStock(array $input, $history=1) {
       global $DB;
 
       $query = "UPDATE `".$this->getTable()."`
@@ -140,7 +137,8 @@ class Consumable extends CommonDBChild {
          return $ci->getName();
       }
       return '';
-   }   
+   }
+
 
    /**
     * UnLink a consumable linked to a printer
@@ -172,75 +170,86 @@ class Consumable extends CommonDBChild {
       return false;
    }
 
+
    /**
-    * @since version 0.84
+    * @since version 0.85
     *
-    * @see CommonDBTM::showSpecificMassiveActionsParameters()
+    * @see CommonDBTM::showMassiveActionsSubForm()
    **/
-   function showSpecificMassiveActionsParameters($input=array()) {
+   static function showMassiveActionsSubForm(MassiveAction $ma) {
       global $CFG_GLPI;
 
-      switch ($input['action']) {
-         case "give" :
+      $input = $ma->getInput();
+      switch ($ma->getAction()) {
+         case 'give' :
             if (isset($input["entities_id"])) {
-               Dropdown::showAllItems("give_items_id", 0, 0,$input["entities_id"],
-                                      $CFG_GLPI["consumables_types"], false, false, 'give_itemtype');
-               echo "<br><br><input type='submit' class='submit' name='massiveaction' value='".
-                              _sx('button', 'Give')."'>";
+               Dropdown::showSelectItemFromItemtypes(array('itemtype_name'
+                                                              => 'give_itemtype',
+                                                           'items_id_name'
+                                                              => 'give_items_id',
+                                                           'entity_restrict'
+                                                              => $input["entities_id"],
+                                                           'itemtypes'
+                                                              => $CFG_GLPI["consumables_types"]));
+               echo "<br><br>".Html::submit(_x('button', 'Give'),
+                                            array('name' => 'massiveaction'));
                return true;
             }
-
-         default :
-            return parent::showSpecificMassiveActionsParameters($input);
-
       }
-      return false;
+      return parent::showMassiveActionsSubForm($ma);
    }
 
 
    /**
-    * @since version 0.84
+    * @since version 0.85
     *
-    * @see CommonDBTM::doSpecificMassiveActions()
+    * @see CommonDBTM::processMassiveActionsForOneItemtype()
    **/
-   function doSpecificMassiveActions($input=array()) {
+   static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
+                                                       array $ids) {
 
-      $res = array('ok'      => 0,
-                   'ko'      => 0,
-                   'noright' => 0);
-
-//             print_r($input);exit();
-      switch ($input['action']) {
-         case "give" :
+      switch ($ma->getAction()) {
+         case 'backtostock' :
+            foreach ($ids as $id) {
+               if ($item->can($id, UPDATE)) {
+                  if ($item->backToStock(array("id" => $id))) {
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
+                  } else {
+                     $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                     $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
+                  }
+               } else {
+                  $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_NORIGHT);
+                  $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
+               }
+            }
+            return;
+         case 'give' :
+            $input = $ma->getInput();
             if (($input["give_items_id"] > 0)
-               && !empty($input['give_itemtype'])) {
-               foreach ($input["item"] as $key => $val) {
-                  if ($val == 1) {
-                     if ($this->can($key,'w')) {
-                        if ($this->out($key, $input['give_itemtype'],$input["give_items_id"])) {
-                           $res['ok']++;
-                        } else {
-                           $res['ko']++;
-                        }
+                && !empty($input['give_itemtype'])) {
+               foreach ($ids as $key) {
+                  if ($item->can($key, UPDATE)) {
+                     if ($item->out($key, $input['give_itemtype'],$input["give_items_id"])) {
+                        $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_OK);
                      } else {
-                        $res['noright']++;
+                        $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_KO);
+                        $ma->addMessage($item->getErrorMessage(ERROR_ON_ACTION));
                      }
+                  } else {
+                     $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_NORIGHT);
+                     $ma->addMessage($item->getErrorMessage(ERROR_RIGHT));
                   }
                }
-               if ($item = getItemForItemtype($input['give_itemtype'])) {
-                  Event::log($input["consumableitems_id"], "consumables", 5, "inventory",
-                           //TRANS: %s is the user login
-                           sprintf(__('%s gives a consumable'), $_SESSION["glpiname"]));
-               }
+               Event::log($item->fields['consumableitems_id'], "consumables", 5, "inventory",
+                          //TRANS: %s is the user login
+                          sprintf(__('%s gives a consumable'), $_SESSION["glpiname"]));
             } else {
-               $res['ko']++;
+               $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
             }
-            break;
-
-         default :
-            return parent::doSpecificMassiveActions($input);
+            return;
       }
-      return $res;
+      parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
    }
 
 
@@ -330,7 +339,7 @@ class Consumable extends CommonDBChild {
          if ($nohtml) {
             $out = $tmptxt;
          } else {
-            $out = "<div $highlight>".$tmptxt."</div";
+            $out = "<div $highlight>".$tmptxt."</div>";
          }
       } else {
          if ($nohtml) {
@@ -409,7 +418,7 @@ class Consumable extends CommonDBChild {
 
       $ID = $consitem->getField('id');
 
-      if (!$consitem->can($ID,'w')) {
+      if (!$consitem->can($ID, UPDATE)) {
          return false;
       }
 
@@ -419,7 +428,9 @@ class Consumable extends CommonDBChild {
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr><td class='tab_bg_2 center'>";
          echo "<input type='hidden' name='consumableitems_id' value='$ID'>\n";
-         Dropdown::showInteger('to_add', 1, 1, 100);
+         Dropdown::showNumber('to_add', array('value' => 1,
+                                              'min'   => 1,
+                                              'max'   => 100));
          echo " <input type='submit' name='add_several' value=\""._sx('button','Add consumables')."\"
                 class='submit'>";
          echo "</td></tr>";
@@ -442,10 +453,10 @@ class Consumable extends CommonDBChild {
       global $DB, $CFG_GLPI;
 
       $tID = $consitem->getField('id');
-      if (!$consitem->can($tID,'r')) {
+      if (!$consitem->can($tID, READ)) {
          return false;
       }
-      $canedit = $consitem->can($tID,'w');
+      $canedit = $consitem->can($tID, UPDATE);
       $rand = mt_rand();
       $where = "";
       if (!$show_old) { // NEW
@@ -464,23 +475,31 @@ class Consumable extends CommonDBChild {
       $result = $DB->query($query);
       $number = $DB->numrows($result);
 
+      echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $actions = array('delete'            => _x('button', 'Delete permanently'),
-                          'activate_infocoms' => __('Enable the financial and administrative information'));
+         $actions = array('delete' => _x('button', 'Delete permanently'),
+                          'Infocom'.MassiveAction::CLASS_ACTION_SEPARATOR.'activate'
+                                   => __('Enable the financial and administrative information'));
          if ($show_old) {
-            $actions['restore'] = __('Back to stock');
+            $actions['Consumable'.MassiveAction::CLASS_ACTION_SEPARATOR.'backtostock']
+                     = __('Back to stock');
          } else {
-            $actions['give'] = _x('button', 'Give');
+            $actions[__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'give'] = _x('button', 'Give');
          }
-         $paramsma = array('num_displayed'    => $number,
+         $entparam = array('entities_id' => $consitem->getEntityID());
+         if ($consitem->isRecursive()) {
+            $entparam = array('entities_id' => getSonsOf('glpi_entities', $consitem->getEntityID()));
+         }
+         $massiveactionparams = array('num_displayed'    => $number,
                            'specific_actions' => $actions,
-                           'extraparams'      => array('entities_id' => $consitem->getEntityID()));
-         Html::showMassiveActions(__CLASS__, $paramsma);
+                           'container'        => 'mass'.__CLASS__.$rand,
+                           'extraparams'      => $entparam);
+         Html::showMassiveActions($massiveactionparams);
          echo "<input type='hidden' name='consumableitems_id' value='$tID'>\n";
       }
 
-      echo "<div class='spaced'><table class='tab_cadre_fixe'>";
+      echo "<table class='tab_cadre_fixehov'>";
       if (!$show_old) {
          echo "<tr><th colspan=".($canedit?'5':'4').">";
          echo self::getCount($tID, -1);
@@ -491,26 +510,27 @@ class Consumable extends CommonDBChild {
 
       if ($number) {
          $i = 0;
-         echo "<tr>";
+         $header_begin  = "<tr>";
+         $header_top    = '';
+         $header_bottom = '';
+         $header_end    = '';
          if ($canedit) {
-            echo "<th width='10'>";
-            Html::checkAllAsCheckbox('mass'.__CLASS__.$rand);
-            echo "</th>";
+            $header_begin  .= "<th width='10'>";
+            $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_end    .= "</th>";
          }
-         echo "<th>".__('ID')."</th>";
-         echo "<th>"._x('item', 'State')."</th>";
-         echo "<th>".__('Add date')."</th>";
+         $header_end .= "<th>".__('ID')."</th>";
+         $header_end .= "<th>"._x('item', 'State')."</th>";
+         $header_end .= "<th>".__('Add date')."</th>";
          if ($show_old) {
-            echo "<th>".__('Use date')."</th>";
-            echo "<th>".__('Given to')."</th>";
+            $header_end .= "<th>".__('Use date')."</th>";
+            $header_end .= "<th>".__('Given to')."</th>";
          }
-         echo "<th width='200px'>".__('Financial and administrative information')."</th>";
-         echo "</tr>";
+         $header_end .= "<th width='200px'>".__('Financial and administrative information')."</th>";
+         $header_end .= "</tr>";
+         echo $header_begin.$header_top.$header_end;
 
-      }
-
-      if ($result = $DB->query($query)) {
-         $number = $DB->numrows($result);
          while ($data = $DB->fetch_assoc($result)) {
             $date_in  = Html::convDate($data["date_in"]);
             $date_out = Html::convDate($data["date_out"]);
@@ -535,15 +555,16 @@ class Consumable extends CommonDBChild {
                echo "</td>";
             }
             echo "<td class='center'>";
-            Infocom::showDisplayLink('Consumable', $data["id"],1);
+            Infocom::showDisplayLink('Consumable', $data["id"]);
             echo "</td>";
             echo "</tr>";
          }
+         echo $header_begin.$header_bottom.$header_end;
       }
       echo "</table>";
       if ($canedit && $number) {
-         $paramsma['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         $massiveactionparams['ontop'] = false;
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -556,7 +577,7 @@ class Consumable extends CommonDBChild {
    static function showSummary() {
       global $DB;
 
-      if (!Session::haveRight("consumable","r")) {
+      if (!Consumable::canView()) {
          return false;
       }
 
@@ -677,14 +698,14 @@ class Consumable extends CommonDBChild {
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
-      if (!$withtemplate && Session::haveRight("consumable","r")) {
+      if (!$withtemplate && Consumable::canView()) {
          switch ($item->getType()) {
             case 'ConsumableItem' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  return self::createTabEntry(self::getTypeName(2),
+                  return self::createTabEntry(self::getTypeName(Session::getPluralNumber()),
                                               self::countForConsumableItem($item));
                }
-               return self::getTypeName(2);
+               return self::getTypeName(Session::getPluralNumber());
          }
       }
       return '';
@@ -713,5 +734,9 @@ class Consumable extends CommonDBChild {
          }
    }
 
+   function getRights($interface='central') {
+      $ci = new ConsumableItem();
+      return $ci->getRights($interface);
+   }   
 }
 ?>

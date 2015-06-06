@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: cartridgeitem_printermodel.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: cartridgeitem_printermodel.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -72,14 +72,14 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
 
       if (!$withtemplate
-          && Session::haveRight("printer","r")) {
+          && Printer::canView()) {
          switch ($item->getType()) {
             case 'CartridgeItem' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  return self::createTabEntry(PrinterModel::getTypeName(2),
+                  return self::createTabEntry(PrinterModel::getTypeName(Session::getPluralNumber()),
                                               self::countForCartridgeItem($item));
                }
-               return PrinterModel::getTypeName(2);
+               return PrinterModel::getTypeName(Session::getPluralNumber());
                break;
          }
       }
@@ -111,11 +111,11 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
       global $DB, $CFG_GLPI;
 
       $instID = $item->getField('id');
-      if (!$item->can($instID, 'r')) {
+      if (!$item->can($instID, READ)) {
          return false;
       }
-      $canedit = $item->can($instID, 'w');
-      $rand = mt_rand();
+      $canedit = $item->canEdit($instID);
+      $rand    = mt_rand();
 
       $query = "SELECT `".static::getTable()."`.`id`,
                        `glpi_printermodels`.`name` AS `type`,
@@ -127,12 +127,7 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
                 ORDER BY `glpi_printermodels`.`name`";
 
       $result = $DB->query($query);
-      $i      = 0;   function getForbiddenStandardMassiveAction() {
-
-      $forbidden   = parent::getForbiddenStandardMassiveAction();
-      $forbidden[] = 'update';
-      return $forbidden;
-   }
+      $i      = 0;
 
       $used  = array();
       $datas = array();
@@ -168,18 +163,24 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
          if ($canedit) {
             $rand     = mt_rand();
             Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-            $paramsma = array('num_displayed' => count($used));
-            Html::showMassiveActions(__CLASS__, $paramsma);
+            $massiveactionparams = array('num_displayed' => count($used),
+                              'container'     => 'mass'.__CLASS__.$rand);
+            Html::showMassiveActions($massiveactionparams);
          }
 
-         echo "<table class='tab_cadre_fixe'>";
-         echo "<tr>";
+         echo "<table class='tab_cadre_fixehov'>";
+         $header_begin  = "<tr>";
+         $header_top    = '';
+         $header_bottom = '';
+         $header_end    = '';
          if ($canedit) {
-            echo "<th width='10'>";
-            Html::checkAllAsCheckbox('mass'.__CLASS__.$rand);
-            echo "</th>";
+            $header_begin  .= "<th width='10'>";
+            $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+            $header_end    .= "</th>";
          }
-         echo "<th>".__('Model')."</th></tr>";
+         $header_end .= "<th>".__('Model')."</th></tr>";
+         echo $header_begin.$header_top.$header_end;
 
          foreach ($datas as $data) {
             echo "<tr class='tab_bg_1'>";
@@ -191,10 +192,11 @@ class CartridgeItem_PrinterModel extends CommonDBRelation {
             echo "<td class='center'>".$data['type']."</td>";
             echo "</tr>";
          }
+         echo $header_begin.$header_bottom.$header_end;
          echo "</table>";
          if ($canedit) {
-            $paramsma['ontop'] = false;
-            Html::showMassiveActions(__CLASS__, $paramsma);
+            $massiveactionparams['ontop'] = false;
+            Html::showMassiveActions($massiveactionparams);
             Html::closeForm();
          }
          echo "</div>";

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: item_problem.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: item_problem.class.php 23436 2015-04-09 14:06:48Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,11 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Relation between Problems and Items
+/**
+ * Item_Problem Class
+ *
+ *  Relation between Problems and Items
+**/
 class Item_Problem extends CommonDBRelation{
 
 
@@ -104,10 +108,10 @@ class Item_Problem extends CommonDBRelation{
 
       $instID = $problem->fields['id'];
 
-      if (!$problem->can($instID,'r')) {
+      if (!$problem->can($instID, READ)) {
          return false;
       }
-      $canedit = $problem->can($instID,'w');
+      $canedit = $problem->canEdit($instID);
       $rand    = mt_rand();
 
       $query = "SELECT DISTINCT `itemtype`
@@ -127,15 +131,19 @@ class Item_Problem extends CommonDBRelation{
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr class='tab_bg_2'><th colspan='2'>".__('Add an item')."</th></tr>";
 
-         echo "<tr class='tab_bg_1'><td class='right'>";
+         echo "<tr class='tab_bg_1'><td>";
          $types = array();
          foreach ($problem->getAllTypesForHelpdesk() as $key => $val) {
             $types[] = $key;
          }
-         Dropdown::showAllItems("items_id", 0, 0,
-                                ($problem->fields['is_recursive']?-1:$problem->fields['entities_id']),
-                                $types);
-         echo "</td><td class='center'>";
+         Dropdown::showSelectItemFromItemtypes(array('itemtypes'
+                                                      => $types,
+                                                     'entity_restrict'
+                                                      => ($problem->fields['is_recursive']
+                                                          ?getSonsOf('glpi_entities',
+                                                                     $problem->fields['entities_id'])
+                                                          :$problem->fields['entities_id'])));
+         echo "</td><td class='center' width='30%'>";
          echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
          echo "<input type='hidden' name='problems_id' value='$instID'>";
          echo "</td></tr>";
@@ -147,19 +155,26 @@ class Item_Problem extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array();
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('container' => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
-      echo "<table class='tab_cadre_fixe'>";
-      echo "<tr>";
+      echo "<table class='tab_cadre_fixehov'>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $number) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_top    .= "</th>";
+         $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= "</th>";
       }
-      echo "<th>".__('Type')."</th>";
-      echo "<th>".__('Entity')."</th>";
-      echo "<th>".__('Name')."</th>";
-      echo "<th>".__('Serial number')."</th>";
-      echo "<th>".__('Inventory number')."</th></tr>";
+      $header_end .= "<th>".__('Type')."</th>";
+      $header_end .= "<th>".__('Entity')."</th>";
+      $header_end .= "<th>".__('Name')."</th>";
+      $header_end .= "<th>".__('Serial number')."</th>";
+      $header_end .= "<th>".__('Inventory number')."</th></tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $totalnb = 0;
       for ($i=0 ; $i<$number ; $i++) {
@@ -230,15 +245,15 @@ class Item_Problem extends CommonDBRelation{
             $totalnb += $nb;
          }
       }
-      echo "<tr class='tab_bg_2'>";
-      echo "<td class='center' colspan='2'>".
-             (($totalnb > 0) ? sprintf(__('%1$s = %2$s'), __('Total'), $totalnb) :"&nbsp;");
-      echo "</td><td colspan='4'>&nbsp;</td></tr> ";
+
+      if ($number) {
+         echo $header_begin.$header_bottom.$header_end;
+      }
 
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -250,10 +265,43 @@ class Item_Problem extends CommonDBRelation{
       if (!$withtemplate) {
          switch ($item->getType()) {
             case 'Problem' :
-               return _n('Item', 'Items', 2);
+               $nb = 0;
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countElementsInTable('glpi_items_problems',
+                                             "`problems_id` = '".$item->getID()."'");
+               }
 
+               return self::createTabEntry(_n('Item', 'Items', Session::getPluralNumber()), $nb);
+
+            case 'User' :
+               $nb = 0;
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countDistinctElementsInTable('glpi_problems_users', 'problems_id',
+                                             "`users_id` = '".$item->getID()."'");
+               }
+
+               return self::createTabEntry(Problem::getTypeName(Session::getPluralNumber()), $nb);
+            case 'Group' :
+               $nb = 0;
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countDistinctElementsInTable('glpi_groups_problems', 'problems_id',
+                                             "`groups_id` = '".$item->getID()."'");
+               }
+
+               return self::createTabEntry(Problem::getTypeName(Session::getPluralNumber()), $nb);
+               
+            case 'Supplier' :
+               $nb = 0;
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countDistinctElementsInTable('glpi_problems_suppliers','problems_id',
+                                             "`suppliers_id` = '".$item->getID()."'");
+               }
+
+               return self::createTabEntry(Problem::getTypeName(Session::getPluralNumber()), $nb);
+               
+               
             default :
-               if (Session::haveRight("show_all_problem","1")) {
+               if (Session::haveRight("problem", Problem::READALL)) {
                   $nb = 0;
                   if ($_SESSION['glpishow_count_on_tabs']) {
                      // Direct one
@@ -267,13 +315,13 @@ class Item_Problem extends CommonDBRelation{
                         foreach ($linkeditems as $type => $tab) {
                            foreach ($tab as $ID) {
                               $nb += countElementsInTable('glpi_items_problems',
-                                                " `itemtype` = '$type'
-                                                   AND `items_id` = '$ID'");
+                                                          " `itemtype` = '$type'
+                                                            AND `items_id` = '$ID'");
                            }
                         }
                      }
                   }
-                  return self::createTabEntry(Problem::getTypeName(2), $nb);
+                  return self::createTabEntry(Problem::getTypeName(Session::getPluralNumber()), $nb);
                }
          }
       }

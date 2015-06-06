@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: ldap.group.import.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: ldap.group.import.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,8 +35,11 @@ include ('../inc/includes.php');
 
 
 $group = new Group();
-$group->checkGlobal('w');
-Session::checkRight('user_authtype', 'w');
+if (!Session::haveRightsOr('group', array(CREATE, UPDATE))) {
+   Session::redirectIfNotLoggedIn();
+   Html::displayRightError();
+}
+Session::checkRight('user', User::UPDATEAUTHENT);
 
 Html::header(__('LDAP directory link'), $_SERVER['PHP_SELF'], "admin", "group", "ldap");
 

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: subvisibility.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: subvisibility.php 22800 2014-03-19 09:43:21Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -44,20 +44,30 @@ Session::checkLoginUser();
 if (isset($_POST['type']) && !empty($_POST['type'])
     && isset($_POST['items_id']) && ($_POST['items_id'] > 0)) {
 
+   $prefix = '';
+   $suffix = '';
+   if (isset($_POST['prefix']) && !empty($_POST['prefix'])) {
+      $prefix = $_POST['prefix'].'[';
+      $suffix = ']';
+   }
+   
    switch ($_POST['type']) {
       case 'Group' :
       case 'Profile' :
-         $params = array('value' => $_SESSION['glpiactive_entity']);
+         $params = array('value' => $_SESSION['glpiactive_entity'],
+                         'name'  => $prefix.'entities_id'.$suffix);
          if (Session::isViewAllEntities()) {
             $params['toadd'] = array(-1 => __('No restriction'));
          }
+         echo "<table class='tab_format'><tr><td>";
          _e('Entity');
-         echo "&nbsp;";
+         echo "</td><td>";
          Entity::dropdown($params);
-         echo "&nbsp;";
+         echo "</td><td>";
          _e('Child entities');
-         echo "&nbsp;";
-         Dropdown::showYesNo('is_recursive');
+         echo "</td><td>";
+         Dropdown::showYesNo($prefix.'is_recursive'.$suffix);
+         echo "</td></tr></table>";
          break;
    }
 }

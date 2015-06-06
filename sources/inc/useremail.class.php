@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: useremail.class.php 23123 2014-08-15 07:38:24Z yllen $
+ * @version $Id: useremail.class.php 23124 2014-08-15 07:41:39Z yllen $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -137,12 +137,13 @@ class UserEmail  extends CommonDBChild {
 
 
    /**
-    * @since version 0.84
+    * @since version 0.85 (since 0.85 but param $id since 0.85)
     *
     * @param $canedit
     * @param $field_name
+    * @param $id
    **/
-   function showChildForItemForm($canedit, $field_name) {
+   function showChildForItemForm($canedit, $field_name, $id) {
 
       if ($this->isNewID($this->getID())) {
          $value = '';
@@ -150,6 +151,7 @@ class UserEmail  extends CommonDBChild {
          $value = $this->fields['email'];
       }
 
+      $field_name = $field_name."[$id]";
       echo "<input title='".__s('Default email')."' type='radio' name='_default_email'
              value='".$this->getID()."'";
       if (!$canedit) {
@@ -179,11 +181,11 @@ class UserEmail  extends CommonDBChild {
 
       $users_id = $user->getID();
 
-      if (!$user->can($users_id,'r')
+      if (!$user->can($users_id, READ)
           && ($users_id != Session::getLoginUserID())) {
          return false;
       }
-      $canedit = ($user->can($users_id,"w") || ($users_id == Session::getLoginUserID()));
+      $canedit = ($user->can($users_id, UPDATE) || ($users_id == Session::getLoginUserID()));
 
       parent::showChildsForItemForm($user, '_useremails', $canedit);
 
@@ -196,10 +198,10 @@ class UserEmail  extends CommonDBChild {
    static function showAddEmailButton(User $user) {
 
       $users_id = $user->getID();
-      if (!$user->can($users_id,'r') && ($users_id != Session::getLoginUserID())) {
+      if (!$user->can($users_id, READ) && ($users_id != Session::getLoginUserID())) {
          return false;
       }
-      $canedit = ($user->can($users_id,"w") || ($users_id == Session::getLoginUserID()));
+      $canedit = ($user->can($users_id, UPDATE) || ($users_id == Session::getLoginUserID()));
 
       parent::showAddChildButtonForItemForm($user, '_useremails', $canedit);
 

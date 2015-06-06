@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: planningcheck.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: planningcheck.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -43,12 +43,16 @@ if (strpos($_SERVER['PHP_SELF'],"planningcheck.php")) {
 Session::checkLoginUser();
 
 if (isset($_POST['users_id']) && ($_POST['users_id'] > 0)) {
-   echo "<span onClick=\"window.open('".$CFG_GLPI["root_doc"].
-         "/front/planning.php?checkavailability=checkavailability&amp;users_id=".
-         $_POST['users_id']."','infocoms','location=infocoms,width=1000,height=600,scrollbars=no')\"
-         style='cursor:pointer'>
-         <img src=\"".$CFG_GLPI["root_doc"]."/pics/reservation-3.png\"
-         alt=\"".__s('Availability')."\" title=\"".__s('Availability')."\">
-         </span>";
+      $rand = mt_rand();
+      echo " <a href='#' onClick=\"".Html::jsGetElementbyID('planningcheck'.$rand).".dialog('open');\">";
+      echo "<img src='".$CFG_GLPI["root_doc"]."/pics/reservation-3.png'
+             title=\"".__s('Availability')."\" alt=\"".__s('Availability')."\"
+             class='calendrier'>";
+      echo "</a>";
+      Ajax::createIframeModalWindow('planningcheck'.$rand,
+                                    $CFG_GLPI["root_doc"].
+                                          "/front/planning.php?checkavailability=checkavailability".
+                                          "&itemtype=User&users_id=".$_POST['users_id'],
+                                    array('title'  => __('Availability')));
 }
 ?>

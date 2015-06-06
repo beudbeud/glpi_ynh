@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: group.form.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: group.form.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,53 +33,67 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("group", "r");
+Session::checkRight("group", READ);
 
 if (empty($_GET["id"])) {
    $_GET["id"] = "";
 }
 
-$group     = new Group();
-$groupuser = new Group_User();
+$group = new Group();
 
 if (isset($_POST["add"])) {
-   $group->check(-1,'w',$_POST);
+   $group->check(-1, CREATE, $_POST);
    if ($newID=$group->add($_POST)) {
       Event::log($newID, "groups", 4, "setup",
                  sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]));
+      if ($_SESSION['glpibackcreated']) {
+         Html::redirect($group->getFormURL()."?id=".$newID);
+      }
    }
-   Ajax::refreshDropdownPopupInMainWindow();
    Html::back();
 
-} else if (isset($_POST["delete"])) {
-   $group->check($_POST["id"],'d');
-   $group->delete($_POST);
-   Event::log($_POST["id"], "groups", 4, "setup",
-              //TRANS: %s is the user login
-              sprintf(__('%s purges an item'), $_SESSION["glpiname"]));
-   $group->redirectToList();
+} else if (isset($_POST["purge"])) {
+   $group->check($_POST["id"], PURGE);
+   if ($group->isUsed()
+         && empty($_POST["forcepurge"])) {
+      Html::header($group->getTypeName(1), $_SERVER['PHP_SELF'], "admin", "group",
+      str_replace('glpi_','',$group->getTable()));
+
+      $group->showDeleteConfirmForm($_SERVER['PHP_SELF']);
+      Html::footer();
+   } else {
+      $group->delete($_POST, 1);
+      Event::log($_POST["id"], "groups", 4, "setup",
+                 //TRANS: %s is the user login
+                 sprintf(__('%s purges an item'), $_SESSION["glpiname"]));
+      $group->redirectToList();
+   }
 
 } else if (isset($_POST["update"])) {
-   $group->check($_POST["id"],'w');
+   $group->check($_POST["id"], UPDATE);
    $group->update($_POST);
    Event::log($_POST["id"], "groups", 4, "setup",
               //TRANS: %s is the user login
               sprintf(__('%s updates an item'), $_SESSION["glpiname"]));
    Html::back();
 
-} else if (isset($_GET['popup'])) {
-   Html::popHeader(Group::getTypeName(2),$_SERVER['PHP_SELF']);
-   if (isset($_GET["rand"])) {
-      $_SESSION["glpipopup"]["rand"] = $_GET["rand"];
-   }
+} else if (isset($_GET['_in_modal'])) {
+   Html::popHeader(Group::getTypeName(Session::getPluralNumber()),$_SERVER['PHP_SELF']);
    $group->showForm($_GET["id"]);
-   echo "<div class='center'><br><a href='javascript:window.close()'>".__('Back')."</a>";
-   echo "</div>";
    Html::popFooter();
 
+} else if (isset($_POST["replace"])) {
+   $group->check($_POST["id"], PURGE);
+   $group->delete($_POST, 1);
+
+   Event::log($_POST["id"], "groups", 4, "setup",
+              //TRANS: %s is the user login
+              sprintf(__('%s replaces an item'), $_SESSION["glpiname"]));
+   $group->redirectToList();
+
 } else {
-   Html::header(Group::getTypeName(2), $_SERVER['PHP_SELF'], "admin", "group");
-   $group->showForm($_GET["id"]);
+   Html::header(Group::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "admin", "group");
+   $group->display(array('id' =>$_GET["id"]));
    Html::footer();
 }
 ?>

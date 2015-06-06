@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: device.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: device.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -33,9 +33,9 @@
 
 include ('../inc/includes.php');
 
-Session::checkRight("device", "w");
+Session::haveRightsOr('device', array(CREATE, UPDATE, PURGE));
 
-Html::header(_n('Component', 'Components', 2), $_SERVER['PHP_SELF'], "config", "device");
+Html::header(_n('Component', 'Components', 2), $_SERVER['PHP_SELF'], "config", "commondevice");
 echo "<div class='center'>";
 
 $optgroup = Dropdown::getDeviceItemTypes();

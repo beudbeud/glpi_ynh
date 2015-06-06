@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: define.php 23194 2014-10-16 18:52:05Z moyo $
+ * @version $Id: define.php 23465 2015-04-30 10:01:13Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -32,65 +32,77 @@
 */
 
 // Current version of GLPI
-define("GLPI_VERSION","0.84.8");
+define("GLPI_VERSION","0.85.4");
 define("GLPI_DEMO_MODE","0");
 
 define("GLPI_USE_CSRF_CHECK", "1");
 define("GLPI_CSRF_EXPIRES","7200");
 define("GLPI_CSRF_MAX_TOKENS","100");
 
+// rights
+define("READ",        1);
+define("UPDATE",      2);
+define("CREATE",      4);
+define("DELETE",      8);
+define("PURGE",      16);
+define("ALLSTANDARDRIGHT", 31);
+define("READNOTE",   32);
+define("UPDATENOTE", 64);
+
 // dictionnaries
 // 0 Name - 1 lang file - 2 extjs - 3 tiny_mce - 4 english lang name
-$CFG_GLPI['languages'] =  //| NAME in native lang    |LANG FILE  |extjs| tinymce|english names|
-      array('ar_SA' => array('العَرَبِيَّةُ',        'ar_SA.mo','en',    'ar','arabic'),
-            'bg_BG' => array('Български',            'bg_BG.mo','bg',    'bg','bulgarian'),
-            'id_ID' => array('Bahasa Indonesia',     'id_ID.mo','id',    'id','indonesian'),
-            'ms_MY' => array('Bahasa Melayu',        'ms_MY.mo','en',    'ms','malay'),
-            'ca_ES' => array('Català',               'ca_ES.mo','ca',    'ca','catalan'), // ca_CA
-            'cs_CZ' => array('Čeština',              'cs_CZ.mo','cs',    'cs','czech'),
-            'de_DE' => array('Deutsch',              'de_DE.mo','de',    'de','german'),
-            'da_DK' => array('Dansk',                'da_DK.mo','da',    'da','danish'), // dk_DK
-            'et_EE' => array('Eesti',                'et_EE.mo','en',    'et','estonian'), // ee_ET
-            'en_GB' => array('English',              'en_GB.mo','en',    'en','english'),
-            'en_US' => array('English (US)',         'en_US.mo','en',    'en','english'),
-            'es_AR' => array('Español (Argentina)',  'es_AR.mo','es',    'es','spanish'),
-            'es_CO' => array('Español (Colombia)',   'es_CO.mo','es',    'es','spanish'),
-            'es_ES' => array('Español (España)',     'es_ES.mo','es',    'es','spanish'),
-            'es_419' => array('Español (América Latina)', 'es_419.mo','es',    'es','spanish'),
-            'es_MX' => array('Español (Mexico)',     'es_MX.mo','es',    'es','spanish'),
-            'es_VE' => array('Español (Venezuela)',  'es_VE.mo','es',    'es','spanish'),
-            'eu_ES' => array('Euskara',              'eu_ES.mo','en',    'en','basque'),
-            'fr_FR' => array('Français',             'fr_FR.mo','fr',    'fr','french'),
-            'gl_ES' => array('Galego',               'gl_ES.mo','es',    'gl','galician'),
-            'el_GR' => array('Ελληνικά',             'el_GR.mo','el_GR', 'el','greek'), // el_EL
-            'he_IL' => array('עברית',                 'he_IL.mo','he',    'he','hebrew'), // he_HE
-            'hr_HR' => array('Hrvatski',             'hr_HR.mo','hr',    'hr','croatian'),
-            'hu_HU' => array('Magyar',               'hu_HU.mo','hu',    'hu','hungarian'),
-            'it_IT' => array('Italiano',             'it_IT.mo','it',    'it','italian'),
-            'lv_LV' => array('Latviešu',             'lv_LV.mo','lv',    'lv','latvian'),
-            'lt_LT' => array('Lietuvių',             'lt_LT.mo','lt',    'lt','lithuanian'),
-            'nl_NL' => array('Nederlands',           'nl_NL.mo','nl',    'nl','dutch'),
-            'nb_NO' => array('Norsk (Bokmål)',       'nb_NO.mo','no_NB', 'nb','norwegian'), // no_NB
-            'nn_NO' => array('Norsk (Nynorsk)',      'nn_NO.mo','no_NN', 'nn','norwegian'), // no_NN
-            'fa_IR' => array('فارسی',                'fa_IR.mo','fa',    'fa','persian'),
-            'pl_PL' => array('Polski',               'pl_PL.mo','pl',    'pl','polish'),
-            'pt_PT' => array('Português',            'pt_PT.mo','pt',    'pt','portuguese'),
-            'pt_BR' => array('Português do Brasil',  'pt_BR.mo','pt_BR', 'pt','brazilian portuguese'),
-            'ro_RO' => array('Română',               'ro_RO.mo','ro',    'en','romanian'),
-            'ru_RU' => array('Pусский',              'ru_RU.mo','ru',    'ru','russian'),
-            'sk_SK' => array('Slovenčina',           'sk_SK.mo','sk',    'sk','slovak'),
-            'sl_SI' => array('Slovenščina',          'sl_SI.mo','sl',    'sl','slovenian slovene'),
-            'sr_RS' => array('Srpski',               'sr_RS.mo','sr',    'sr','serbian'),
-            'fi_FI' => array('Suomi',                'fi_FI.mo','fi',    'fi','finish'),
-            'sv_SE' => array('Svenska',              'sv_SE.mo','sv_SE', 'sv','swedish'),
-            'vi_VN' => array('Tiếng Việt',           'vi_VN.mo','vn',    'vi','vietnamese'),
-            'th_TH' => array('ภาษาไทย',              'th_TH.mo','th',    'th','thai'),
-            'tr_TR' => array('Türkçe',               'tr_TR.mo','tr',    'tr','turkish'),
-            'uk_UA' => array('Українська',           'uk_UA.mo','ukr',   'en','ukrainian'), // ua_UA
-            'ja_JP' => array('日本語',                'ja_JP.mo','ja',    'ja','japanese'),
-            'zh_CN' => array('简体中文',              'zh_CN.mo','zh_CN', 'zh','chinese'),
-            'zh_TW' => array('繁體中文',              'zh_TW.mo','zh_TW', 'zh','chinese'),);
+$CFG_GLPI['languages'] =  //| NAME in native lang    |LANG FILE  |jquery| tinymce|english names|standard plural number
+      array('ar_SA' => array('العَرَبِيَّةُ',        'ar_SA.mo','ar',    'ar','arabic'     , 103),
+            'bg_BG' => array('Български',            'bg_BG.mo','bg',    'bg','bulgarian'  , 2),
+            'id_ID' => array('Bahasa Indonesia',     'id_ID.mo','id',    'id','indonesian' , 2),
+            'ms_MY' => array('Bahasa Melayu',        'ms_MY.mo','ms',    'ms','malay'      , 2),
+            'ca_ES' => array('Català',               'ca_ES.mo','ca',    'ca','catalan'    , 2), // ca_CA
+            'cs_CZ' => array('Čeština',              'cs_CZ.mo','cs',    'cs','czech'      , 10),
+            'de_DE' => array('Deutsch',              'de_DE.mo','de',    'de','german'     , 2),
+            'da_DK' => array('Dansk',                'da_DK.mo','da',    'da','danish'     , 2)     , // dk_DK
+            'et_EE' => array('Eesti',                'et_EE.mo','et',    'et','estonian'   , 2), // ee_ET
+            'en_GB' => array('English',              'en_GB.mo','en-GB', 'en','english'    , 2),
+            'en_US' => array('English (US)',         'en_US.mo','en-GB', 'en','english'    , 2),
+            'es_AR' => array('Español (Argentina)',  'es_AR.mo','es',    'es','spanish'    , 2),
+            'es_CO' => array('Español (Colombia)',   'es_CO.mo','es',    'es','spanish'    , 2),
+            'es_ES' => array('Español (España)',     'es_ES.mo','es',    'es','spanish'    , 2),
+            'es_419' => array('Español (América Latina)', 'es_419.mo','es',    'es','spanish' , 2),
+            'es_MX' => array('Español (Mexico)',     'es_MX.mo','es',    'es','spanish'    , 2),
+            'es_VE' => array('Español (Venezuela)',  'es_VE.mo','es',    'es','spanish'    , 2),
+            'eu_ES' => array('Euskara',              'eu_ES.mo','eu',    'en','basque'     , 2),
+            'fr_FR' => array('Français',             'fr_FR.mo','fr',    'fr','french'     , 2),
+            'gl_ES' => array('Galego',               'gl_ES.mo','gl',    'gl','galician'   , 2),
+            'el_GR' => array('Ελληνικά',             'el_GR.mo','el',    'el','greek'      , 2), // el_EL
+            'he_IL' => array('עברית',                 'he_IL.mo','he',    'he','hebrew'     , 2), // he_HE
+            'hr_HR' => array('Hrvatski',             'hr_HR.mo','hr',    'hr','croatian'   , 2),
+            'hu_HU' => array('Magyar',               'hu_HU.mo','hu',    'hu','hungarian'  , 2),
+            'it_IT' => array('Italiano',             'it_IT.mo','it',    'it','italian'    , 2),
+            'lv_LV' => array('Latviešu',             'lv_LV.mo','lv',    'lv','latvian'    , 2),
+            'lt_LT' => array('Lietuvių',             'lt_LT.mo','lt',    'lt','lithuanian' , 2),
+            'nl_NL' => array('Nederlands',           'nl_NL.mo','nl',    'nl','dutch'      , 2),
+            'nb_NO' => array('Norsk (Bokmål)',       'nb_NO.mo','no',    'nb','norwegian'  , 2), // no_NB
+            'nn_NO' => array('Norsk (Nynorsk)',      'nn_NO.mo','no',    'nn','norwegian'  , 2), // no_NN
+            'fa_IR' => array('فارسی',                'fa_IR.mo','fa',    'fa','persian'    , 2),
+            'pl_PL' => array('Polski',               'pl_PL.mo','pl',    'pl','polish'     , 2),
+            'pt_PT' => array('Português',            'pt_PT.mo','pt',    'pt','portuguese' , 2),
+            'pt_BR' => array('Português do Brasil',  'pt_BR.mo','pt-BR', 'pt','brazilian portuguese'    , 2),
+            'ro_RO' => array('Română',               'ro_RO.mo','ro',    'en','romanian'    , 2),
+            'ru_RU' => array('Pусский',              'ru_RU.mo','ru',    'ru','russian'    , 2),
+            'sk_SK' => array('Slovenčina',           'sk_SK.mo','sk',    'sk','slovak'    , 10),
+            'sl_SI' => array('Slovenščina',          'sl_SI.mo','sl',    'sl','slovenian slovene'    , 2),
+            'sr_RS' => array('Srpski',               'sr_RS.mo','sr',    'sr','serbian'    , 2),
+            'fi_FI' => array('Suomi',                'fi_FI.mo','fi',    'fi','finish'    , 2),
+            'sv_SE' => array('Svenska',              'sv_SE.mo','sv',    'sv','swedish'    , 2),
+            'vi_VN' => array('Tiếng Việt',           'vi_VN.mo','vi',    'vi','vietnamese'    , 2),
+            'th_TH' => array('ภาษาไทย',              'th_TH.mo','th',    'th','thai'    , 2),
+            'tr_TR' => array('Türkçe',               'tr_TR.mo','tr',    'tr','turkish'    , 2),
+            'uk_UA' => array('Українська',           'uk_UA.mo','uk',    'en','ukrainian'    , 2), // ua_UA
+            'ja_JP' => array('日本語',                'ja_JP.mo','ja',    'ja','japanese'    , 2),
+            'zh_CN' => array('简体中文',              'zh_CN.mo','zh-CN', 'zh','chinese'    , 2),
+            'zh_TW' => array('繁體中文',              'zh_TW.mo','zh-TW', 'zh','chinese'    , 2),);
 
+$DEFAULT_PLURAL_NUMBER = 2;
+            
 // Init to store glpi itemtype / tables link
 $CFG_GLPI['glpitables'] = array();
 
@@ -109,59 +121,6 @@ define("WEEK_TIMESTAMP",604800);
 define("MONTH_TIMESTAMP",2592000);
 
 
-// ITEMS TYPE
-/// Temporary definition for test
-// TODO clean it.
-if (!strstr($_SERVER['PHP_SELF'], "/install/")
-    && !strstr($_SERVER['PHP_SELF'], 'cliupdate.php')) {
-   define("GENERAL_TYPE",'');
-   define("COMPUTER_TYPE",'Computer');
-   define("NETWORKING_TYPE",'NetworkEquipment');
-   define("PRINTER_TYPE",'Printer');
-   define("MONITOR_TYPE",'Monitor');
-   define("PERIPHERAL_TYPE",'Peripheral');
-   define("SOFTWARE_TYPE",'Software');
-   define("CONTACT_TYPE",'Contact');
-   define("ENTERPRISE_TYPE",'Supplier');
-   define("INFOCOM_TYPE",'Infocom');
-   define("CONTRACT_TYPE",'Contract');
-   define("CARTRIDGEITEM_TYPE",'CartridgeItem');
-   define("TYPEDOC_TYPE",'DocumentType');
-   define("DOCUMENT_TYPE",'Document');
-   define("KNOWBASE_TYPE",'KnowbaseItem');
-   define("USER_TYPE",'User');
-   define("TRACKING_TYPE",'Ticket');
-   define("CONSUMABLEITEM_TYPE",'ConsumableItem');
-   define("CONSUMABLE_TYPE",'Consumable');
-   define("CARTRIDGE_TYPE",'Cartridge');
-   define("SOFTWARELICENSE_TYPE",'SoftwareLicense');
-   define("LINK_TYPE",'Link');
-   define("STATE_TYPE",'State');
-   define("PHONE_TYPE",'Phone');
-   define("DEVICE_TYPE",'Device');
-   define("REMINDER_TYPE",'Reminder');
-   define("STAT_TYPE",'Stat');
-   define("GROUP_TYPE",'Group');
-   define("ENTITY_TYPE",'Entity');
-   define("RESERVATION_TYPE",'ReservationItem');
-   define("AUTHMAIL_TYPE",'AuthMail');
-   define("AUTHLDAP_TYPE",'AuthLDAP');
-   define("OCSNG_TYPE",'OcsServer');
-   define("REGISTRY_TYPE",'RegistryKey');
-   define("PROFILE_TYPE",'Profile');
-   define("MAILGATE_TYPE",'MailCollector');
-   define("RULE_TYPE",'Rule');
-   define("TRANSFER_TYPE",'Transfer');
-   define("BOOKMARK_TYPE",'Bookmark');
-   define("SOFTWAREVERSION_TYPE",'SoftwareVersion');
-   define("PLUGIN_TYPE",'Plugin');
-   define("COMPUTERDISK_TYPE",'ComputerDisk');
-   define("NETWORKING_PORT_TYPE",'NetworkPort');
-   define("FOLLOWUP_TYPE",'TicketFollowup');
-   define("BUDGET_TYPE",'Budget');
-}
-
-
 //Management modes
 define("MANAGEMENT_UNITARY",0);
 define("MANAGEMENT_GLOBAL",1);
@@ -177,6 +136,15 @@ define("MAIL_SMTPTLS",3);
 // MESSAGE TYPE
 define("INFO",0);
 define("ERROR",1);
+define("WARNING",2);
+
+// ACTIONS_ERROR
+
+define("ERROR_NOT_FOUND",1);
+define("ERROR_RIGHT",2);
+define("ERROR_COMPAT",3);
+define("ERROR_ON_ACTION",4);
+define("ERROR_ALREADY_DEFINED",5);
 
 
 // For plugins
@@ -195,18 +163,23 @@ $CFG_GLPI["state_types"]                  = array('Computer', 'Monitor', 'Networ
 $CFG_GLPI["asset_types"]                  = array('Computer', 'Monitor', 'NetworkEquipment',
                                                   'Peripheral', 'Phone', 'Printer');
 
-$CFG_GLPI["document_types"]               = array('Budget', 'CartridgeItem', /*'Change',*/ 'Computer',
+$CFG_GLPI["project_asset_types"]          = array('Computer', 'Monitor', 'NetworkEquipment',
+                                                  'Peripheral', 'Phone', 'Printer', 'Software');
+
+                                                  
+$CFG_GLPI["document_types"]               = array('Budget', 'CartridgeItem', 'Change', 'Computer',
                                                   'ConsumableItem', 'Contact', 'Contract',
                                                   'Document', 'Entity', 'KnowbaseItem', 'Monitor',
                                                   'NetworkEquipment', 'Peripheral', 'Phone',
-                                                  'Printer', 'Problem', 'Reminder', 'Software',
+                                                  'Printer', 'Problem', 'Project', 'ProjectTask',
+                                                  'Reminder', 'Software',
                                                   'SoftwareLicense', 'Supplier', 'Ticket','User');
 
 $CFG_GLPI["consumables_types"]            = array('Group', 'User');
 
 $CFG_GLPI["contract_types"]               = array('Computer', 'Monitor', 'NetworkEquipment',
-                                                  'Peripheral', 'Phone', 'Printer', 'Software',
-                                                  'SoftwareLicense');
+                                                  'Peripheral', 'Phone', 'Printer', 'Project',
+                                                  'Software', 'SoftwareLicense');
 
 $CFG_GLPI["directconnect_types"]          = array('Monitor', 'Peripheral', 'Phone', 'Printer');
 
@@ -230,13 +203,18 @@ $CFG_GLPI["linkuser_tech_types"]          = array('Computer', 'Monitor', 'Networ
 $CFG_GLPI["linkgroup_tech_types"]         = array('Computer', 'Monitor', 'NetworkEquipment',
                                                   'Peripheral', 'Phone', 'Printer', 'Software');
 
+$CFG_GLPI["location_types"]               = array('CartridgeItem', 'ConsumableItem', 'Computer',
+                                                  'Monitor', 'Netpoint',
+                                                  'NetworkEquipment', 'Peripheral', 'Phone',
+                                                  'Printer', 'Software', 'User');
+
 $CFG_GLPI["ticket_types"]                 = array('Computer', 'Monitor', 'NetworkEquipment',
                                                   'Peripheral', 'Phone', 'Printer', 'Software');
 
 $CFG_GLPI["link_types"]                   = array('Budget', 'CartridgeItem', 'Computer',
                                                   'ConsumableItem', 'Contact', 'Contract', 'Monitor',
                                                   'NetworkEquipment', 'Peripheral', 'Phone',
-                                                  'Printer', 'Software', 'Supplier');
+                                                  'Printer', 'Software', 'Supplier', 'User');
 
 $CFG_GLPI["dictionnary_types"]            = array('ComputerModel', 'ComputerType', 'Manufacturer',
                                                   'MonitorModel', 'MonitorType',
@@ -257,10 +235,16 @@ $CFG_GLPI['networkport_instantiations']   = array('NetworkPortEthernet', 'Networ
                                                   'NetworkPortAggregate', 'NetworkPortAlias',
                                                   'NetworkPortDialup',   'NetworkPortLocal' );
 
-$CFG_GLPI["notificationtemplates_types"]  = array('CartridgeItem', 'ConsumableItem', 'Contract', 'Crontask',
-                                                  'DBConnection', 'FieldUnicity', 'Infocom',
-                                                  'PlanningRecall',
-                                                  'Problem', 'Reservation', 'SoftwareLicense',
+$CFG_GLPI['device_types'] = array('DeviceMotherboard', 'DeviceProcessor', 'DeviceMemory',
+                                  'DeviceHardDrive', 'DeviceNetworkCard', 'DeviceDrive',
+                                  'DeviceControl', 'DeviceGraphicCard', 'DeviceSoundCard',
+                                  'DevicePci', 'DeviceCase', 'DevicePowerSupply');
+
+$CFG_GLPI["notificationtemplates_types"]  = array('CartridgeItem', 'Change', 'ConsumableItem', 'Contract',
+                                                  'Crontask', 'DBConnection', 'FieldUnicity', 'Infocom',
+                                                  'MailCollector', 'PlanningRecall',
+                                                  'Problem', 'Project', 'ProjectTask',
+                                                  'Reservation', 'SoftwareLicense',
                                                   'Ticket', 'User');
 
 $CFG_GLPI["notificationmethods_types"]    = array('NotificationMail');
@@ -279,7 +263,7 @@ $CFG_GLPI["rulecollections_types"]        = array('RuleImportEntityCollection',
                                                   'RuleTicketCollection');
 
 // Items which can planned something
-$CFG_GLPI['planning_types']               = array(/*'ChangeTask', */'ProblemTask', 'Reminder',
+$CFG_GLPI['planning_types']               = array('ChangeTask', 'ProblemTask', 'Reminder',
                                                   'TicketTask');
 
 $CFG_GLPI["globalsearch_types"]           = array('Computer', 'Contact', 'Document',  'Monitor',
@@ -296,18 +280,19 @@ $CFG_GLPI["debug_sql"] = $CFG_GLPI["debug_vars"] = $CFG_GLPI["debug_lang"] = 1;
 
 
 // User Prefs fields which override $CFG_GLPI config
-$CFG_GLPI['user_pref_field'] = array('csv_delimiter', 'date_format', 'default_requesttypes_id',
-                                     'display_count_on_home', 'dropdown_chars_limit',
-                                     'duedatecritical_color', 'duedatecritical_less',
-                                     'duedatecritical_unit', 'duedateok_color',
-                                     'duedatewarning_color','duedatewarning_less',
-                                     'duedatewarning_unit',
-                                     'followup_private', 'is_categorized_soft_expanded',
-                                     'is_ids_visible', 'is_not_categorized_soft_expanded',
-                                     'language', 'list_limit', 'names_format',
-                                     'notification_to_myself', 'number_format', 'priority_1',
+$CFG_GLPI['user_pref_field'] = array('backcreated', 'csv_delimiter', 'date_format',
+                                     'default_requesttypes_id', 'display_count_on_home',
+                                     'dropdown_chars_limit', 'duedatecritical_color',
+                                     'duedatecritical_less', 'duedatecritical_unit',
+                                     'duedateok_color', 'duedatewarning_color',
+                                     'duedatewarning_less', 'duedatewarning_unit',
+                                     'followup_private', 'is_ids_visible',
+                                     'keep_devices_when_purging_item', 'language',
+                                     'list_limit', 'names_format', 'notification_to_myself',
+                                     'number_format', 'pdffont', 'priority_1',
                                      'priority_2', 'priority_3', 'priority_4', 'priority_5',
                                      'priority_6', 'refresh_ticket_list', 'set_default_tech',
                                      'show_count_on_tabs', 'show_jobs_at_login', 'task_private',
-                                     'use_flat_dropdowntree',);
+                                     'task_state', 'use_flat_dropdowntree');
+
 ?>

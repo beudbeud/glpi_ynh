@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -46,31 +46,20 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
 
+   static $rightname = 'plugin_fusioninventory_collect';
+
    static function getTypeName($nb=0) {
       return __('Windows registry content', 'fusioninventory');
    }
 
-   
-   
-   static function canCreate() {
-      return PluginFusioninventoryProfile::haveRight("collect", "w");
-   }
-
-
-
-   static function canView() {
-      return PluginFusioninventoryProfile::haveRight("collect", "r");
-   }
-
-
 
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
-      
+
       if ($item->getID() > 0) {
          if (get_class($item) == 'PluginFusioninventoryCollect') {
             if ($item->fields['type'] == 'registry') {
-               $a_colregs = getAllDatasFromTable('glpi_plugin_fusioninventory_collects_registries', 
+               $a_colregs = getAllDatasFromTable('glpi_plugin_fusioninventory_collects_registries',
                                                  "`plugin_fusioninventory_collects_id`='".$item->getID()."'");
                if (count($a_colregs) == 0) {
                   return array();
@@ -79,13 +68,13 @@ class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
                foreach ($a_colregs as $id=>$data) {
                   $in[] = $id;
                }
-               if (countElementsInTable('glpi_plugin_fusioninventory_collects_registries_contents', 
+               if (countElementsInTable('glpi_plugin_fusioninventory_collects_registries_contents',
                                 "`plugin_fusioninventory_collects_registries_id` IN ('".implode("','", $in)."')") > 0) {
                   return array(__('Windows registry content', 'fusioninventory'));
                }
             }
          } else if (get_class($item) == 'Computer') {
-            if (countElementsInTable('glpi_plugin_fusioninventory_collects_registries_contents', 
+            if (countElementsInTable('glpi_plugin_fusioninventory_collects_registries_contents',
                              "`computers_id`='".$item->getID()."'") > 0) {
                return array(__('Windows registry content', 'fusioninventory'));
             }
@@ -97,7 +86,7 @@ class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
 
 
    static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
-      
+
       $pfCollect_Registry = new PluginFusioninventoryCollect_Registry_Content();
       if (get_class($item) == 'PluginFusioninventoryCollect') {
          $pfCollect_Registry->showForCollect($item->getID());
@@ -106,12 +95,12 @@ class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
       }
       return TRUE;
    }
-   
+
 
 
    function updateComputer($computers_id, $registry_data, $collects_registries_id) {
       global $DB;
-      
+
       $db_registries = array();
       $query = "SELECT `id`, `key`, `value`
             FROM `glpi_plugin_fusioninventory_collects_registries_contents`
@@ -125,9 +114,9 @@ class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
          $data1 = Toolbox::addslashes_deep($data);
          $db_registries[$idtmp] = $data1;
       }
-      
+
       unset($registry_data['_cpt']);
-      
+
       foreach ($registry_data as $key => $value) {
          foreach ($db_registries as $keydb => $arraydb) {
             if ($arraydb['key'] == $key) {
@@ -165,26 +154,26 @@ class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
          }
       }
    }
-   
-   
-   
+
+
+
    function showForCollect($collects_id) {
-      
-      $a_colregs = getAllDatasFromTable('glpi_plugin_fusioninventory_collects_registries', 
+
+      $a_colregs = getAllDatasFromTable('glpi_plugin_fusioninventory_collects_registries',
                                               "`plugin_fusioninventory_collects_id`='".$collects_id."'");
       foreach ($a_colregs as $data) {
          $this->showForCollectRegistry($data['id']);
       }
    }
-   
-   
-   
+
+
+
    function showForComputer($computers_id) {
-      
+
       $pfCollect_Registry = new PluginFusioninventoryCollect_Registry();
-      
+
       echo "<table class='tab_cadre_fixe'>";
-      
+
       echo "<tr>";
       echo "<th>".__('Path', 'fusioninventory')."</th>";
       echo "<th>".__('Value', 'fusioninventory')."</th>";
@@ -192,7 +181,7 @@ class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
       echo "</tr>";
 
       $a_data = $this->find("`computers_id`='".$computers_id."'",
-                              "`plugin_fusioninventory_collects_registries_id`, 
+                              "`plugin_fusioninventory_collects_registries_id`,
                                  `key`");
       foreach ($a_data as $data) {
          echo "<tr class='tab_bg_1'>";
@@ -205,23 +194,23 @@ class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
          echo $data['key'];
          echo '</td>';
          echo '<td>';
-         echo $data['value'];         
+         echo $data['value'];
          echo '</td>';
          echo "</tr>";
       }
       echo '</table>';
    }
 
-   
-   
+
+
    function showForCollectRegistry($collects_registries_id) {
       $pfCollect_Registry = new PluginFusioninventoryCollect_Registry();
       $computer = new Computer();
-      
+
       $pfCollect_Registry->getFromDB($collects_registries_id);
-      
+
       echo "<table class='tab_cadre_fixe'>";
-      
+
       echo "<tr>";
       echo "<th colspan='3'>";
       echo $pfCollect_Registry->fields['hive'].
@@ -247,7 +236,7 @@ class PluginFusioninventoryCollect_Registry_Content extends CommonDBTM {
          echo $data['key'];
          echo '</td>';
          echo '<td>';
-         echo $data['value'];         
+         echo $data['value'];
          echo '</td>';
          echo "</tr>";
       }

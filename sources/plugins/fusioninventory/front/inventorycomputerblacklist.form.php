@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -42,20 +42,20 @@
 
 include ("../../../inc/includes.php");
 
-Html::header(__('FusionInventory', 'fusioninventory'), 
-             $_SERVER["PHP_SELF"], 
-             "plugins", 
-             "fusioninventory", 
-             "blacklist");
+Html::header(__('FusionInventory', 'fusioninventory'),
+             $_SERVER["PHP_SELF"],
+             "plugins",
+             "pluginfusioninventorymenu",
+             "inventorycomputerblacklist");
 
-PluginFusioninventoryProfile::checkRight("blacklist", "r");
+Session::checkRight('plugin_fusioninventory_blacklist', READ);
 
 PluginFusioninventoryMenu::displayMenu("mini");
 
 $pfInventoryComputerBlacklist = new PluginFusioninventoryInventoryComputerBlacklist();
 
 if (isset ($_POST["add"])) {
-   PluginFusioninventoryProfile::checkRight("blacklist", "w");
+   Session::checkRight('plugin_fusioninventory_blacklist', CREATE);
    if (!empty($_POST['value'])) {
       $pfInventoryComputerBlacklist->add($_POST);
    } else {
@@ -63,11 +63,11 @@ if (isset ($_POST["add"])) {
    }
    Html::back();
 } else if (isset ($_POST["update"])) {
-   PluginFusioninventoryProfile::checkRight("blacklist", "w");
+   Session::checkRight('plugin_fusioninventory_blacklist', UPDATE);
    $pfInventoryComputerBlacklist->update($_POST);
    Html::back();
 } else if (isset ($_POST["delete"])) {
-   PluginFusioninventoryProfile::checkRight("blacklist", "w");
+   Session::checkRight('plugin_fusioninventory_blacklist', PURGE);
    $pfInventoryComputerBlacklist->delete($_POST);
    Html::redirect("blacklist.php");
 }

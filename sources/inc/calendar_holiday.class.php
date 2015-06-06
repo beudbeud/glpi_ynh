@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: calendar_holiday.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: calendar_holiday.class.php 23306 2015-01-21 15:09:10Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -68,11 +68,11 @@ class Calendar_Holiday extends CommonDBRelation {
       global $DB, $CFG_GLPI;
 
       $ID = $calendar->getField('id');
-      if (!$calendar->can($ID,'r')) {
+      if (!$calendar->can($ID, READ)) {
          return false;
       }
 
-      $canedit = $calendar->can($ID,'w');
+      $canedit = $calendar->can($ID, UPDATE);
 
       $rand    = mt_rand();
 
@@ -118,8 +118,9 @@ class Calendar_Holiday extends CommonDBRelation {
 
       if ($canedit && $numrows) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $paramsma = array('num_displayed' => $numrows);
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         $massiveactionparams = array('num_displayed' => $numrows,
+                           'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
       echo "<table class='tab_cadre_fixehov'>";
       echo "<tr>";
@@ -162,8 +163,8 @@ class Calendar_Holiday extends CommonDBRelation {
       echo "</table>";
 
       if ($canedit && $numrows) {
-         $paramsma['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $paramsma);
+         $massiveactionparams['ontop'] = false;
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -171,7 +172,7 @@ class Calendar_Holiday extends CommonDBRelation {
 
 
    /**
-    * Duplicate all holidays from a calendar to his clone
+    * Duplicate all holidays from a calendar to its clone
     *
     * @param $oldid
     * @param $newid
@@ -200,12 +201,13 @@ class Calendar_Holiday extends CommonDBRelation {
          switch ($item->getType()) {
             case 'Calendar' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  return self::createTabEntry(_n('Close time','Close times', 2),
+
+                  return self::createTabEntry(_n('Close time','Close times', Session::getPluralNumber()),
                                               countElementsInTable($this->getTable(),
                                                                    "calendars_id
                                                                         = '".$item->getID()."'"));
                }
-               return _n('Close time','Close times', 2);
+               return _n('Close time','Close times', Session::getPluralNumber());
          }
       }
       return '';

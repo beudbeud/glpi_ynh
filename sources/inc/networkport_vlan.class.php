@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: networkport_vlan.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: networkport_vlan.class.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -103,11 +103,11 @@ class NetworkPort_Vlan extends CommonDBRelation {
       global $DB, $CFG_GLPI;
 
       $ID = $port->getID();
-      if (!$port->can($ID, 'r')) {
+      if (!$port->can($ID, READ)) {
          return false;
       }
 
-      $canedit = $port->can($ID, 'w');
+      $canedit = $port->canEdit($ID);
       $rand    = mt_rand();
 
       $query = "SELECT `glpi_networkports_vlans`.id as assocID,
@@ -152,20 +152,28 @@ class NetworkPort_Vlan extends CommonDBRelation {
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array('num_displayed' => $number);
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('num_displayed' => $number,
+                                      'container'     => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
-      echo "<table class='tab_cadre_fixe'>";
+      echo "<table class='tab_cadre_fixehov'>";
 
-      echo "<tr>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $number) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>";
+         $header_top    .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_bottom .= "<th width='10'>";
+         $header_bottom .= Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
       }
-      echo "<th>".__('Name')."</th>";
-      echo "<th>".__('Entity')."</th>";
-      echo "<th>".__('Tagged')."</th>";
-      echo "<th>".__('ID TAG')."</th>";
-      echo "</tr>";
+      $header_end .= "<th>".__('Name')."</th>";
+      $header_end .= "<th>".__('Entity')."</th>";
+      $header_end .= "<th>".__('Tagged')."</th>";
+      $header_end .= "<th>".__('ID TAG')."</th>";
+      $header_end .= "</tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $used = array();
       foreach ($vlans as $data) {
@@ -188,11 +196,13 @@ class NetworkPort_Vlan extends CommonDBRelation {
          echo "<td class='numeric'>".$data["tag"]."</td>";
          echo "</tr>";
       }
-
+      if ($number) {
+         echo $header_begin.$header_top.$header_end;
+      }
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -242,6 +252,51 @@ class NetworkPort_Vlan extends CommonDBRelation {
          self::showForNetworkPort($item);
       }
       return true;
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBRelation::getRelationMassiveActionsSpecificities()
+   **/
+   static function getRelationMassiveActionsSpecificities() {
+      global $CFG_GLPI;
+
+      $specificities = parent::getRelationMassiveActionsSpecificities();
+
+      // Set the labels for add_item and remove_item
+      $specificities['button_labels']['add']    = _sx('button', 'Associate');
+      $specificities['button_labels']['remove'] = _sx('button', 'Dissociate');
+
+      return $specificities;
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBRelation::showRelationMassiveActionsSubForm()
+   **/
+   static function showRelationMassiveActionsSubForm(MassiveAction $ma, $peer_number) {
+
+      if ($ma->getAction() == 'add') {
+         echo "<br><br>". __('Tagged'). Html::getCheckbox(array('name' => 'tagged'));
+      }
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBRelation::getRelationInputForProcessingOfMassiveActions()
+   **/
+   static function getRelationInputForProcessingOfMassiveActions($action, CommonDBTM $item,
+                                                                 array $ids, array $input) {
+      if ($action == 'add') {
+         return array('tagged' => $input['tagged']);
+      }
+      return array();
    }
 
 }

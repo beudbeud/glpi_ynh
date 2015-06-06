@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: state.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: state.class.php 23305 2015-01-21 15:06:28Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -28,18 +28,55 @@
  */
 
 /** @file
-* @brief 
+* @brief
 */
 
 if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Class State
+/**
+ * State Class
+**/
 class State extends CommonTreeDropdown {
+
+   protected $visibility_fields = array('Computer'         => 'is_visible_computer',
+                                        'SoftwareVersion'  => 'is_visible_softwareversion',
+                                        'Monitor'          => 'is_visible_monitor',
+                                        'Printer'          => 'is_visible_printer',
+                                        'Peripheral'       => 'is_visible_peripheral',
+                                        'Phone'            => 'is_visible_phone',
+                                        'NetworkEquipment' => 'is_visible_networkequipment');
+   var $can_be_translated       = true;
+
+   static $rightname            = 'state';
+
+
 
    static function getTypeName($nb=0) {
       return _n('Status of items', 'Statuses of items', $nb);
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonTreeDropdown::getAdditionalFields()
+   **/
+   function getAdditionalFields() {
+
+      $fields   = parent::getAdditionalFields();
+      $fields[] = array('label' => __('Visibility'),
+                        'name'  => 'header',
+                        'list'  => false);
+
+      foreach ($this->visibility_fields as $type => $field) {
+         $fields[] = array('name'  => $field,
+                           'label' => $type::getTypeName(Session::getPluralNumber()),
+                           'type'  => 'bool',
+                           'list'  => true);
+      }
+      return $fields;
    }
 
 
@@ -113,7 +150,7 @@ class State extends CommonTreeDropdown {
 
          foreach ($state_type as $key => $itemtype) {
             if ($item = getItemForItemtype($itemtype)) {
-               echo "<th>".$item->getTypeName(2)."</th>";
+               echo "<th>".$item->getTypeName(Session::getPluralNumber())."</th>";
                $total[$itemtype] = 0;
             } else {
                unset($state_type[$key]);
@@ -123,7 +160,8 @@ class State extends CommonTreeDropdown {
          echo "<th>".__('Total')."</th>";
          echo "</tr>";
          $query = "SELECT *
-                   FROM `glpi_states`
+                   FROM `glpi_states` ".
+                   getEntitiesRestrictRequest("WHERE", "glpi_states",'','',true)."
                    ORDER BY `completename`";
          $result = $DB->query($query);
 
@@ -148,9 +186,14 @@ class State extends CommonTreeDropdown {
          while ($data = $DB->fetch_assoc($result)) {
             $tot = 0;
             echo "<tr class='tab_bg_2'><td class='b'>";
-            echo "<a href='".$CFG_GLPI['root_doc']."/front/allassets.php?reset=reset&amp;contains[0]=".
-                   "$$$$".$data["id"]."&amp;searchtype[0]=contains&amp;field[0]=31&amp;sort=".
-                   "1&amp;start=0'>".$data["completename"]."</a></td>";
+
+            $opt = array('reset'    => 'reset',
+                        'sort'     => 1,
+                        'start'    => 0,
+                        'criteria' => array('0' => array('value' => '$$$$'.$data['id'],
+                                                         'searchtype' => 'contains',
+                                                         'field' => 31)));
+            echo "<a href='".$CFG_GLPI['root_doc']."/front/allassets.php?".Toolbox::append_params($opt, '&amp;')."'>".$data["completename"]."</a></td>";
 
             foreach ($state_type as $itemtype) {
                echo "<td class='numeric'>";
@@ -185,8 +228,97 @@ class State extends CommonTreeDropdown {
    }
 
 
+   /**
+    * @since version 0.85
+    *
+    * @see CommonDBTM::getEmpty()
+   **/
+   function getEmpty() {
+
+      parent::getEmpty();
+      //initialize is_visible_* fields at true to keep the same behavior as in older versions
+      foreach ($this->visibility_fields as $type => $field) {
+         $this->fields[$field] = 1;
+      }
+   }
+
+
    function cleanDBonPurge() {
       Rule::cleanForItemCriteria($this);
+   }
+
+
+   /**
+    * @since version 0.85
+    *
+    * @see CommonTreeDropdown::prepareInputForAdd()
+   **/
+   function prepareInputForAdd($input) {
+
+      $input = parent::prepareInputForAdd($input);
+
+      $state = new self();
+      // Get visibility information from parent if not set
+      if (isset($input['states_id']) && $state->getFromDB($input['states_id'])) {
+         foreach ($this->visibility_fields as $type => $field) {
+            if (!isset($input[$field]) && isset($state->fields[$field])) {
+               $input[$field] = $state->fields[$field];
+            }
+         }
+      }
+      return $input;
+   }
+
+
+   /**
+    * Get search function for the class
+    *
+    * @since version 0.85
+    *
+    * @return array of search option
+   **/
+   function getSearchOptions() {
+
+      $tab                 = parent::getSearchOptions();
+
+      $tab[21]['table']    = $this->getTable();
+      $tab[21]['field']    = 'is_visible_computer';
+      $tab[21]['name']     = sprintf(__('%1$s - %2$s'),__('Visibility'), Computer::getTypeName(Session::getPluralNumber()));
+      $tab[21]['datatype'] = 'bool';
+
+      $tab[22]['table']    = $this->getTable();
+      $tab[22]['field']    = 'is_visible_softwareversion';
+      $tab[22]['name']     = sprintf(__('%1$s - %2$s'),__('Visibility'),
+                                     SoftwareVersion::getTypeName(Session::getPluralNumber()));
+      $tab[22]['datatype'] = 'bool';
+
+      $tab[23]['table']    = $this->getTable();
+      $tab[23]['field']    = 'is_visible_monitor';
+      $tab[23]['name']     = sprintf(__('%1$s - %2$s'),__('Visibility'), Monitor::getTypeName(Session::getPluralNumber()));
+      $tab[23]['datatype'] = 'bool';
+
+      $tab[24]['table']    = $this->getTable();
+      $tab[24]['field']    = 'is_visible_printer';
+      $tab[24]['name']     = sprintf(__('%1$s - %2$s'),__('Visibility'), Printer::getTypeName(Session::getPluralNumber()));
+      $tab[24]['datatype'] = 'bool';
+
+      $tab[25]['table']    = $this->getTable();
+      $tab[25]['field']    = 'is_visible_peripheral';
+      $tab[25]['name']     = sprintf(__('%1$s - %2$s'),__('Visibility'), Peripheral::getTypeName(Session::getPluralNumber()));
+      $tab[25]['datatype'] = 'bool';
+
+      $tab[26]['table']    = $this->getTable();
+      $tab[26]['field']    = 'is_visible_phone';
+      $tab[26]['name']     = sprintf(__('%1$s - %2$s'),__('Visibility'), Phone::getTypeName(Session::getPluralNumber()));
+      $tab[26]['datatype'] = 'bool';
+
+      $tab[27]['table']    = $this->getTable();
+      $tab[27]['field']    = 'is_visible_networkequipment';
+      $tab[27]['name']     = sprintf(__('%1$s - %2$s'),__('Visibility'),
+                                     NetworkEquipment::getTypeName(Session::getPluralNumber()));
+      $tab[27]['datatype'] = 'bool';
+
+      return $tab;
    }
 
 }

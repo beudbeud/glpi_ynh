@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: change_item.class.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: change_item.class.php 23436 2015-04-09 14:06:48Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,11 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-// Relation between Changes and Items
+/**
+ * Change_Item Class
+ *
+ * Relation between Changes and Items
+**/
 class Change_Item extends CommonDBRelation{
 
 
@@ -100,10 +104,10 @@ class Change_Item extends CommonDBRelation{
 
       $instID = $change->fields['id'];
 
-      if (!$change->can($instID,'r')) {
+      if (!$change->can($instID, READ)) {
          return false;
       }
-      $canedit = $change->can($instID,'w');
+      $canedit = $change->canEdit($instID);
       $rand    = mt_rand();
 
       $query = "SELECT DISTINCT `itemtype`
@@ -123,16 +127,20 @@ class Change_Item extends CommonDBRelation{
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr class='tab_bg_2'><th colspan='2'>".__('Add an item')."</th></tr>";
 
-         echo "<tr class='tab_bg_1'><td class='right'>";
+         echo "<tr class='tab_bg_1'><td>";
          $types = array();
          foreach ($change->getAllTypesForHelpdesk() as $key => $val) {
             $types[] = $key;
          }
-         Dropdown::showAllItems("items_id", 0, 0,
-                                ($change->fields['is_recursive']?-1:$change->fields['entities_id']),
-                                $types);
-         echo "</td><td class='center'>";
-            echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
+         Dropdown::showSelectItemFromItemtypes(array('itemtypes'
+                                                      => $types,
+                                                     'entity_restrict'
+                                                      => ($change->fields['is_recursive']
+                                                          ?getSonsOf('glpi_entities',
+                                                                     $change->fields['entities_id'])
+                                                          :$change->fields['entities_id'])));
+         echo "</td><td class='center' width='30%'>";
+         echo "<input type='submit' name='add' value=\""._sx('button', 'Add')."\" class='submit'>";
          echo "<input type='hidden' name='changes_id' value='$instID'>";
          echo "</td></tr>";
          echo "</table>";
@@ -143,20 +151,27 @@ class Change_Item extends CommonDBRelation{
       echo "<div class='spaced'>";
       if ($canedit && $number) {
          Html::openMassiveActionsForm('mass'.__CLASS__.$rand);
-         $massiveactionparams = array();
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         $massiveactionparams = array('container' => 'mass'.__CLASS__.$rand);
+         Html::showMassiveActions($massiveactionparams);
       }
 
-      echo "<table class='tab_cadre_fixe'>";
-      echo "<tr>";
+      echo "<table class='tab_cadre_fixehov'>";
+      $header_begin  = "<tr>";
+      $header_top    = '';
+      $header_bottom = '';
+      $header_end    = '';
       if ($canedit && $number) {
-         echo "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand)."</th>";
+         $header_top    .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_top    .= "</th>";
+         $header_bottom .= "<th width='10'>".Html::getCheckAllAsCheckbox('mass'.__CLASS__.$rand);
+         $header_bottom .= "</th>";
       }
-      echo "<th>".__('Type')."</th>";
-      echo "<th>".__('Entity')."</th>";
-      echo "<th>".__('Name')."</th>";
-      echo "<th>".__('Serial number')."</th>";
-      echo "<th>".__('Inventory number')."</th></tr>";
+      $header_end .= "<th>".__('Type')."</th>";
+      $header_end .= "<th>".__('Entity')."</th>";
+      $header_end .= "<th>".__('Name')."</th>";
+      $header_end .= "<th>".__('Serial number')."</th>";
+      $header_end .= "<th>".__('Inventory number')."</th></tr>";
+      echo $header_begin.$header_top.$header_end;
 
       $totalnb = 0;
       for ($i=0 ; $i<$number ; $i++) {
@@ -226,15 +241,15 @@ class Change_Item extends CommonDBRelation{
             $totalnb += $nb;
          }
       }
-      echo "<tr class='tab_bg_2'>";
-      echo "<td class='center' colspan='2'>".
-             (($totalnb > 0) ? sprintf(__('%1$s = %2$s'), __('Total'), $totalnb) : "&nbsp;");
-      echo "</td><td colspan='4'>&nbsp;</td></tr> ";
+
+      if ($number) {
+         echo $header_begin.$header_bottom.$header_end;
+      }
 
       echo "</table>";
       if ($canedit && $number) {
          $massiveactionparams['ontop'] = false;
-         Html::showMassiveActions(__CLASS__, $massiveactionparams);
+         Html::showMassiveActions($massiveactionparams);
          Html::closeForm();
       }
       echo "</div>";
@@ -246,7 +261,63 @@ class Change_Item extends CommonDBRelation{
       if (!$withtemplate) {
          switch ($item->getType()) {
             case 'Change' :
-               return _n('Item', 'Items', 2);
+               $nb = 0;
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countElementsInTable('glpi_changes_items',
+                                             "`changes_id` = '".$item->getID()."'");
+               }
+
+               return self::createTabEntry(_n('Item', 'Items', Session::getPluralNumber()), $nb);
+            case 'User' :
+               $nb = 0;
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                
+                  $nb = countDistinctElementsInTable('glpi_changes_users','changes_id',
+                                             "`users_id` = '".$item->getID()."'");
+               }
+
+               return self::createTabEntry(Change::getTypeName(Session::getPluralNumber()), $nb);
+            case 'Group' :
+               $nb = 0;
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countDistinctElementsInTable('glpi_changes_groups','changes_id',
+                                             "`groups_id` = '".$item->getID()."'");
+               }
+
+               return self::createTabEntry(Change::getTypeName(Session::getPluralNumber()), $nb);
+            case 'Supplier' :
+               $nb = 0;
+               if ($_SESSION['glpishow_count_on_tabs']) {
+                  $nb = countDistinctElementsInTable('glpi_changes_suppliers','changes_id',
+                                             "`suppliers_id` = '".$item->getID()."'");
+               }
+
+               return self::createTabEntry(Change::getTypeName(Session::getPluralNumber()), $nb);
+               
+            default :
+               if (Session::haveRight("change", Change::READALL)) {
+                  $nb = 0;
+                  if ($_SESSION['glpishow_count_on_tabs']) {
+                     // Direct one
+                     $nb = countElementsInTable('glpi_changes_items',
+                                                " `itemtype` = '".$item->getType()."'
+                                                   AND `items_id` = '".$item->getID()."'");
+                     // Linked items
+                     $linkeditems = $item->getLinkedItems();
+
+                     if (count($linkeditems)) {
+                        foreach ($linkeditems as $type => $tab) {
+                           foreach ($tab as $ID) {
+                              $nb += countElementsInTable('glpi_changes_items',
+                                                          " `itemtype` = '$type'
+                                                            AND `items_id` = '$ID'");
+                           }
+                        }
+                     }
+                  }
+                  return self::createTabEntry(Change::getTypeName(Session::getPluralNumber()), $nb);
+               }
+               
          }
       }
       return '';
@@ -255,11 +326,17 @@ class Change_Item extends CommonDBRelation{
 
    static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
 
-      if ($item->getType() == 'Change') {
-         self::showForChange($item);
+      switch ($item->getType()) {
+         case 'Change' :
+            self::showForChange($item);
+            break;
+
+         default :
+            Change::showListForItem($item);
       }
       return true;
-   }
+
+    }
 
 }
 ?>

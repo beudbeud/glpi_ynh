@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: softwareversion.class.php 22744 2014-03-01 16:56:35Z yllen $
+ * @version $Id: softwareversion.class.php 23327 2015-02-02 17:15:33Z tsmr $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -35,7 +35,9 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access directly to this file");
 }
 
-/// Version class
+/**
+ * SoftwareVersion Class
+**/
 class SoftwareVersion extends CommonDBChild {
 
    // From CommonDBTM
@@ -56,13 +58,13 @@ class SoftwareVersion extends CommonDBChild {
 
       $csv = new Computer_SoftwareVersion();
       $csv->cleanDBonItemDelete(__CLASS__, $this->fields['id']);
-
    }
 
 
    function defineTabs($options=array()) {
 
       $ong = array();
+      $this->addDefaultFormTab($ong);
       $this->addStandardTab('Computer_SoftwareVersion',$ong, $options);
       $this->addStandardTab('Log',$ong, $options);
 
@@ -99,22 +101,17 @@ class SoftwareVersion extends CommonDBChild {
    function showForm($ID, $options=array()) {
       global $CFG_GLPI;
 
-      if (!Session::haveRight("software","r")) {
-         return false;
-      }
-
       if ($ID > 0) {
-         $this->check($ID,'r');
+         $this->check($ID, READ);
          $softwares_id = $this->fields['softwares_id'];
       } else {
          $softwares_id = $options['softwares_id'];
-         $this->check(-1, 'w', $options);
+         $this->check(-1, CREATE, $options);
       }
 
-      $this->showTabs($options);
       $this->showFormHeader($options);
 
-      echo "<tr class='tab_bg_1'><td>"._n('Software', 'Software', 2)."</td>";
+      echo "<tr class='tab_bg_1'><td>"._n('Software', 'Software', Session::getPluralNumber())."</td>";
       echo "<td>";
       if ($this->isNewID($ID)) {
          echo "<input type='hidden' name='softwares_id' value='$softwares_id'>";
@@ -137,7 +134,9 @@ class SoftwareVersion extends CommonDBChild {
       echo "</td></tr>\n";
 
       echo "<tr class='tab_bg_1'><td>" . __('Status') . "</td><td>";
-      State::dropdown(array('value' => $this->fields["states_id"]));
+      State::dropdown(array('value'     => $this->fields["states_id"],
+                            'entity'    => $this->fields["entities_id"],
+                            'condition' => "`is_visible_softwareversion`"));
       echo "</td></tr>\n";
 
       // Only count softwareversions_id_buy (don't care of softwareversions_id_use if no installation)
@@ -146,7 +145,6 @@ class SoftwareVersion extends CommonDBChild {
          $options['candel'] = false;
       }
       $this->showFormButtons($options);
-      $this->addDivForTabs();
 
       return true;
    }
@@ -172,10 +170,11 @@ class SoftwareVersion extends CommonDBChild {
       $tab[16]['name']     = __('Comments');
       $tab[16]['datatype'] = 'text';
 
-      $tab[31]['table']    = 'glpi_states';
-      $tab[31]['field']    = 'completename';
-      $tab[31]['name']     = __('Status');
-      $tab[31]['datatype'] = 'dropdown';
+      $tab[31]['table']     = 'glpi_states';
+      $tab[31]['field']     = 'completename';
+      $tab[31]['name']      = __('Status');
+      $tab[31]['datatype']  = 'dropdown';
+      $tab[31]['condition'] = "`is_visible_softwareversion`";
 
       return $tab;
    }
@@ -193,7 +192,7 @@ class SoftwareVersion extends CommonDBChild {
     * @return nothing (print out an HTML select box)
    **/
    static function dropdown($options=array()) {
-      global $CFG_GLPI;
+      global $CFG_GLPI, $DB;
 
       //$softwares_id,$value=0
       $p['softwares_id'] = 0;
@@ -207,18 +206,37 @@ class SoftwareVersion extends CommonDBChild {
          }
       }
 
-      $rand   = mt_rand();
-      $params = array('softwares_id' => $p['softwares_id'],
-                      'myname'       => $p['name'],
-                      'value'        => $p['value'],
-                      'used'         => $p['used']);
+      $where = '';
+      if (count($p['used'])) {
+         $where = " AND `glpi_softwareversions`.`id` NOT IN (".implode(",",$p['used']).")";
+      }
+      // Make a select box
+      $query = "SELECT DISTINCT `glpi_softwareversions`.*,
+                              `glpi_states`.`name` AS sname
+                FROM `glpi_softwareversions`
+                LEFT JOIN `glpi_states` ON (`glpi_softwareversions`.`states_id` = `glpi_states`.`id`)
+                WHERE `glpi_softwareversions`.`softwares_id` = '".$p['softwares_id']."'
+                      $where
+                ORDER BY `name`";
+      $result = $DB->query($query);
+      $number = $DB->numrows($result);
 
-      $default = "<select name='".$p['name']."'><option value='0'>".Dropdown::EMPTY_VALUE."</option>
-                  </select>";
+      $values = array(0 => Dropdown::EMPTY_VALUE);
+      if ($number) {
+         while ($data = $DB->fetch_assoc($result)) {
+            $ID     = $data['id'];
+            $output = $data['name'];
 
-      Ajax::dropdown(false,"/ajax/dropdownInstallVersion.php", $params, $default, $rand);
-
-      return $rand;
+            if (empty($output) || $_SESSION['glpiis_ids_visible']) {
+               $output = sprintf(__('%1$s (%2$s)'), $output, $ID);
+            }
+            if (!empty($data['sname'])) {
+               $output = sprintf(__('%1$s - %2$s'), $output, $data['sname']);
+            }
+            $values[$ID] = $output;
+         }
+      }
+      return Dropdown::showFromArray($p['name'], $values, $p);
    }
 
 
@@ -234,17 +252,17 @@ class SoftwareVersion extends CommonDBChild {
 
       $softwares_id = $soft->getField('id');
 
-      if (!$soft->can($softwares_id,'r')) {
+      if (!$soft->can($softwares_id, READ)) {
          return false;
       }
-      $canedit = $soft->can($softwares_id,"w");
+      $canedit = $soft->canEdit($softwares_id);
 
       echo "<div class='spaced'>";
 
       if ($canedit) {
          echo "<div class='center firstbloc'>";
          echo "<a class='vsubmit' href='softwareversion.form.php?softwares_id=$softwares_id'>".
-                _x('button', 'Add a version')."</a></td></tr>";
+                _x('button', 'Add a version')."</a>";
          echo "</div>";
       }
 
@@ -263,11 +281,11 @@ class SoftwareVersion extends CommonDBChild {
 
       if ($result = $DB->query($query)) {
          if ($DB->numrows($result)) {
-            echo "<table class='tab_cadre'><tr>";
-            echo "<th>".self::getTypeName(2)."</th>";
+            echo "<table class='tab_cadre_fixehov'><tr>";
+            echo "<th>".self::getTypeName(Session::getPluralNumber())."</th>";
             echo "<th>".__('Status')."</th>";
             echo "<th>".__('Operating system')."</th>";
-            echo "<th>"._n('Installation', 'Installations', 2)."</th>";
+            echo "<th>"._n('Installation', 'Installations', Session::getPluralNumber())."</th>";
             echo "<th>".__('Comments')."</th>";
             echo "</tr>\n";
 
@@ -286,13 +304,8 @@ class SoftwareVersion extends CommonDBChild {
                echo "<td>".$data['comment']."</td></tr>\n";
             }
 
-            echo "<tr class='tab_bg_1'><td class='right b' colspan='3'>".__('Total')."</td>";
-            echo "<td class='numeric b'>$tot</td><td>";
-            if ($canedit) {
-               echo "<a class='vsubmit' href='softwareversion.form.php?softwares_id=$softwares_id'>".
-                      _x('button', 'Add a version')."</a>";
-            }
-            echo "</td></tr>";
+            echo "<tr class='tab_bg_1 noHover'><td class='right b' colspan='3'>".__('Total')."</td>";
+            echo "<td class='numeric b'>$tot</td><td></td></tr>";
             echo "</table>\n";
 
          } else {
@@ -312,12 +325,12 @@ class SoftwareVersion extends CommonDBChild {
          switch ($item->getType()) {
             case 'Software' :
                if ($_SESSION['glpishow_count_on_tabs']) {
-                  return self::createTabEntry(self::getTypeName(2),
+                  return self::createTabEntry(self::getTypeName(Session::getPluralNumber()),
                                               countElementsInTable($this->getTable(),
                                                                    "softwares_id
                                                                         = '".$item->getID()."'"));
                }
-               return self::getTypeName(2);
+               return self::getTypeName(Session::getPluralNumber());
          }
       }
       return '';

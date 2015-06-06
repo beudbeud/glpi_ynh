@@ -3,7 +3,7 @@
 /*
    ------------------------------------------------------------------------
    FusionInventory
-   Copyright (C) 2010-2013 by the FusionInventory Development Team.
+   Copyright (C) 2010-2014 by the FusionInventory Development Team.
 
    http://www.fusioninventory.org/   http://forge.fusioninventory.org/
    ------------------------------------------------------------------------
@@ -30,7 +30,7 @@
    @package   FusionInventory
    @author    David Durieux
    @co-author
-   @copyright Copyright (c) 2010-2013 FusionInventory team
+   @copyright Copyright (c) 2010-2014 FusionInventory team
    @license   AGPL License 3.0 or (at your option) any later version
               http://www.gnu.org/licenses/agpl-3.0-standalone.html
    @link      http://www.fusioninventory.org/
@@ -52,7 +52,8 @@ include ("../../../inc/includes.php");
  *    2.1.0 config version field 2.1.0
  **/
 
-if (Session::haveRight("config", "w") && Session::haveRight("profile", "w")) {
+if (Session::haveRight('config', UPDATE)
+        && Session::haveRight('profile', UPDATE)) {
    $config = new PluginFusioninventoryConfig();
    if (!TableExists("glpi_plugin_fusioninventory_agents")) {
       PluginFusioninventorySetup::update("1.1.0");

@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: search.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: search.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -47,19 +47,19 @@ if (isset($_GET["globalsearch"])) {
           && $item->canView()) {
          $_GET["reset"]        = 'reset';
 
-         Search::manageGetValues($itemtype,false,true);
-         $_GET["display_type"] = Search::GLOBAL_SEARCH;
+         $params                 = Search::manageParams($itemtype,$_GET, false,true);
+         $params["display_type"] = Search::GLOBAL_SEARCH;
 
-         $count = count($_GET["field"]);
+         $count                  = count($params["criteria"]);
 
-         $_GET["field"][$count]                  = 'view';
-         $_GET["contains"][$count]               = $searchtext;
-         $_GET["searchtype"][$count]             = 'contains';
-         $_SESSION["glpisearchcount"][$itemtype] = $count+1;
-         
-         Search::showList($itemtype, $_GET);
+         $params["criteria"][$count]["field"]       = 'view';
+         $params["criteria"][$count]["searchtype"]  = 'contains';
+         $params["criteria"][$count]["value"]       = $searchtext;
+//          $_SESSION["glpisearchcount"][$itemtype]  = $count+1;
+//          $_SESSION["glpisearchcount2"][$itemtype] = 0;
+
+         Search::showList($itemtype, $params);
          echo "<hr>";
-         $_GET = array();
       }
    }
 }

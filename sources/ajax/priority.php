@@ -1,6 +1,6 @@
 <?php
 /*
- * @version $Id: priority.php 22657 2014-02-12 16:17:54Z moyo $
+ * @version $Id: priority.php 22656 2014-02-12 16:15:25Z moyo $
  -------------------------------------------------------------------------
  GLPI - Gestionnaire Libre de Parc Informatique
  Copyright (C) 2003-2014 by the INDEPNET Development Team.
@@ -47,7 +47,7 @@ if (isset($_POST["urgency"])
 
    if ($_POST["priority"]) {
       echo "<script type='text/javascript' >\n";
-      echo "document.getElementById('".$_POST["priority"]."').value = $priority;";
+      echo Html::jsSetDropdownValue($_POST["priority"],$priority);
       echo "\n</script>";
 
    } else {
