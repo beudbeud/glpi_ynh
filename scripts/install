@@ -49,7 +49,7 @@ sudo sed -i "s@yunodomainglpi@$domain$path@" ../conf/*.sql
 sudo sed -i "s/I18NTOCHANGE/$language/g" ../conf/glpi.sql
 
 # Configure GLPI
-mysql -u $db_user -p$db_pwd $db_user < ../conf/glpi.sql
+#mysql -u $db_user -p$db_pwd $db_user < ../conf/glpi.sql
 
 # Install cron
 sudo cp ../conf/cron /etc/cron.d/glpi
@@ -74,11 +74,11 @@ sudo chmod 644 $finalphpconf
 # Reload Nginx and regenerate SSOwat conf
 sudo service php5-fpm restart
 sudo service nginx reload
-sudo yunohost app setting glpi skipped_uris -v "/plugins/fusioninventory"
+#sudo yunohost app setting glpi skipped_uris -v "/plugins/fusioninventory"
 sudo yunohost app ssowatconf
 
 # Install FusionInventory
-sudo su - www-data -c "php /var/www/glpi/plugins/fusioninventory/scripts/cli_install.php"
+#sudo su - www-data -c "php /var/www/glpi/plugins/fusioninventory/scripts/cli_install.php"
 
 # Configure FusionInventory
 #mysql -u $db_user -p$db_pwd $db_user < ../conf/fusion.sql
